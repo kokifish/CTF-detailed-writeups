@@ -216,7 +216,7 @@ MIIEvwIBADANBgkqhkiG9w0BAQEFAASCBKkwggSlAgEAAoIBAQDdMNbL5qVWiCQrX2w69q/7y3ShIPue
 - 将得到的内容写入到文件
 
 ```python
-$ echo MIIEvw ......... qBHd5PFFw== >> dec.pem # 将以上字符串写入到dec.pem文件中 #可用 cat dec.dec 确认
+$ echo MIIEvw ......... qBHd5PFFw== >> dec.pem # 将以上字符串写入到dec.pem文件中 #可用 cat dec.pem 确认
 ```
 
 - 然后还需给文件的首行、末行添加一些信息（否则会openssl命令会报错），使得 `dec.pem` 内容为：
@@ -231,8 +231,8 @@ MIIEvwIBADANBgkqhkiG9w0BAQEFAASCBKkwggSlAgEAAoIBAQDdMNbL5qVWiCQrX2w69q/7y3ShIPue
 
 ## decryption
 
-- `openssl rsautl -decrypt -inkey dec.pem -in ./_temp2.zip.extracted/partaa.enc -out partaa.out `使用RSA私钥文件`dec.pem`对指定的文件进行解密，输出为`partaa.out`
-- 使用python脚本对所有`partxx.enc`进行解密，注意这里将脚本、`dec.pem`和`partxx.enc`放在同一目录下，
+- `openssl rsautl -decrypt -inkey dec.pem -in partaa.enc -out partaa `使用RSA私钥文件`dec.pem`对指定的文件进行解密，输出为`partaa`
+- 使用python脚本对所有`partxx.enc`进行解密，注意这里将脚本、`dec.pem`和`partxx.enc`放在同一目录下
 
 ```python
 # Break In 2017-Mysterious GIF 重复执行解密指令
