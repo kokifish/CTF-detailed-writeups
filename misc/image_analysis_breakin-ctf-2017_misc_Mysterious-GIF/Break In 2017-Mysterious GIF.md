@@ -138,7 +138,7 @@ $ hexdump -C ./_temp2.zip.extracted/partab.enc # 256字节
 
 - 至此，找寻需要进行解密的加密文件步骤完成，接下来找密钥
 
-## find private key/gif analysis
+## find private key & gif analysis
 
 > `identify a.gif` 获取一个或多个图像文件的格式和特性
 
