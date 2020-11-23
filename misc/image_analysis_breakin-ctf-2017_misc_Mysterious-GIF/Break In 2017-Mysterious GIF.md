@@ -276,7 +276,7 @@ Change: 2020-11-23 15:09:51.806185140 +0800
  Birth: 2020-11-23 15:07:46.185009954 +0800
 $ file final
 final: JPEG image data, JFIF standard 1.01, aspect ratio, density 1x1, segment length 16, baseline, precision 8, 440x608, components 3
-$ feh final
+$ feh final # 查看图片
 ```
 
 - 图片`final`显示的内容就是flag了，fedora可以在命令行内使用`feh final`查看图片
