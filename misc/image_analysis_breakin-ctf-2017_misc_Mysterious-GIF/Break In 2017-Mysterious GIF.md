@@ -219,7 +219,7 @@ MIIEvwIBADANBgkqhkiG9w0BAQEFAASCBKkwggSlAgEAAoIBAQDdMNbL5qVWiCQrX2w69q/7y3ShIPue
 $ echo MIIEvw ......... qBHd5PFFw== >> dec.pem # 将以上字符串写入到dec.pem文件中 #可用 cat dec.pem 确认
 ```
 
-- 然后还需给文件的首行、末行添加一些信息（否则会openssl命令会报错），使得 `dec.pem` 内容为：
+- 然后还需给文件的首行、末行添加一些信息（否则`openssl`命令会报错），使得 `dec.pem` 内容为：
 
 ```python
 -----BEGIN RSA PRIVATE KEY-----
