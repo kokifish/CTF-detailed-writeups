@@ -16,4 +16,4 @@ updating
 
 # Contacts
 
-email: [hexhex16@outlook.com](mailto:hexhex16@outlook.com)
+new an issue or email: [hexhex16@outlook.com](mailto:hexhex16@outlook.com)
