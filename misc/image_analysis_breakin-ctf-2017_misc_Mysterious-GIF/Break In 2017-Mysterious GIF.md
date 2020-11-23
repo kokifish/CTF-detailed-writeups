@@ -1,6 +1,8 @@
 # Break In 2017-Mysterious GIF
 
 > Question.gif
+>
+> original writeup: https://github.com/ctfs/write-ups-2017/tree/master/breakin-ctf-2017/misc/Mysterious-GIF
 
 
 
