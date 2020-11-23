@@ -88,10 +88,6 @@ e.g. 源文本： `The`
 
 # Image Analysis
 
-
-
-
-
 - 元数据（Metadata），又称中介数据、中继数据，为描述数据的数据（Data about data），主要是描述数据属性（property）的信息，用来支持如指示存储位置、历史数据、资源查找、文件记录等功能。
 
 
@@ -102,7 +98,7 @@ e.g. 源文本： `The`
 
 # Cases
 
-- breakin-ctf-2017_misc_Mysterious-GIF
+- breakin-ctf-2017_misc_Mysterious-GIF：gif文件中分离出zip，zip中分离出多个小zip，解压得到partxx.enc，在gif的元数据comment中找到私钥，对.enc文件进行RSA解密，连接成一个图片文件
 
 
 
