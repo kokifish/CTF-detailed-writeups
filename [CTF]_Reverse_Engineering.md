@@ -51,6 +51,12 @@
 
 
 
+
+
+
+
+
+
 # Linux Reverse
 
 
@@ -60,3 +66,40 @@
 
 
 # Windows Reverse
+
+
+
+
+
+
+
+---
+
+# Reverse Engineering for Beginners
+
+> [乌克兰]Dennis Yurichev 著, Archer安天安全研究与应急处理中心 译
+
+
+
+```cpp
+int f(){
+    return 123;
+}
+```
+- 开启优化功能后，GCC产生的汇编指令：MSVC编译的程序也一样
+```assembly
+f:
+	mov 	exa,	123
+	ret
+```
+
+- Calling Convention, 调用约定, 调用规范：ret指令会把EAX的值当作返回值传递给调用函数，而调用函数(caller)会从EAX取值当作返回结果
+
+
+
+
+
+
+
+
+
