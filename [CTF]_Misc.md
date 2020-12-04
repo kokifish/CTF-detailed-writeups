@@ -94,13 +94,31 @@ e.g. 源文本： `The`
 
 
 
-
-
 # Cases
 
 - breakin-ctf-2017_misc_Mysterious-GIF：gif文件中分离出zip，zip中分离出多个小zip，解压得到partxx.enc，在gif的元数据comment中找到私钥，对.enc文件进行RSA解密，连接成一个图片文件
 
 
+
+
+
+# Traffic
+
+
+
+
+
+#### PcapPlusPlus Build on Linux
+
+> installation case on Fedora30
+
+```python
+git clone https://github.com/seladb/PcapPlusPlus.git
+cd PcapPlusPlus/
+./configure-linux.sh --default
+make all
+sudo make install
+```
 
 
 
