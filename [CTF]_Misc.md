@@ -1,3 +1,5 @@
+# Misc
+
 Misc 是英文 Miscellaneous 的前四个字母，杂项、混合体、大杂烩的意思
 
 Misc 在国外的比赛中其实又被具体划分为各个小块，有
@@ -94,7 +96,7 @@ e.g. 源文本： `The`
 
 
 
-# Cases
+## Cases
 
 - breakin-ctf-2017_misc_Mysterious-GIF：gif文件中分离出zip，zip中分离出多个小zip，解压得到partxx.enc，在gif的元数据comment中找到私钥，对.enc文件进行RSA解密，连接成一个图片文件
 
@@ -102,7 +104,7 @@ e.g. 源文本： `The`
 
 
 
-# Traffic
+# Traffic Packet Analysis
 
 
 
@@ -123,3 +125,41 @@ sudo make install
 
 
 
+
+# Compressed Package Analysis
+
+> 压缩包分析
+
+
+
+
+
+
+
+# Audio Steganography
+
+> 音频隐写
+
+与音频相关的 CTF 题目主要使用了隐写的策略，主要分为 MP3 隐写，LSB 隐写，波形隐写，频谱隐写等等
+
+
+
+
+
+
+
+# Disk Memory Analysis
+
+> 磁盘内存分析
+
+
+
+
+
+# Other
+
+
+
+
+
+## pyc File
