@@ -76,9 +76,11 @@ e.g. 源文本： `The`
 
 ## Commonly Used Encodings in the Real World
 
+> 生活中常用的编码
+
 条形码
 
-二维码
+二维码(UR Code)
 
 # Forensic Steganography
 
@@ -110,9 +112,68 @@ e.g. 源文本： `The`
 
 
 
-#### PcapPlusPlus Build on Linux
+## PcapPlusPlus
 
-> installation case on Fedora30
+> https://pcapplusplus.github.io/docs/tutorials/intro
+
+- PcapPlusPlus is built of 3 libraries: Common++, Packet++ and Pcap++.
+
+### Packet++
+
+- 解析、创建、编辑多种支持的协议的包的库
+- 可以独立运行，不依赖于Pcap++, libpcap/WinPcap/Npcap等
+
+主要类与功能:
+
+1. `RawPacket`: 表示从网络捕获的原始数据
+2. `Layer`: 所有协议层的基类。每个协议层负责解析属于该协议的数据包中的特定字节
+3. `Packet` - representing a packet that was parsed by the different PcapPlusPlus protocol parsers and contains the different protocol layers
+4. Protocol layers (e.g. `EthLayer, IPv4Layer, IPv6Layer, TcpLayer, UdpLayer, DnsLayer, HttpRequestLayer, HttpResponseLayer, PayloadLayer`, etc.) - classes representing specific protocol parsers. 都继承了 `Layer` class
+5. `PacketUtils`: 包含多种常用功能的类。e.g. 计算5元组/2元组的哈希值
+6. `TcpReassembly`: TCP重组(a.k.a TCP reconstruction) of TCP streams
+7. `IPv4Reassembly` - a class for providing IPv4 reassembly (a.k.a IPv4 de-fragmentation) of IPv4 packets
+
+### Pcap++
+
+- 拦截、发送数据包，提供网络、网卡信息，统计数据等的库
+- 主要是包捕获引擎(libpcap, WinPcap, Npcap, DPDK, PF_RING...)的c++包装器，但也提供了这些引擎中不存在的一些独特特性和功能
+
+主要类与功能:
+
+1. `PcapLiveDevice`:表示Linux/MacOS/FreeBSD网络接口，并允许捕获和发送数据包以及检索接口信息
+2. `WinPcapLiveDevice`: 表示一个Windows网络接口，并包含' PcapLiveDevice '中暴露的所有功能。这个类实际上继承了' PcapLiveDevice '并为WinPcap/Npcap和Windows操作系统做了相关的调整
+3. `DpdkDevice`: 表示一个支持DPDK的网络接口，并封装了用于捕获和发送数据包以及检索接口信息的DPDK基本功能
+4. `PfRingDevice`: 表示启用PF_RING的网络接口，并封装用于捕获和发送数据包以及检索接口信息的PF_RING功能
+5. `PcapRemoteDevice`: 表示远程机器上的网络接口，并允许使用rpcap协议在该接口上捕获和发送数据包。这个类实际上封装了WinPcap的远程捕获功能，因此只能在Windows上使用
+6. pcap and pcap-ng file readers and writers (`PcapFileReaderDevice, PcapFileWriterDevice, PcapNgFileReaderDevice, PcapNgFileWriterDevice, IFileReaderDevice, IFileWriterDevice`)
+7. 数据包过滤引擎 Packet filtering engine - a C++ API for the [BPF (Berkeley Packet Filter)](https://en.wikipedia.org/wiki/Berkeley_Packet_Filter) format for easy-to-use packet filtering from a network interface or pcap/pcap-ng file
+8. `NetworkUtils` - 包含需要网络交互的公共和基本操作的类。e.g. 通过发送ARP请求发现远程机器的MAC地址, 通过主机名(通过发送DNS请求)发现IPv4地址...
+
+
+
+### Common++
+
+- 包含`Packet++`和`Pcap++`使用的公共代码实用程序和类的库
+
+主要类与功能:
+
+1. `IPv4Address, IPv6Address`: 表示IPv4/IPv6地址的类
+2. `MacAddress`: 表示MAC(以太网)地址的类
+3. `IpUtils.h`: 各种有用的网络工具
+4. `LoggerPP`: PcapPlusPlus中广泛使用的一个简单的日志基础设施
+5. `SystemUtils.h`: 几个用于与操作系统交互的实用工具
+
+
+
+原始数据仅在RawPacket对象中存一次，不同层仅指向对应数据开始的地方。e.g. UDP Layer指向UDP开始的地方
+
+![](https://raw.githubusercontent.com/hex-16/pictures/master/Code_pic/PcapPlusPlus_LayersAndRawData.png)
+
+
+
+### PcapPlusPlus Build on Linux
+
+> installation case on Fedora33, build from source
 
 ```python
 git clone https://github.com/seladb/PcapPlusPlus.git
@@ -120,6 +181,66 @@ cd PcapPlusPlus/
 ./configure-linux.sh --default
 make all
 sudo make install
+```
+
+
+
+### Cases
+
+
+
+```cpp
+// author: hyhuang1024@outlook.com
+// 小的pcap文件生成方式： editcap -i 60 ./data/202010041400.pcap small.pcap
+
+#include <pcap.h>
+#include "IPv4Layer.h"
+#include "Packet.h"
+#include "PcapFileDevice.h"
+#include "stdlib.h"
+
+int main(int argc, char* argv[]) {
+    // open a pcap file for reading
+    pcpp::PcapFileReaderDevice reader("small_00000_20201004130000.pcap");
+    if (!reader.open()) {
+        printf("Error opening the pcap file\n");
+        return 1;
+    }
+
+
+    // read the first (and only) packet from the file
+    pcpp::RawPacket rawPacket;
+    if (!reader.getNextPacket(rawPacket)) {
+        printf("Couldn't read the first packet in the file\n");
+        return 1;
+    }
+
+    // parse the raw packet into a parsed packet
+    pcpp::Packet parsedPacket(&rawPacket);
+
+    // verify the packet is IPv4
+    if (parsedPacket.isPacketOfType(pcpp::IPv4)) {
+        // extract source and dest IPs
+        pcpp::IPv4Address srcIP =
+            parsedPacket.getLayerOfType<pcpp::IPv4Layer>()->getSrcIpAddress();
+        pcpp::IPv4Address destIP =
+            parsedPacket.getLayerOfType<pcpp::IPv4Layer>()->getDstIpAddress();
+        printf("Source IP is '%s'; Dest IP is '%s'\n", srcIP.toString().c_str(),
+               destIP.toString().c_str());  // print source and dest IPs
+    }
+
+
+    while (reader.getNextPacket(rawPacket)) {
+    }
+    pcpp::IPcapDevice::PcapStats stats;
+    reader.getStatistics(stats);
+    printf("Read %lu packets successfully and %lu packets could not be read\n",
+           stats.packetsRecv, stats.packetsDrop);
+
+    reader.close();  // close the file
+
+    return 0;
+}
 ```
 
 
