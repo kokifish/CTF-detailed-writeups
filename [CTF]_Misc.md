@@ -192,7 +192,6 @@ sudo make install
 ```cpp
 // author: hyhuang1024@outlook.com
 // 小的pcap文件生成方式： editcap -i 60 ./data/202010041400.pcap small.pcap
-
 #include <pcap.h>
 #include "IPv4Layer.h"
 #include "Packet.h"
@@ -206,7 +205,6 @@ int main(int argc, char* argv[]) {
         printf("Error opening the pcap file\n");
         return 1;
     }
-
 
     // read the first (and only) packet from the file
     pcpp::RawPacket rawPacket;
@@ -229,7 +227,6 @@ int main(int argc, char* argv[]) {
                destIP.toString().c_str());  // print source and dest IPs
     }
 
-
     while (reader.getNextPacket(rawPacket)) {
     }
     pcpp::IPcapDevice::PcapStats stats;
@@ -238,8 +235,6 @@ int main(int argc, char* argv[]) {
            stats.packetsRecv, stats.packetsDrop);
 
     reader.close();  // close the file
-
-    return 0;
 }
 ```
 
