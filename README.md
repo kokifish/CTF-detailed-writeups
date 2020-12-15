@@ -13,7 +13,13 @@ updating
 - https://github.com/ctf-wiki/ctf-wiki
 - https://github.com/MOCSCTF/CTF-Write-UP
 - https://github.com/ctfs/write-ups-2017
+- https://adworld.xctf.org.cn/
+- https://www.ichunqiu.com/
 
 # Contacts
 
 new an issue or email: [hexhex16@outlook.com](mailto:hexhex16@outlook.com)
+
+# Copyright
+
+The copyright of original content belongs to all the contributors under this repo. We will try to indicate the source of other content.
