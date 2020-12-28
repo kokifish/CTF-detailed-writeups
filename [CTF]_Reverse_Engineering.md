@@ -307,7 +307,17 @@ f:
 
 # IDA Pro
 
+- 在IDA Pro中，IDA View界面按F5，将反汇编为伪代码Pseudocode
+- shift+F12 查看关键字符串，将打开Strings window，双击某个string后可以跳到IDA View，查看汇编代码
 
+
+
+- 在变量处右键，可以选择改成不同的数据表现形式
+
+```cpp
+v7 = 28537194573619560LL; // 右键，可以选择改成Char Enum Hex等
+v7 = 'ebmarah'; // 改成Char之后
+```
 
 
 
