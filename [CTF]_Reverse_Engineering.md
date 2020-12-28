@@ -279,36 +279,147 @@ var int digest := h0 append h1 append h2 append h3 //(expressed as little-endian
 
 
 
+
+
+# The Function Stack
+
+> 函数栈，ESP EBP寄存器
+>
+> https://www.tenouk.com/Bufferoverflowc/Bufferoverflow2a.html
+
+1. ESP: 栈指针寄存器(extended stack pointer), 该指针永远指向系统栈最上面一个栈帧的栈顶
+2. EBP: 基址指针寄存器(extended base pointer), 该指针永远指向系统栈最上面一个栈帧的底部
+
+intel系统中栈是向下生长的(栈越扩大其值越小,堆恰好相反)
+
+在通常情况下ESP是可变的，随着栈的生产而逐渐变小，用ESP来标记栈的底部
+
+ESP寄存器是固定的，只有当函数的调用后，发生入栈操作而改变
+
+通过固定的地址与偏移量来寻找在栈参数与变量，EBP寄存器存放的就是固定的地址。但是这个值在函数调用过程中会变化，函数执行结束后需要还原，因此要在函数的出栈入栈中进行保存
+
 ---
 
 # Reverse Engineering for Beginners
 
-> [乌克兰]Dennis Yurichev 著, Archer安天安全研究与应急处理中心 译
+> 逆向工程权威指南 [乌克兰]Dennis Yurichev 著, Archer安天安全研究与应急处理中心 译
 
 
 
 ```cpp
-int f(){
+int f(){ // 第二章 最简函数
     return 123;
 }
 ```
-- 开启优化功能后，GCC产生的汇编指令：MSVC编译的程序也一样
 ```assembly
+; 开启优化功能后，GCC产生的汇编指令(MSVC编译的程序也一样)：
 f:
-	mov 	exa,	123
-	ret
+	mov 	eax, 123 ; 将123存放在EAX寄存器里
+	ret ; ret指令会把EAX的值当作返回值传递给调用函数，而调用函数(caller)会从EAX取值当作返回结果
 ```
 
-- Calling Convention, 调用约定, 调用规范：ret指令会把EAX的值当作返回值传递给调用函数，而调用函数(caller)会从EAX取值当作返回结果
+- Calling Convention, 调用约定, 调用规范
+
+MIPS寄存器的两种命名方式：
+
+1. 数字命名(`$0 ~ $31`)
+2. 伪名称(`pseudoname`)
 
 
+
+## Hello, world!
+
+```cpp
+#include <stdio.h>
+int main(){
+    printf("hello, world\n"); // 将为"hello, world\n"分配一个const char[]指针
+    return 0;
+}
+```
+
+- 使用MSVC2010 编译: `cl 1.cpp /Fa1.asm`，`/Fa`将使编译器生成汇编指令清单文件(assembly listing file)，并指定汇编列表文件的文件名是`1.asm`
+- MSVC生成的汇编清单文件都采用了Intel语体(另一种主流语体为AT&T语体)
+- 所有函数都有标志性的函数序言function prologue 和函数尾声function epilogue
+
+```assembly
+CONST 	SEGMENT
+$SG3830 DB		'hello, world', 0AH, 00H ; 编译器内部把字符串常量命名为 $SG3830 0AH为\n, 00H为\0, 字符串常量结束标志
+CONST	ENDS
+PUBLIC	_main
+EXTRN	_printf:PROC
+; Function compile flags: /0dtp
+_TEXT	SEGMENT
+_main	PROC       ; 函数序言function prologue
+		push	ebp      ; 把ebp的值入栈 将caller的ebp入栈
+		mov		ebp, esp ; 把esp的值保存在ebp中，此时ebp的值被改变了
+		push	OFFSET $SG3830 ; 把字符串$SG3830指针入栈
+		call	_printf  ; printf结束后，程序的控制流会返回到main()函数中，此时字符串$SG3830指针仍残留在数据栈中，需要调整栈指针ESP来释放这个指针
+		add		esp, 4   ; 把ESP寄存器(栈指针 Stack Pointer)里的值+4, 因为x86内存地址用32bit(4Byte)数据描述; 直接舍弃了栈里的数据($SG3830指针)
+		xor		eax, eax ; main返回值为0，由该指令计算出来 ; main函数的最后一项任务是使EAX的值为0
+		pop		ebp      ; 把栈中保存的ebp的旧值pop出来赋值给ebp, 还原caller的ebp
+		ret		0        ; 将控制权交给调用程序，通常起到的作用是将控制权交给操作系统，这部分功能由C/C++的CRT实现
+_main ENDP             ; 数尾声function epilogue
+_TEXT ENDS
+```
+
+- GCC 4.4.1编译 `gcc 1.c -o 1`, 也采用Intel语体，指定生成Intel语体的汇编列表文件，GCC的选项:`-S -masm=intel`
+
+```assembly
+Main	proc	near
+var_10	= dword ptr -10h
+	push ebp ; 将EBP旧值入栈 (后面在leave指令中恢复) 将caller的ebp入栈
+	mov  ebp, esp ; 将ESP的值赋值给EBP
+	and  esp, 0FFFFFFF0h ; 令栈地址(ESP的值)向16字节边界对齐(成为16的整数倍)，属于初始化的指令，如果地址位没有对齐，那么CPU可能需要访问两次内存才能获得栈内数据
+	sub  esp, 10h ; 在栈中分配0x10bytes，即16字节，程序只用4字节空间，但编译器对栈地址ESP进行了16字节对齐
+	mov  eax, offset aHelloWorld ; "hello, world\n" ;首先把hello, world字符串在数据段的地址存储到EAX寄存器里
+	mov [esp+10h+var_10], eax  ; 将字符串地址用mov指令直接写入到数据栈
+	call _printf
+	mov  eax, 0 ; 除非人工指定优化选项，否则GCC(不同于MSVC)会生成与源码直接对应的MOV EAX,0; MOV指令opcode比XOR指令的opcode长
+	leave ; 等效于 MOV ESP, EBP; POP EBP ；复原caller的ESP; 复原caller的EBP(将caller的ebp出栈)
+	ret n
+main endp
+```
+
+- 虽然在8字节边界处对齐就可以满足32位x86和64位x64 CPU的要求，但是主流编译器编译规则规定：**程序访问的地址必须向16字节对齐(被16整除)**
+
+> p10有对应的AT&T语体的汇编指令
+
+
+
+用64位MSVC编译(MSVC 2012 x64):
+
+```assembly
+$SG2989	DB	'hello, world', 0AH 00H
+main PROC
+	sub  rsp, 40
+	lea  rcx, OFFSET FLAT:$SG2989
+	call printf
+	xor  eax, eax
+	add  rsp, 40
+	ret  0
+main ENDP
+```
 
 
 
 # IDA Pro
 
 - 在IDA Pro中，IDA View界面按F5，将反汇编为伪代码Pseudocode
-- shift+F12 查看关键字符串，将打开Strings window，双击某个string后可以跳到IDA View，查看汇编代码
+
+
+
+- shift+F12 查看关键字符串，将打开Strings window，双击某个string后可以跳到IDA View，查看对应汇编代码
+- 双击后面的提示信息`; DATA XREF:`可以跳转到用到了该string的函数
+
+```assembly
+.rodata:0000000000400965 ; char aYouEnteredTheC[]
+.rodata:0000000000400965 aYouEnteredTheC db 'You entered the correct password!',0Ah
+.rodata:0000000000400965                                         ; DATA XREF: sub_4007F0+8↑o
+```
+
+
+
+- Pseudocode窗口下右键函数名，可以点击`Jump to xref`查看调用了这个函数的地方
 
 
 
