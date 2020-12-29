@@ -329,6 +329,10 @@ MIPS寄存器的两种命名方式：
 
 ## Hello, world!
 
+
+
+### x86 and x86-64
+
 ```cpp
 #include <stdio.h>
 int main(){
@@ -394,11 +398,26 @@ main PROC
 	sub  rsp, 40
 	lea  rcx, OFFSET FLAT:$SG2989
 	call printf
-	xor  eax, eax
-	add  rsp, 40
+	xor  eax, eax ; 出于兼容性和可移植性的考虑，C语言的编译器仍将使用32位的0。EAX为0，RAX不一定为0
+	add  rsp, 40 ; 阴影空间shadow space
 	ret  0
 main ENDP
 ```
+
+- x86-64硬件平台上，寄存器和指针都是64位的，存储于R-字头的寄存器里，但是出于兼容性的考虑，64位寄存器的低32位也要能担当32位寄存器的角色
+- main函数的返回值是整数类型的0，出于兼容性和可移植性的考虑，C语言的编译器仍将使用32位的0。即程序结束时，EAX为0，RAX不一定为0
+
+
+
+
+
+### ARM
+
+> 3.4 ARM p13 
+
+
+
+
 
 
 
