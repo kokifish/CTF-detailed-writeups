@@ -298,6 +298,29 @@ ESP寄存器是固定的，只有当函数的调用后，发生入栈操作而�
 
 通过固定的地址与偏移量来寻找在栈参数与变量，EBP寄存器存放的就是固定的地址。但是这个值在函数调用过程中会变化，函数执行结束后需要还原，因此要在函数的出栈入栈中进行保存
 
+```cpp
+#include <stdio.h>
+int MyFunc(int parameter1, char parameter2){
+	int local1 = 9;
+	char local2 = 'Z';
+    return 0;
+}
+int main(int argc, char *argv[]){
+	MyFunc(7, '8');
+	return 0;
+}
+```
+
+![](https://raw.githubusercontent.com/hex-16/pictures/master/Code_pic/RE_function_call_function_stack_layout.png)
+
+
+
+
+
+
+
+
+
 ---
 
 # Reverse Engineering for Beginners
@@ -346,6 +369,7 @@ int main(){
 - 所有函数都有标志性的函数序言function prologue 和函数尾声function epilogue
 
 ```assembly
+; 指令清单3.1
 CONST 	SEGMENT
 $SG3830 DB		'hello, world', 0AH, 00H ; 编译器内部把字符串常量命名为 $SG3830 0AH为\n, 00H为\0, 字符串常量结束标志
 CONST	ENDS
@@ -369,6 +393,7 @@ _TEXT ENDS
 - GCC 4.4.1编译 `gcc 1.c -o 1`, 也采用Intel语体，指定生成Intel语体的汇编列表文件，GCC的选项:`-S -masm=intel`
 
 ```assembly
+; 指令清单3.3 GCC 4.4.1 x86
 Main	proc	near
 var_10	= dword ptr -10h
 	push ebp ; 将EBP旧值入栈 (后面在leave指令中恢复) 将caller的ebp入栈
@@ -380,7 +405,7 @@ var_10	= dword ptr -10h
 	call _printf
 	mov  eax, 0 ; 除非人工指定优化选项，否则GCC(不同于MSVC)会生成与源码直接对应的MOV EAX,0; MOV指令opcode比XOR指令的opcode长
 	leave ; 等效于 MOV ESP, EBP; POP EBP ；复原caller的ESP; 复原caller的EBP(将caller的ebp出栈)
-	ret n
+	retn
 main endp
 ```
 
@@ -390,9 +415,8 @@ main endp
 
 
 
-用64位MSVC编译(MSVC 2012 x64):
-
 ```assembly
+; 指令清单 3.7 MSCV2012 x64  用64位MSVC编译(MSVC 2012 x64):
 $SG2989	DB	'hello, world', 0AH 00H
 main PROC
 	sub  rsp, 40
@@ -409,17 +433,119 @@ main ENDP
 
 
 
+### GCC的其他特性
+
+- 只要C代码里使用了字符串常量，编译器就会把这个字符串常量置于常量字段，以保证其内容不会发生变化
+- GCC的有趣特征之一：可能会把字符串拆出来单独使用
+
+```cpp
+#include <stdio.h> // 多数C/C++编译器会将下面两个字符串分配出两个直接对应的字符串
+void f1(){ printf("world\n"); }
+void f2(){ printf("hello world\n"); }
+int main(){
+	f1();
+    f2();
+}
+```
+
+```assembly
+; 指令清单3.10 在IDA中观察GCC4.8.1的汇编指令
+f1	proc near
+s	= dword ptr -1Ch ; dec:28 为什么是-1Ch? 如果是-0Ch 即-12 则刚好对应aHello, s的总字节数
+	sub  esp, 1Ch
+	mov  [esp+1Ch+s], offset s; "world\n"
+	call _puts ; f1 从s的地址开始输出
+	add  esp, 1Ch
+	retn
+f1	endp
+
+f2 	proc near
+s	= dword ptr -1Ch ; dec:28
+	sub  esp, 1Ch
+	mov  [esp+1Ch+s], offset aHello ; "hello "的地址
+	call _puts
+	add  esp, 1Ch
+	retn
+f2	endp
+
+aHello  db 'hello'  ; 前后两个字符串相邻，hello后面没有\0，调用puts时，函数本身不知道这是两个字符串
+s       db 'world', 0xa, 0 ; '\n' '\0'
+```
+
+- GCC编译器会充分使用这种技术来节省内存
+
 
 
 ### ARM
 
 > 3.4 ARM p13 
 
+`armcc.exe --arm --c90 -O0 1.c`用Keil编译器把hello world程序编译为ARM指令集架构的汇编程序
+
+虽然armcc编译器生成的汇编指令清单同样采用了Intel语体，但是程序所使用的宏却极具ARM处理器的特色(e.g. ARM模式的指令集里没有PUSH/POP指令)
+
+**IDA显示ARM平台的指令时的opcode显示顺序**：
+
+- ARM及ARM64模式的指令：4-3-2-1
+- Thumb模式的指令：2-1
+- Thumb-2模式的16位指令对：2-1-4-3
 
 
 
 
 
+
+
+- Thumb模式程序的每条指令都对应着2 bytes / 16 bit 的opcode，这是Thumb模式程序的特征
+
+
+
+- 形实转换函数 thunk function: 形参与实参互相转换的函数 (http://www.catb.org/jargon/html/T/thunk.html) p17
+- 在编译过程中，为满足当时的过程(函数)调用约定，当形参为表达式时，编译器都会产生thunk，把返回值的地址传递给形参
+- 微软和IBM都对thunk一词有定义，将从16位到32位和从32位到16位的转变叫做thunk
+
+
+
+### ARM64
+
+使用GCC 4.8.1编译为ARM64程序
+
+```assembly
+; 指令清单 3.15 Non-optimizing GCC 4.8.1 + objdump
+<main>:
+stp  x29, x30, [sp, #-16]!   ; store pair 把两个寄存器x29, x30的值存储到栈; 每个寄存器8B, 两个要16B的空间; 感叹号表示其标注的运算会被优先执行
+mov  x29, sp               ; 把SP的值复制给X29(FP) 用来设置函数的栈帧
+adrp x0, 400000 <_init-0x3b8>  ; adrp和add相互配合 把Hello!字符串的指针传递给X0寄存器，继而充当函数参数传递给被调用函数
+add  x0, x0, #0x648        ; 0x400000 + 0x648 = 0x400648 即Hello!的地址
+bl   400420 <puts@plt>    ; 调用puts函数
+mov  w0, #0x0             ; #0 给W0寄存器置零 W0是X0寄存器的低32bit; 与x86-64一样，ARM64的int数据仍然是32bit 兼容性考虑
+ldp  x29, x30, [sp], #16   ; load pair 还原X29, X30的值. 没有感叹号 先赋值 后把SP的值与16做求和运算
+ret
+...
+Contents of section .rodata:
+400640             01000200 00000000 48656c6c 6f210000 .........Hello!..
+```
+
+- ARM64的CPU只可能运行于ARM模式，不可运行于Thumb或Thumb-2模式，所以必须使用32bit的指令
+- 64bit的寄存器数量翻了一番，拥有了32个X-字头的寄存器，程序可以通过W-字头的名称直接访问寄存器的低32bit空间
+- ARM64平台的寄存器都是64位寄存器，每个寄存器可存储8byte
+- `stp  x29, x30, [sp, #-16]!`中的感叹号标志意味着其标注的运算会被优先执行，即该指令先把SP的值减去16，然后再把两个寄存器的值写在栈里。属于 **预索引/pre-index** 指令。`ldp  x29, x30, [sp], #16`属于**延迟索引 post-index**指令
+- X29寄存器是帧指针FP，X30起着LR的作用
+
+```cpp
+uint64_t main(){
+    printf("Hello!\n");
+    return 0;
+}//这将返回64位的值
+```
+
+```assembly
+mov  x0, #0x0              ; 返回的是64bit的0 X0寄存器的64bit都是0
+```
+
+
+
+---
 
 # IDA Pro
 
