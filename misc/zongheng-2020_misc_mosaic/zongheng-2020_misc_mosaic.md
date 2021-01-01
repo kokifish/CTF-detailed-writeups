@@ -4,6 +4,8 @@
 >
 > 文件：mosaic.png
 
+![](mosaic.png)
+
 - 在Github上下载Depix脚本： https://github.com/beurtschipper/Depix
 - 执行指令`python depix.py -p mosaic.png -s images/searchimages/debruinseq_notepad_Windows10_closeAndSpaced.png -o output.png`
 - 输出如下：
@@ -30,4 +32,7 @@ INFO:root:Saving output image to: output.png
 ```
 
 - 打开output.png可以读出图片内容为0123468abd68abd0123
+
+![](output.png)
+
 - 补全至flag格式：flag{0123468abd68abd0123}
