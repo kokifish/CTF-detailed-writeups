@@ -520,7 +520,7 @@ add  x0, x0, #0x648        ; 0x400000 + 0x648 = 0x400648 即Hello!的地址
 bl   400420 <puts@plt>    ; 调用puts函数
 mov  w0, #0x0             ; #0 给W0寄存器置零 W0是X0寄存器的低32bit; 与x86-64一样，ARM64的int数据仍然是32bit 兼容性考虑
 ldp  x29, x30, [sp], #16   ; load pair 还原X29, X30的值. 没有感叹号 先赋值 后把SP的值与16做求和运算
-ret
+ret   ; RET指令是ARM64平台的特色指令
 ...
 Contents of section .rodata:
 400640             01000200 00000000 48656c6c 6f210000 .........Hello!..
