@@ -555,24 +555,31 @@ mov  x0, #0x0              ; 返回的是64bit的0 X0寄存器的64bit都是0
 
 # IDA Pro
 
+- 查看版本号与逆编译器版本 Help => About program => `Version 7.5.201028 Windows x64 (32-bit address size)` => Addons => 32 bit: `e.g. x86 ARM PowerPC MIPS Decompiler`
+- Option:
+  - General:
+    - Disassembly:
+      - Auto comments: 可以显示汇编指令的含义e.g.  `li  $a3, 0x10019C80 # Load Immediate`
+
+
+
+
+
+
+
+## IDA View
+
 - 在IDA Pro中，IDA View界面按F5，将反汇编为伪代码Pseudocode
 
 
 
-- shift+F12 查看关键字符串，将打开Strings window，双击某个string后可以跳到IDA View，查看对应汇编代码
-- 双击后面的提示信息`; DATA XREF:`可以跳转到用到了该string的函数
-
-```assembly
-.rodata:0000000000400965 ; char aYouEnteredTheC[]
-.rodata:0000000000400965 aYouEnteredTheC db 'You entered the correct password!',0Ah
-.rodata:0000000000400965                                         ; DATA XREF: sub_4007F0+8↑o
-```
 
 
+## Pseudocode
+
+> 伪代码窗口 在IDA View窗口中按F5可以打开该窗口
 
 - Pseudocode窗口下右键函数名，可以点击`Jump to xref`查看调用了这个函数的地方
-
-
 
 - 在变量处右键，可以选择改成不同的数据表现形式
 
@@ -582,4 +589,15 @@ v7 = 'ebmarah'; // 改成Char之后
 ```
 
 
+
+## Strings Window
+
+- shift+F12 打开 **Strings Window** 查看关键字符串，双击某个string后可以跳到IDA View，查看对应汇编代码
+- 双击后面的提示信息`; DATA XREF:`可以跳转到用到了该string的函数
+
+```assembly
+.rodata:0000000000400965 ; char aYouEnteredTheC[]
+.rodata:0000000000400965 aYouEnteredTheC db 'You entered the correct password!',0Ah
+.rodata:0000000000400965                                         ; DATA XREF: sub_4007F0+8↑o
+```
 
