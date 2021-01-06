@@ -15,6 +15,8 @@ updating
 - https://github.com/ctfs/write-ups-2017
 - https://adworld.xctf.org.cn/
 - https://www.ichunqiu.com/
+- https://www.bugbank.cn/
+- https://blog.knownsec.com/Knownsec_RD_Checklist/index.html 
 
 # Contacts
 
