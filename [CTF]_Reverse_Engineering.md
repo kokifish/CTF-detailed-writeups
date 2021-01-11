@@ -335,26 +335,31 @@ int f(){ // 第二章 最简函数
 }
 ```
 ```assembly
-; 开启优化功能后，GCC产生的汇编指令(MSVC编译的程序也一样)：
+; 开启优化功能后，GCC产生的x86汇编指令(MSVC编译的程序也一样)：
 f:
-	mov 	eax, 123 ; 将123存放在EAX寄存器里
+	mov  eax, 123 ; 将123存放在EAX寄存器里
 	ret ; ret指令会把EAX的值当作返回值传递给调用函数，而调用函数(caller)会从EAX取值当作返回结果
 ```
 
-- Calling Convention, 调用约定, 调用规范
-
-MIPS寄存器的两种命名方式：
-
-1. 数字命名(`$0 ~ $31`)
-2. 伪名称(`pseudoname`)
-
-
-
-## Hello, world!
+```assembly
+; Optimizing Keil 6/2013(ARM模式)
+f PROC
+	MOV r0, #0x7b ; 123 ; ARM程序使用R0寄存器传递函数返回值
+	BX  lr ; 跳转到返回地址，即返回到caller然后继续执行caller的后续指令; ARM使用LR(Link Register)寄存器存储函数结束之后的返回地址(RA/Return Address)
+	ENDP
+```
 
 
 
-### x86 and x86-64
+- **Calling Convention, 调用约定, 调用规范**
+
+
+
+## 3 Hello, world!
+
+
+
+### 3.1-2 x86 and x86-64
 
 ```cpp
 #include <stdio.h>
@@ -365,11 +370,11 @@ int main(){
 ```
 
 - 使用MSVC2010 编译: `cl 1.cpp /Fa1.asm`，`/Fa`将使编译器生成汇编指令清单文件(assembly listing file)，并指定汇编列表文件的文件名是`1.asm`
-- MSVC生成的汇编清单文件都采用了Intel语体(另一种主流语体为AT&T语体)
-- 所有函数都有标志性的函数序言function prologue 和函数尾声function epilogue
+- MSVC生成的汇编清单文件都采用了**Intel语体**(另一种主流语体为**AT&T语体**)
+- 所有函数都有标志性的**函数序言function prologue** 和**函数尾声function epilogue**
 
 ```assembly
-; 指令清单3.1
+; 指令清单3.1 ; x86; MSVC2010
 CONST 	SEGMENT
 $SG3830 DB		'hello, world', 0AH, 00H ; 编译器内部把字符串常量命名为 $SG3830 0AH为\n, 00H为\0, 字符串常量结束标志
 CONST	ENDS
@@ -378,7 +383,7 @@ EXTRN	_printf:PROC
 ; Function compile flags: /0dtp
 _TEXT	SEGMENT
 _main	PROC       ; 函数序言function prologue
-		push	ebp      ; 把ebp的值入栈 将caller的ebp入栈
+		push	ebp      ; 把ebp的值入栈 将 caller 的 ebp 入栈
 		mov		ebp, esp ; 把esp的值保存在ebp中，此时ebp的值被改变了
 		push	OFFSET $SG3830 ; 把字符串$SG3830指针入栈
 		call	_printf  ; printf结束后，程序的控制流会返回到main()函数中，此时字符串$SG3830指针仍残留在数据栈中，需要调整栈指针ESP来释放这个指针
@@ -393,7 +398,7 @@ _TEXT ENDS
 - GCC 4.4.1编译 `gcc 1.c -o 1`, 也采用Intel语体，指定生成Intel语体的汇编列表文件，GCC的选项:`-S -masm=intel`
 
 ```assembly
-; 指令清单3.3 GCC 4.4.1 x86
+; 指令清单3.3 GCC 4.4.1 x86; 在IDA中观察到的汇编指令
 Main	proc	near
 var_10	= dword ptr -10h
 	push ebp ; 将EBP旧值入栈 (后面在leave指令中恢复) 将caller的ebp入栈
@@ -416,7 +421,7 @@ main endp
 
 
 ```assembly
-; 指令清单 3.7 MSCV2012 x64  用64位MSVC编译(MSVC 2012 x64):
+; 指令清单 3.7 MSCV2012 x64  ;用64位MSVC编译(MSVC 2012 x64):
 $SG2989	DB	'hello, world', 0AH 00H
 main PROC
 	sub  rsp, 40
@@ -433,7 +438,9 @@ main ENDP
 
 
 
-### GCC的其他特性
+### 3.3 GCC的其他特性
+
+> 可能会把字符串拆出来单独使用
 
 - 只要C代码里使用了字符串常量，编译器就会把这个字符串常量置于常量字段，以保证其内容不会发生变化
 - GCC的有趣特征之一：可能会把字符串拆出来单独使用
@@ -476,7 +483,7 @@ s       db 'world', 0xa, 0 ; '\n' '\0'
 
 
 
-### ARM
+### 3.4 ARM
 
 > 3.4 ARM p13 
 
@@ -492,21 +499,17 @@ s       db 'world', 0xa, 0 ; '\n' '\0'
 
 
 
-
-
-
-
 - Thumb模式程序的每条指令都对应着2 bytes / 16 bit 的opcode，这是Thumb模式程序的特征
 
 
 
-- 形实转换函数 thunk function: 形参与实参互相转换的函数 (http://www.catb.org/jargon/html/T/thunk.html) p17
+- **形实转换函数 thunk function**: 形参与实参互相转换的函数 (http://www.catb.org/jargon/html/T/thunk.html) p17
 - 在编译过程中，为满足当时的过程(函数)调用约定，当形参为表达式时，编译器都会产生thunk，把返回值的地址传递给形参
 - 微软和IBM都对thunk一词有定义，将从16位到32位和从32位到16位的转变叫做thunk
 
 
 
-### ARM64
+#### 3.4.5 ARM64
 
 使用GCC 4.8.1编译为ARM64程序
 
@@ -526,28 +529,178 @@ Contents of section .rodata:
 400640             01000200 00000000 48656c6c 6f210000 .........Hello!..
 ```
 
-- ARM64的CPU只可能运行于ARM模式，不可运行于Thumb或Thumb-2模式，所以必须使用32bit的指令
+- **ARM64的CPU只可能运行于ARM模式**，不可运行于Thumb或Thumb-2模式，所以必须使用32bit的指令
 - 64bit的寄存器数量翻了一番，拥有了32个X-字头的寄存器，程序可以通过W-字头的名称直接访问寄存器的低32bit空间
 - ARM64平台的寄存器都是64位寄存器，每个寄存器可存储8byte
 - `stp  x29, x30, [sp, #-16]!`中的感叹号标志意味着其标注的运算会被优先执行，即该指令先把SP的值减去16，然后再把两个寄存器的值写在栈里。属于 **预索引/pre-index** 指令。`ldp  x29, x30, [sp], #16`属于**延迟索引 post-index**指令
 - X29寄存器是帧指针FP，X30起着LR的作用
 
 ```cpp
-uint64_t main(){
+uint64_t main(){ // 注意返回值类型
     printf("Hello!\n");
     return 0;
 }//这将返回64位的值
 ```
 
 ```assembly
-mov  x0, #0x0              ; 返回的是64bit的0 X0寄存器的64bit都是0
+mov  x0, #0x0    ; 返回的是64bit的0 X0寄存器的64bit都是0
 ```
 
 
 
+### 3.5 MIPS
+
+MIPS指令分为3类:
+
+> 本节内容：逆向工程权威指南下册 附录C MIPS C.2 指令
+
+1. **R-Type**: Register/寄存器类指令。此类指令操作**3**个寄存器
+```assembly
+指令目标寄存器    源寄存器1    源寄存器2
+; 当前两个操作数相同时，IDA可能会以以下形式显示。这种显示风格与x86汇编语言的Intel语体十分相似
+指令目标寄存器/源寄存器1       源寄存器2 
+|      6bit     |   5bit    |   5bit    |   5bit    |   5bit    |      6bit     |  ; 32位的MIPS R型指令 二进制表示
+|    opcode     |     rs    |    rt     |    rd     |   shamt   |     funct     |
+|    操作码     | 源操作数1  | 源操作数2  | 目标寄存器  |   偏移量   |     函数码     |
+```
+2. **I-Type**: **Immediate/立即数类指令**。涉及2个寄存器和1个立即数
+
+```c
+|   Op   |   Rs   |   Rt   |          Address       |
+|  6bit  |  5bit  |  5bit  |           16bit        |
+```
+
+3. **J-Type**: **Jump/转移指令**。在MIPS转移指令的opcode里，共有26位空间可存储偏移量的信息
+
+转移指令：
+
+- 实现转移功能的指令可分为 B 开头的指令(BEQ, B ...)和 J 开头的指令(JAL, JALR ...)
+- B类转移指令属于 I-type 指令，即opcode封装有 16bit 立即数/偏移量
+- J和JAL属于J-type指令，opcode里存有 26bit 立即数
+- 简言之，B开头的转移指令可以把转移条件(cc)封装到opcode里(B指令是` BEQ $ZERO, $ZERO, Label` 的伪指令)。但是J开头的指令无法在opcode里封装转移条件表达式
 
 
 
+
+
+#### MIPS Register
+
+MIPS寄存器的两种命名方式：
+
+1. 数字命名: `$0 ~ $31`，在GCC编译器生成的汇编指令中，寄存器都采用数字方式命名
+2. 伪名称(`pseudoname`): `$V0 ~ VA)`
+
+| **Register Number** | Conventional Name | **Usage**                                                    |
+| ------------------- | ----------------- | ------------------------------------------------------------ |
+| \$0                 | \$zero            | Hard-wired to 0 永远为0                                      |
+| \$1                 | \$at              | Reserved for pseudo-instructions 汇编宏和伪指令使用到临时寄存器 |
+| \$2 - \$3           | \$v0, \$v1        | **Return values** from functions 传递函数返回值              |
+| \$4 - \$7           | \$a0 - \$a3       | **Arguments** to functions - **not** preserved by subprograms 传递函数参数 |
+| \$8 - \$15          | \$t0 - \$t7       | **Temporary data**, **not** preserved by subprograms         |
+| \$16 - \$23         | \$s0 - \$s7       | Saved registers, **preserved** by subprograms 寄存器变量，callee必须保全 |
+| \$24 - \$25         | \$t8 - \$t9       | **More temporary registers**, **not** preserved by subprograms |
+| \$26 - \$27         | \$k0 - \$k1       | **Reserved** for kernel. Do not use. OS异常/中断处理程序使用 后不会恢复 |
+| \$28                | \$gp              | **Global Area Pointer** (base of global data segment) 全局指针，callee必须保全PIC code以外的值 |
+| \$29                | \$sp              | 栈指针 **Stack Pointer**                                     |
+| \$30                | \$fp / s8         | 帧指针 **Frame Pointer**                                     |
+| \$31                | \$ra              | **Return Address (RA)** 子函数的返回地址                     |
+| n/a                 | pc                | PC                                                           |
+| n/a                 | hi                | 专门存储商或积的高32bit，可通过 `MFHI` 访问                  |
+| n/a                 | lo                | 专门存储商或积的低32bit，可通过 `MFLO` 访问                  |
+| \$f0 - \$f3         |                   | Floating point return values 函数返回值 (附录C说\$f2~\$f3未被使用) |
+| \$f4 - \$f10        |                   | Temporary registers, not preserved by subprograms 用于临时数据 |
+| \$f12 - \$f15       |                   | First two arguments to subprograms, not preserved by subprograms 函数前两个数据 |
+| \$f16 - \$f19       |                   | More temporary registers, not preserved by subprograms 用于临时数据 |
+| \$f20 - \$f31       |                   | Saved registers, preserved by subprograms 用于临时数据，callee必须保全 |
+
+> 通用寄存器GPR: 其中t开头的为临时寄存器，用于保存代码里的临时值，caller负责保存这些寄存器的数值(caller-saved)，因为可能会被callee重写
+>
+> 浮点寄存器FPR: 表格中Register Number 为f开头的，在表格末尾的那些
+
+- MIPS里没有状态码。CPU状态寄存器或内部都不包含任何用户程序计算的结果状态信息
+- hi和lo是与乘法运算器相关的两个寄存器大小的用来存放结果的地方。它们并不是通用寄存器，除了用在乘除法之外，也不能有做其他用途。 MIPS里定义了一些指令可以往hi和lo里存入任何值
+
+#### 全局指针 Global Pointer
+
+> `$28  /  $gp` Global Area Pointer, base of global data segment
+
+每条MIPS指令都是 32bit ( 4Byte ) 指令，所以单条指令无法容纳32位地址，这种情况下MIPS需要传递一对指令才能使用一个完整的指针。另一方面说，单条指令可以容纳一组寄存器、有符号的16位偏移量（有符号数）。因此任何一条指令都可以访问的取值范围为"寄存器 - 32768 \~ 寄存器 + 32767"，总共 64KB。
+
+- **全局指针寄存器**：为了简化操作，MIPS保留了一个专用的寄存器，并且把数据分配到一个大小为64KB的内存数据空间中。这种专用寄存器就叫全局指针寄存器
+- **全局指针寄存器的值**：指向64KB（静态）数据空间的正中间
+- 这64KB空间通常用于存储全局变量，以及 `printf` 这类由外部导入的外部函数地址
+- 在ELF格式文件中，这个64KB的静态数据位于 `.sbss`(small BSS/ Block Started by Symbol) 和 `.sdata`(small data)之中。用于存储有初始化数值的数据
+- 根据这种数据布局，编程人员可能会把全局指针和MS-DOS内存或MS-DOS的XMS、EMS内存管理器联系起来。这些内存管理方式都把数据的内存存储空间划分为数个64KB区间
+- 为了使用`$gp`，编译器在编译时必须知道一个数据是否在 `gp`的64K范围之内
+
+#### Optimizing GCC
+
+```assembly
+$LC0:                         ; MIPS 指令清单3.18 Optimizing GCC 4.4.5 汇编输出
+; \000 is zero byte in octal base(8进制):
+    .ascii "Hello, world!\012\000" ; \012 = 0x0A = LF
+main:
+; function prologue 函数序言
+; set the GP($28): 初始化全局指针寄存器GP寄存器的值，并把它指向64KB数据段的正中央
+    lui   $28, %hi(__gnu_local_gp) ;lui: Load Upper Immediate 读取一个16bit立即数放入寄存器高16bit，低16bit补0; $28=$gp 全局指针
+    addiu $sp, $sp, -32 ; 结果, 操作数1, 操作数2; sp=sp-32; SP通常被调整到这个被调用的子函数需要的堆栈的最低的地方，从而编译器可以通过相对於sp的偏移量来存取堆栈上的堆栈变量
+    addiu $28, $28, %lo(__gnu_local_gp)
+; save the RA to the local stack; 注意该指令后有一条指令在GCC的汇编输出看不到
+    sw    $31, 28($sp) ; $31=$ra函数返回地址; 将RA寄存器的值存储于本地数据栈sp+28 且$sp自动抬栈
+; load the address of the puts() function from the GP to $25 
+    lw    $25, %calll6(puts)($28) ; 将puts()函数地址通过load word指令加载到$25寄存器
+; load the address of the text string to $4 ($a0)
+    lui   $4, %hi($LC0) ; $4=$a0 在调用函数时传递函数参数; Load Upper Immediate 将字符串高16bit地址加载到$4寄存器
+; jump to puts(), saving the return address in the link register: 写入RA寄存器的值是PC+8, 即addiu后面的lw指令的地址
+    jalr  $25 ; Jump and Link Register 跳转到$25中的地址(puts函数启动地址)并把下一条lw指令(不是指addiu)的地址存储于$31($RA); 
+    addiu $4, $4, %lo($LC0) ; branch delay slot分支延迟槽; 先于jalr指令先执行; 将$LC0低16bit与$4相加; 至此 $4存储的是$LC0 字符串的地址
+; restore the RA
+    lw    $31, 28($sp) ; 从本地栈恢复当前函数的$ra ; 与前面的 sw $31, 28($sp) 对应; 这条指令不位于callee的函数尾声
+; copy 0 from $zero to $v0
+    move  $2, $0 ; 将$0的值赋值给$2; 有关move指令后面会详述
+; return by jumping to the RA:
+    j     $31 ; $ra ; 跳转到函数返回地址$ra; 完成从callee(指当前的这个函数)返回caller的操作，其后的addiu指令会先执行，构成函数尾声; 跳转地址= PC中原高4位 | 指令中的26位 | 00
+; function epilogue: 函数尾声
+    addiu $sp, $sp, 32 ; branch delay slot分支延迟槽; 会先于j指令先执行
+```
+
+- MIPS系统中没有在寄存器之间复制数值的(硬件)指令
+- `move  dst, src`是通过加法指令 `add  dst, src, $zero` 变相实现的，即 `dst=src+0`。两种操作等效。尽可能复用opcode，精简opcode总数
+- 然而并不代表每次运行`move`指令时CPU都会进行实际意义上的加法运算。CPU能够对这类伪指令进行优化处理，在运行它们的时候并不会用到ALU(Arithmetic Logic Unit)
+
+```assembly
+; 代码清单 3.19 Optimizing GCC4.4.5(IDA) IDA生成的指令清单
+main:
+var_10   = -0x10
+var_4    = -4
+; function prologue
+
+lui   $gp, (__gnu_local_gp >> 16) ; set the GP(step 1) ; __gnu_local_gp高16bit被写入到$gp高16bit，且$gp低16bit置0
+addiu $sp, -0x20 ; sp=sp-32; SP被调整到这个callee需要的堆栈的最低的地方
+la    $gp, (__gnu_local_gp & 0xFFFF) ; set the GP(step 2) ; Load Address 将一个地址/标签存入寄存器; $gp低16bit赋值为__gnu_local_gp低16bit
+sw    $ra, 0x20 + var_4($sp) ; save the RA to the local stack; 将RA寄存器的值存储于本地数据栈sp+28(32-4) 且$sp自动抬栈
+; save the GP to the local stack: for some reason, 这一指令在GCC汇编输出中missing
+sw    $gp, 0x20 + var_10($sp) ; 使用局部栈保存GP的值，GCC的汇编输出里看不到这条指令，可能为GCC本身的问题。严格的说，此处需要保存GP，因为每个函数都有自己的64KB数据窗口
+; load the address of the puts() function from the GP to $t9:
+lw    $t9, (puts & 0xFFFF)($gp) ; 将puts函数地址的低16bit存储到 $t9 ..... 高16bit就是gp的值???
+lui   $a0, ($LC0 >> 16) # "Hello, world!" ; 将$LC0的高16bit写入到$a0的高16bit
+; jump to puts(), saving the return address in the link register:
+jalr  $t9 ; 跳转到$t9中的地址(puts地址)并且把下一条lw指令(不是指la)的地址存储于$31($RA); 写入RA寄存器的值是PC+8, 即la后面的lw指令的地址
+la    $a0, ($LC0 >> 16) # "Hello, world!" ; 将$LC0的低16bit写入到$a0的低16bit; 这条指令先于jalr执行，之后a0存储的为$LC0的值
+lw    $ra, 0x20 + var_4($sp) ; 从本地栈恢复当前函数的$ra ; 与前面的 sw $ra, 0x20 + var_4($sp) 对应; 这条指令不位于函数尾声
+move  $v0, $zero ; 将v0寄存器置0
+jr    $ra ; 跳转到函数返回地址$ra; 完成从callee(指当前的这个函数)返回caller的操作; 其后的指令先执行
+; function epilogue: 函数尾声
+addiu $sp, 0x20 ; 注意这里由于 源操作数1 与 目标寄存器 相同，IDA省略了; 实际上: addiu $sp, $sp, 0x20
+```
+
+> #### 3.5.4 栈帧
+>
+> 本例使用寄存器来传递文本字符串的地址(`$LC0`)，但是它同时设置了局部栈。
+>
+> 这是由于程序在调用`printf`时，由于必须保存`$ra, $gp`的值，故出现了数据栈。
+>
+> 如果此函数是叶函数，它有可能不会出现函数的序言和尾声(参加2.3节)
 
 
 
@@ -562,6 +715,34 @@ mov  x0, #0x0              ; 返回的是64bit的0 X0寄存器的64bit都是0
       - Auto comments: 可以显示汇编指令的含义e.g.  `li  $a3, 0x10019C80 # Load Immediate`
 
 
+
+
+
+## Shortcut Quick Find
+
+| Key      | Function                                    |
+| -------- | ------------------------------------------- |
+| space    | 切换显示方式                                |
+| C        | 转换为代码                                  |
+| D        | 转换为数据                                  |
+|          |                                             |
+|          |                                             |
+|          |                                             |
+| N        | 为标签重命名(包含寄存器等)                  |
+| ?        | 计算器                                      |
+| G        | 跳转到地址(然后会出来Jump to address对话框) |
+| ;        | 添加注释                                    |
+| ctrl+X   | 查看当前函数、标签、变量的参考(显示栈)      |
+| X        | 查看当前函数、标签、变量的参考              |
+| Alt + I  | 搜索常量constant                            |
+| Ctrl + I | 再次搜索常量constant                        |
+| Alt + B  | 搜索byte序列                                |
+| Ctrl + B | 再次搜索byte序列                            |
+| Alt + T  | 搜索文本(包括指令中的文本)                  |
+| Ctrl + T | 再次搜索文本                                |
+| Alt + P  | 编辑当前函数                                |
+| Enter    | 跳转到函数、变量等对象                      |
+| Esc      | 返回                                        |
 
 
 
@@ -584,6 +765,7 @@ mov  x0, #0x0              ; 返回的是64bit的0 X0寄存器的64bit都是0
 - 在变量处右键，可以选择改成不同的数据表现形式
 
 ```cpp
+while ( v4 != 1LL && v4 != -1LL ); // LL for long long // v4 is __int64
 v7 = 28537194573619560LL; // 右键，可以选择改成Char Enum Hex等
 v7 = 'ebmarah'; // 改成Char之后
 ```
