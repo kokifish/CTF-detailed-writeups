@@ -355,7 +355,7 @@ f PROC
 
 
 
-## 3 Hello, world!
+## 3. Hello, world!
 
 
 
@@ -643,7 +643,7 @@ main:
 ; function prologue 函数序言
 ; set the GP($28): 初始化全局指针寄存器GP寄存器的值，并把它指向64KB数据段的正中央
     lui   $28, %hi(__gnu_local_gp) ;lui: Load Upper Immediate 读取一个16bit立即数放入寄存器高16bit，低16bit补0; $28=$gp 全局指针
-    addiu $sp, $sp, -32 ; 结果, 操作数1, 操作数2; sp=sp-32; SP通常被调整到这个被调用的子函数需要的堆栈的最低的地方，从而编译器可以通过相对於sp的偏移量来存取堆栈上的堆栈变量
+    addiu $sp, $sp, -32 ; sp=sp-32; SP通常被调整到这个被调用子函数需要的堆栈的最低处，从而编译器可以通过相对于sp的偏移量来存取堆栈上的堆栈变量
     addiu $28, $28, %lo(__gnu_local_gp)
 ; save the RA to the local stack; 注意该指令后有一条指令在GCC的汇编输出看不到
     sw    $31, 28($sp) ; $31=$ra函数返回地址; 将RA寄存器的值存储于本地数据栈sp+28 且$sp自动抬栈
@@ -659,7 +659,7 @@ main:
 ; copy 0 from $zero to $v0
     move  $2, $0 ; 将$0的值赋值给$2; 有关move指令后面会详述
 ; return by jumping to the RA:
-    j     $31 ; $ra ; 跳转到函数返回地址$ra; 完成从callee(指当前的这个函数)返回caller的操作，其后的addiu指令会先执行，构成函数尾声; 跳转地址= PC中原高4位 | 指令中的26位 | 00
+    j     $31 ; $ra ; 跳转到函数返回地址$ra; 从callee(指当前的这个函数)返回到caller，其后的addiu会先执行，构成函数尾声; 跳转地址= PC中原高4位 | 指令中的26位 | 00
 ; function epilogue: 函数尾声
     addiu $sp, $sp, 32 ; branch delay slot分支延迟槽; 会先于j指令先执行
 ```
@@ -701,6 +701,46 @@ addiu $sp, 0x20 ; 注意这里由于 源操作数1 与 目标寄存器 相同，
 > 这是由于程序在调用`printf`时，由于必须保存`$ra, $gp`的值，故出现了数据栈。
 >
 > 如果此函数是叶函数，它有可能不会出现函数的序言和尾声(参加2.3节)
+
+
+
+
+
+
+
+## 4. 函数序言和函数尾声
+
+> function prologue and function epilogue
+
+- 函数序言 function prologue 是函数在启动的时候运行的一系列指令，其汇编指令大致如下：
+
+```assembly
+push ebp      ; 在栈里保存EBP寄存器的内容
+mov  ebp, esp ; 将ESP的值复制到EBP寄存器
+sub  esp, X   ; 修改栈的高度，以便为本函数的局部变量申请存储空间
+```
+
+- 在函数执行期间，EBP寄存器不受函数运行的影响，EBP是函数访问局部变量和函数参数的基准值
+- 虽然也可以使用ESP寄存器来存储局部变量和运行参数，但是ESP寄存器的值总是会发生变化，使用起来并不方便
+- 函数在退出时，要做启动过程的反操作，释放栈中申请的内存，还原EBP寄存器的值，将代码控制权还原给调用者函数(callee??? 疑似错误 应该为caller吧)
+
+```assembly
+mov  esp, ebp ; 还原esp的值
+pop  ebp      ; 还原ebp的值
+ret  0
+```
+
+- 借助函数序言和函数尾声的有关特征，可以在汇编语言里识别各个函数
+
+> 递归调用：函数序言和尾声都会调整数据栈，受硬件IO性能影响，所有递归函数的性能都不太理想。详见36.3节
+
+
+
+# 5. 栈 Stack
+
+
+
+
 
 
 
@@ -751,6 +791,8 @@ addiu $sp, 0x20 ; 注意这里由于 源操作数1 与 目标寄存器 相同，
 ## IDA View
 
 - 在IDA Pro中，IDA View界面按F5，将反汇编为伪代码Pseudocode
+- 按空格space可以在Text view和Graph view之间转换
+- 程序基本信息：在Text view下，拉到最前面。可看到的信息：大/小端序，架构，文件名...
 
 
 
