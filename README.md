@@ -9,6 +9,7 @@ This REPO is devoted to writing very detailed writeups so that CTF beginners (in
 
 updating
 
+- https://ctftime.org/event/list/upcoming   upcoming CTF
 - https://github.com/firmianay/CTF-All-In-One
 - https://github.com/ctf-wiki/ctf-wiki
 - https://github.com/MOCSCTF/CTF-Write-UP

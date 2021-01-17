@@ -142,7 +142,11 @@ $ hexdump -C ./_temp2.zip.extracted/partab.enc # 256字节
 
 ## find private key & gif analysis
 
-> `identify a.gif` 获取一个或多个图像文件的格式和特性
+- `identify a.gif` 获取一个或多个图像文件的格式和特性
+
+> `identify` (provided by `imagemagick`) installation:
+>
+> Kali: `sudo apt install imagemagick`
 
 ```python
 $ identify -verbose Question.gif
