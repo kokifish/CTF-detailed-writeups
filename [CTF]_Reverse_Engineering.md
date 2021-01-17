@@ -736,7 +736,7 @@ ret  0
 
 
 
-# 5. 栈 Stack
+## 5. 栈 Stack
 
 
 
@@ -771,7 +771,7 @@ ret  0
 | N        | 为标签重命名(包含寄存器等)                  |
 | ?        | 计算器                                      |
 | G        | 跳转到地址(然后会出来Jump to address对话框) |
-| ;        | 添加注释                                    |
+| ;        | 添加注释(Pseudocode窗口下按 / 添加注释)     |
 | ctrl+X   | 查看当前函数、标签、变量的参考(显示栈)      |
 | X        | 查看当前函数、标签、变量的参考              |
 | Alt + I  | 搜索常量constant                            |
@@ -790,11 +790,19 @@ ret  0
 
 ## IDA View
 
-- 在IDA Pro中，IDA View界面按F5，将反汇编为伪代码Pseudocode
-- 按空格space可以在Text view和Graph view之间转换
 - 程序基本信息：在Text view下，拉到最前面。可看到的信息：大/小端序，架构，文件名...
 
-
+| Short Cut | Function                                                   |
+| --------- | ---------------------------------------------------------- |
+| F5        | 反汇编为伪代码Pseudocode                                   |
+| space     | 在Text view和Graph view显示模式之间切换                    |
+| a         | 转换显示形式为char (如在.rodata段将一些整型转换成char显示) |
+| x         | Jump to xref to operand... 将打开                          |
+|           |                                                            |
+|           |                                                            |
+|           |                                                            |
+|           |                                                            |
+|           |                                                            |
 
 
 

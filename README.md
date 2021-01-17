@@ -17,6 +17,8 @@ updating
 - https://www.ichunqiu.com/
 - https://www.bugbank.cn/
 - https://blog.knownsec.com/Knownsec_RD_Checklist/index.html 
+- https://github.com/CHYbeta/Web-Security-Learning   web
+- https://github.com/CHYbeta/Software-Security-Learning  pwm
 
 # Contacts
 
