@@ -1,4 +1,4 @@
-git pull;
+git pull origin main;
 git add .;
 var=`date "+%Y-%m-%d_%H:%M:%S"`
 # echo $var
