@@ -748,6 +748,8 @@ ret  0
 
 # IDA Pro
 
+> 入门笔记 含快捷键 窗口介绍  https://www.zybuluo.com/oro-oro/note/137244
+
 - 查看版本号与逆编译器版本 Help => About program => `Version 7.5.201028 Windows x64 (32-bit address size)` => Addons => 32 bit: `e.g. x86 ARM PowerPC MIPS Decompiler`
 - Option:
   - General:
