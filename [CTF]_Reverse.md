@@ -16,7 +16,7 @@
 - 熟悉多种编译器的编译原理
 - 较强的程序理解和逆向分析能力
 
-常规逆向流程 
+## workflow
 
 1. 使用`strings/file/binwalk/IDA`等静态分析工具收集信息，并根据这些静态信息进行google/github搜索
 2. 研究程序的保护方法，如代码混淆，保护壳及反调试等技术，并设法破除或绕过保护
@@ -274,6 +274,8 @@ var int digest := h0 append h1 append h2 append h3 //(expressed as little-endian
 # Windows Reverse
 
 
+
+- 疑似用python生成的exe文件 可以直接运行 文件较大的 急需补充背景知识
 
 
 
