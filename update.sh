@@ -11,7 +11,6 @@ echo "[Step-2] git pull origin main:"
 git pull origin main;
 
 echo 
-echo 
 echo "=== [WARNING] If conflict occured, related files will show below: ========="
 git status
 echo "=== [WARNING] Fix by hands if conflict exits. Then [RE-RUN] this script ==="
