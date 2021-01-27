@@ -10,9 +10,9 @@ git pull -v origin main;
 
 echo 
 echo 
-echo "[WARNING] If conflict occured, related files will show below: ============="
+echo "=== [WARNING] If conflict occured, related files will show below: ========"
 git status
-echo "[WARNING] Fix by hands if conflict exits. Then RE-RUN this script ========="
+echo "=== [WARNING] Fix by hands if conflict exits. Then RE-RUN this script ===="
 echo 
 
 echo "[DEBUG] git push ====================="
