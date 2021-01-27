@@ -16,7 +16,7 @@
 - 熟悉多种编译器的编译原理
 - 较强的程序理解和逆向分析能力
 
-常规逆向流程 
+## workflow
 
 1. 使用`strings/file/binwalk/IDA`等静态分析工具收集信息，并根据这些静态信息进行google/github搜索
 2. 研究程序的保护方法，如代码混淆，保护壳及反调试等技术，并设法破除或绕过保护
@@ -274,6 +274,8 @@ var int digest := h0 append h1 append h2 append h3 //(expressed as little-endian
 # Windows Reverse
 
 
+
+- 疑似用python生成的exe文件 可以直接运行 文件较大的 急需补充背景知识
 
 
 
@@ -747,6 +749,8 @@ ret  0
 ---
 
 # IDA Pro
+
+> 入门笔记 含快捷键 窗口介绍  https://www.zybuluo.com/oro-oro/note/137244
 
 - 查看版本号与逆编译器版本 Help => About program => `Version 7.5.201028 Windows x64 (32-bit address size)` => Addons => 32 bit: `e.g. x86 ARM PowerPC MIPS Decompiler`
 - Option:

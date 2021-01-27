@@ -116,7 +116,7 @@ https://www.splitbrain.org/services/ook
 #### 码安全伪随机数生成器
 
 #### 例题：woodman - Google CTF
-```py
+```python
 class SecurePrng(object):
     def __init__(self):
         # generate seed with 64 bits of entropy
