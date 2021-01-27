@@ -10,5 +10,9 @@ var=`date "+%Y-%m-%d_%H:%M:%S"`
 git commit -m $var;
 git push origin main
 
+<<<<<<< HEAD
 
 # 啥玩意儿 测试一下
+=======
+# TEST!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+>>>>>>> 8f5b5287bac47e75711454ef7f62300d41e6fbb2
