@@ -12,7 +12,7 @@ echo
 echo 
 echo "[WARNING] If conflict occured, related files will show below: ============="
 git status
-echo "[WARNING] Fix by hands if conflict exits. ================================="
+echo "[WARNING] Fix by hands if conflict exits. Then RE-RUN this script ========="
 echo 
 
 echo "[DEBUG] git push ====================="
