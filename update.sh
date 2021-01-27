@@ -3,7 +3,7 @@ git checkout main;
 # merge local master to main
 # git merge master;
 git add .;
-echo "[DEBUG] git merging"
+echo "[DEBUG] git merging ====================="
 git merge -v --no-ff -m "merge with no-ff" main
 
 var=`date "+%Y-%m-%d_%H:%M:%S"`
