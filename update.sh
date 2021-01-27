@@ -1,19 +1,21 @@
-git checkout main -q;
+echo "[Step-1] Local changes add and commit:"
 
+git checkout main -q;
 git add . -v;
 var=`date "+%Y-%m-%d_%H:%M:%S"`
 # echo $var
 git commit -am $var;
 
-echo "[DEBUG] git pull origin main START ==="
-git pull -v origin main;
+echo 
+echo "[Step-2] git pull origin main:"
+git pull origin main;
 
 echo 
 echo 
-echo "=== [WARNING] If conflict occured, related files will show below: ========"
+echo "=== [WARNING] If conflict occured, related files will show below: ========="
 git status
-echo "=== [WARNING] Fix by hands if conflict exits. Then RE-RUN this script ===="
+echo "=== [WARNING] Fix by hands if conflict exits. Then [RE-RUN] this script ==="
 echo 
-
-echo "[DEBUG] git push START ==="
-git push -v origin main
+echo 
+echo "[Step-3] git push origin main:"
+git push origin main
