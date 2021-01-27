@@ -8,9 +8,9 @@ git commit -am $var;
 echo "[DEBUG] git pull origin main START ==="
 git pull -v origin main;
 
-echo "[WARNING] If conflict occured, related files will show below:"
+echo "\n[WARNING] If conflict occured, related files will show below: ============="
 git status
-echo "[WARNING] Fix by hands if conflict exits."
+echo "[WARNING] Fix by hands if conflict exits. ================================\n"
 
 echo "[DEBUG] git push ====================="
 git push -v origin main
