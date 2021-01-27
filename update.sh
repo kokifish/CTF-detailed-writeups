@@ -9,6 +9,7 @@ var=`date "+%Y-%m-%d_%H:%M:%S"`
 # echo $var
 git commit -am $var;
 
+echo "[DEBUG] git pull ====================="
 git pull origin main;
 
 
