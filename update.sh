@@ -5,7 +5,7 @@
 git add .;
 var=`date "+%Y-%m-%d_%H:%M:%S"`
 # echo $var
-git commit -m $var;
+git commit -am $var;
 
 git pull origin main;
 git checkout main;
