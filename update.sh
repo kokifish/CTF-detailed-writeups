@@ -5,18 +5,16 @@
 git add . -v;
 var=`date "+%Y-%m-%d_%H:%M:%S"`
 # echo $var
-git commit -m $var;
+git commit -am $var;
 
 git pull origin main;
-git checkout main;
 
-echo "[DEBUG] git merging ====================="
+
+echo "[DEBUG] git merge ====================="
 git merge -v --no-ff -m "merge with no-ff" main
-
 
 git push -v origin main
 
 
-# 啥玩意儿 测试一下
 
 # In Onedrive
