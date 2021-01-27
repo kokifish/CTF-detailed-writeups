@@ -1,4 +1,7 @@
-git pull origin main;
+# git pull origin main;
+git fetch origin main;
+git checkout main;
+# git merge master
 git add .;
 var=`date "+%Y-%m-%d_%H:%M:%S"`
 # echo $var
