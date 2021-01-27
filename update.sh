@@ -1,5 +1,5 @@
-# git pull origin main;
-git fetch origin main;
+git pull origin main;
+# git fetch origin main;
 git checkout main;
 # git merge master
 git add .;
