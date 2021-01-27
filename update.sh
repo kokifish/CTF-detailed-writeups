@@ -1,8 +1,10 @@
 git pull origin main;
-# git fetch origin main;
 git checkout main;
 # git merge master
 git add .;
+
+git merge --no-ff -m "merge with no-ff" main
+
 var=`date "+%Y-%m-%d_%H:%M:%S"`
 # echo $var
 git commit -m $var;
