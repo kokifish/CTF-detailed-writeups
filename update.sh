@@ -15,5 +15,5 @@ git status
 echo "=== [WARNING] Fix by hands if conflict exits. Then RE-RUN this script ===="
 echo 
 
-echo "[DEBUG] git push ====================="
+echo "[DEBUG] git push START ==="
 git push -v origin main
