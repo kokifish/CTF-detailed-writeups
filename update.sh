@@ -12,10 +12,10 @@ git commit -am $var;
 git pull origin main;
 
 
-echo "[DEBUG] git merging ====================="
+echo "[DEBUG] git merge ====================="
 git merge -v --no-ff -m "merge with no-ff" main
 
-
+echo "[DEBUG] git push ====================="
 git push origin main
 
 
