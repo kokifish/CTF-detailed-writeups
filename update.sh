@@ -1,9 +1,10 @@
 git pull origin main;
 git checkout main;
-# git merge master
+# merge local master to main
+# git merge master;
 git add .;
 
-git merge --no-ff -m "merge with no-ff" main
+git merge -v --no-ff -m "merge with no-ff" main
 
 var=`date "+%Y-%m-%d_%H:%M:%S"`
 # echo $var
