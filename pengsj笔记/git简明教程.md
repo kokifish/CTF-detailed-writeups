@@ -18,7 +18,7 @@
 
 `git clone username@host:repository`
 
-![image-20210124094437026](/Users/jackson/Library/Application Support/typora-user-images/image-20210124094437026.png)
+![image-20210124094437026](images/image-20210124094437026.png)
 
 
 
