@@ -1,9 +1,3 @@
-
-
-
-
-
-
 # Reverse Engineering Introduction
 
 - 软件代码逆向主要指对软件的结构，流程，算法，代码等进行逆向拆解和分析
@@ -314,8 +308,6 @@ int main(int argc, char *argv[]){
 ```
 
 ![](https://raw.githubusercontent.com/hex-16/pictures/master/Code_pic/RE_function_call_function_stack_layout.png)
-
-
 
 
 

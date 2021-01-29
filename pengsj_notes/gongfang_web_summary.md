@@ -1,5 +1,8 @@
+<<<<<<< HEAD:pengsj_notes/gongfang_web_summary.md
 
 
+=======
+>>>>>>> 7cc188b222c87ee27f5d36ce08acbfbb9d8b3c49:pengsj笔记/gongfang_web_例题分析综合版.md
 - `GET`命令通过`perl`执行，`perl`在`open`当中可以执行命令，`open(FD,'ls|')`或者`open(FD,'|ls')`，前提是文件需要存在，所以使用`GET`命令的执行shell脚本命令时，需要先创建文件夹，例如使用`GET`执行`ls`命令，就需要先创建`'ls|'`（注意后面的`|`），`touch 'ls|'`,然后`GET ‘file:ls|'`，这个命令和直接在命令行执行`ls`获得的结果是一样的。
 
 <img src="images\image-20201129150737662.png" alt="image-20201129150737662"  />
@@ -37,7 +40,7 @@
 
 发现存在`robots.txt`文件，进入看:
 
-![img](images\41T8]AG5%2{@QW5N$%]}~CK.png)
+![](images/firefox_robot.png)
 
 - 网上说是源码**git源码泄露**问题，使用**GitHack**工具将源码下载到本地：
 
