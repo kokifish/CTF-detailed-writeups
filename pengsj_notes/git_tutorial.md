@@ -18,7 +18,7 @@
 
 `git clone username@host:repository`
 
-![image-20210124094437026](images/image-20210124094437026.png)
+<img src="images/image-20210124094437026.png" alt="image-20210124094437026" style="zoom:67%;" />
 
 
 

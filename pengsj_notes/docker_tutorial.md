@@ -1,8 +1,3 @@
----
-typora-copy-images-to: ./images
-typora-root-url: ../md学习文件
----
-
 # docker容器
 
 ## 在容器内运行一个应用程序

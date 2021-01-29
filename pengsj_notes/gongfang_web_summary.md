@@ -1,7 +1,4 @@
----
-typora-copy-images-to: ../Desktop/md学习文件
-typora-root-url: ../Desktop/md学习文件
----
+
 
 - `GET`命令通过`perl`执行，`perl`在`open`当中可以执行命令，`open(FD,'ls|')`或者`open(FD,'|ls')`，前提是文件需要存在，所以使用`GET`命令的执行shell脚本命令时，需要先创建文件夹，例如使用`GET`执行`ls`命令，就需要先创建`'ls|'`（注意后面的`|`），`touch 'ls|'`,然后`GET ‘file:ls|'`，这个命令和直接在命令行执行`ls`获得的结果是一样的。
 
