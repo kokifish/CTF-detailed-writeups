@@ -253,7 +253,9 @@ var int digest := h0 append h1 append h2 append h3 //(expressed as little-endian
 
 
 
+### Cases
 
+- `xctf_2020` MIPS: MIPS的代码，注意IDA的版本，有的不支持MIPS decompile。用了三张地图，三张地图都过了之后，会输出提示`puts((int)"success! the flag is flag{md5(your input)}");` 逆向迷宫处理的主函数可知wasd控制方向，地图大小`15*15`
 
 
 
@@ -794,7 +796,7 @@ ret  0
 | space     | 在Text view和Graph view显示模式之间切换                    |
 | a         | 转换显示形式为char (如在.rodata段将一些整型转换成char显示) |
 | x         | Jump to xref to operand... 将打开                          |
-|           |                                                            |
+| shift+E   | 光标选中后，export data                                    |
 |           |                                                            |
 |           |                                                            |
 |           |                                                            |
