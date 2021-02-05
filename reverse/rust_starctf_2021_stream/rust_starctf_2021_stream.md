@@ -113,7 +113,7 @@ note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose bac
 
 - 需要注意的是，IDA解析完之后，如果在main函数处直接按F5之后，伪代码很短，核心是一个跳转，而这个跳转到的函数并不是函数的主要过程
 - 找到真正的主要过程的最简单方法就是写个简单的rust hello world程序，用IDA分析，对比
-- main assembly:
+- main assembly of `task`:
 
 ```assembly
 main proc near
