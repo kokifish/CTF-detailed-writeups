@@ -4,7 +4,7 @@
 >
 > re: stream
 >
-> file: `task`, `output` (46 Bytes).    note: `output_ori` is the original `output` file
+> file: `task`, `output` (46 Bytes).    note: `output_ori` is the original `output` file, used by python script.
 >
 > original writeup: https://github.com/sixstars/starctf2021/tree/main/re-stream
 >
@@ -398,6 +398,7 @@ se(0)
 - 这次分析颇有事后诸葛亮之嫌，看了解题脚本和rust源码后才开始在IDA分析的，但是仍旧很困难。主要在于逆向出来的伪C有很多对逻辑理解冗余的语句，至于是否真的冗余就得看汇编验证了。经验：由核心语句出发，**双向梳理**，核心语句包括文件读写，异或，函数传参等
 - 猜测要大胆，验证要小心，事后分析时间固然多，但是做题时，要更多的偏向猜测，也要大胆推翻猜测
 - 之前做题时，没有分析出是少了个`flag`文件（即使找到了`flag`字符串），还花了很多时间了解rust环境，randchacha的安装，对rust了解少也是做不出的主因之一
+- 事后诸葛：汇编/伪C分析不出逻辑其实都没关系的，只要文件能运行起来（指分析出缺`flag`文件），可以通过脚本尝试运行特殊的`flag`来找规律，也能推演出加密的逻辑
 
 
 

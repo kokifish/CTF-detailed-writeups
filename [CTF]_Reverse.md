@@ -259,6 +259,14 @@ var int digest := h0 append h1 append h2 append h3 //(expressed as little-endian
 
 
 
+# pyc Reverse
+
+> `.pyc`文件
+
+
+
+
+
 # Linux Reverse
 
 
