@@ -1,16 +1,15 @@
 
 
-> 攻防世界 web高手进阶区 facebook
+> 攻防世界 web高手进阶区 fakebook
 >
 > original writeup：https://blog.csdn.net/mochu7777777/article/details/104868401
 >
 > 待办事项：
 >
-> - [ ] SSRF漏洞
-> - [ ] 服务器端请求伪造漏洞
-> - [ ] waf检测
-> - [ ] 反序列化file文件协议
-> - [ ] /**/绕过方法
+> - [x] SSRF（服务器端请求伪造）漏洞
+> - [x] waf检测
+> - [x] 反序列化file文件协议
+> - [x] /**/绕过方法
 
 - 题目描述：
 
@@ -71,6 +70,8 @@
     `and updatexml(1,make_set(3,'~',(select group_concat(column_name) from information_schema.columns where table_name='users')),1)` 
 
     ![image-20210129225340941](images/image-20210129225340941.png)
+
+    字段名有no，username，passwd，data……
 
   - **查询数据data内容：**
 
