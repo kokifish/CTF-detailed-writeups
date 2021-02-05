@@ -294,3 +294,32 @@ flag就拿到了。
 
 `ctf{f22b6844-5169-4054-b2a0-d95b9361cb57}`
 
+## 七. SSTI模块注入
+
+> 题目来源：攻防世界 web 高手进阶区 shrine
+>
+> 知识点涉及：
+>
+> - [ ] SSTI模块注入
+> - [ ] flask框架
+
+一. 题目描述：
+
+![image-20210205165415902](images/image-20210205165415902.png)
+
+是一段没有修饰的python代码，直接查看网页源代码：
+
+![image-20210205165455803](images/image-20210205165455803.png)
+
+这题用的知识就是flask框架和SSTI模板注入漏洞问题，探测漏洞：
+
+![image-20210205165812238](images/image-20210205165812238.png)
+
+可以看到用户输入被当作代码执行了，接下来构造下面的payload，获取flag：
+
+(用到flask框架的知识和SSTI模块注入)
+
+`**shrine/{{get_flashed_messages.__globals__['current_app'].config['FLAG']}}**`
+
+![image-20210205165936762](images/image-20210205165936762.png)
+
