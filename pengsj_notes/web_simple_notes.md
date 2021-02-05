@@ -45,6 +45,33 @@ ThinkPHP远程代码执行：
 
 
 
+## Get命令 
+
+- `GET`命令通过`perl`执行，`perl`在`open`当中可以执行命令，`open(FD,'ls|')`或者`open(FD,'|ls')`，前提是文件需要存在，所以使用`GET`命令的执行shell脚本命令时，需要先创建文件夹，例如使用`GET`执行`ls`命令，就需要先创建`'ls|'`（注意后面的`|`），`touch 'ls|'`,然后`GET ‘file:ls|'`，这个命令和直接在命令行执行`ls`获得的结果是一样的。
+
+<img src="/Users/jackson/Documents/ctf/pengsj_notes/images/image-20201129150737662.png" alt="image-20201129150737662"  />
+
+- 可以先在服务器上写上反弹shell命令
+  1. 靶机请求页面写入文件当作脚本
+  2. 创建bash命令文件
+  3. `perl`漏洞执行反弹获取shell
+
+- `GET`可以读取文件`GET ./filename`，读取根目录`GET /`
+
+> 暂且不知道是什么：
+>
+> d2eeea69938b284db9fd454a4f1483f4
+>
+> 9872edb0e32d04659381b860b130a2b7
+>
+> 3b002f7b524b83f6c68cb45b0b217338
+
+## URL编码与解码
+
+给服务器传递url的时候，会对传递的参数进行url解码一次，有些网页源代码会将解码后的结果再解码一次，这就要求我们构造原字符两次编码之后的结果再进行传递。
+
+
+
 
 
 
