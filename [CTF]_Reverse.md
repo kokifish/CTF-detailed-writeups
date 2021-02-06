@@ -12,7 +12,7 @@
 
 ## workflow
 
-1. 使用`strings/file/binwalk/IDA`等静态分析工具收集信息，并根据这些静态信息进行google/github搜索
+1. 使用`exeinfope/PEiD/strings/file/binwalk/IDA`等静态分析工具收集信息，并根据这些静态信息进行google/github搜索
 2. 研究程序的保护方法，如代码混淆，保护壳及反调试等技术，并设法破除或绕过保护
 3. 反汇编目标软件，快速定位到关键代码进行分析
 4. 结合动态调试，验证自己的初期猜想，在分析的过程中理清程序功能
@@ -40,6 +40,39 @@ Base64 是一种基于 64 个可打印字符来表示二进制数据的表示方
 通常而言 Base64 的识别特征为索引表，当我们能找到 `ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/` 这样索引表，再经过简单的分析基本就能判定是 Base64 编码。
 
 有些题目 base64 的索引表是会变的，一些变种的 base64 主要 就是修改了这个索引表
+
+
+
+#### Bash64: python
+
+```python
+str_ori = "abcd"
+bytes_str = str_ori.encode("utf-8")  
+str_b64 = base64.b64encode(bytes_str) # b64encode # 被编码的参数必须是二进制数据 
+
+str_result = base64.b64decode(str_b64).decode("utf-8") # 连用 b64解码后按utf-8解析
+```
+
+
+
+- case: 将bash64编码进行解码后，逆向一个加密算法的过程
+
+```python
+import base64
+correct = 'XlNkVmtUI1MgXWBZXCFeKY+AaXNt'
+def decode(message):
+    message = base64.b64decode(message) # base64 to byte
+    print(type(message), message)
+    s = ''
+    for i in message:
+        x = ord(chr(i))
+        x = x - 16
+        x = x ^ 32
+        s += chr(x)
+    return s
+
+print(decode(correct))
+```
 
 
 
@@ -262,6 +295,49 @@ var int digest := h0 append h1 append h2 append h3 //(expressed as little-endian
 # pyc Reverse
 
 > `.pyc`文件
+>
+> ctf-wiki中将pyc归类为misc，但是在adworld中pyc在reverse中出现
+>
+> https://www.zhihu.com/question/30296617  知乎 Python什么情况下会生成pyc文件？
+
+- pyc文件是由.py文件经过编译后生成的**字节码文件**(二进制文件)，其加载速度相对于.py文件有所提高，可以实现源码隐藏，一定程度上的反编译。e.g. Python3.3编译生成的.pyc文件，Python3.4无法运行
+- pyo文件也是优化编译后的程序（相比于.pyc文件更小），也可以提高加载速度。但对于嵌入式系统，它可将所需模块编译成.pyo文件以减少容量
+- `Python` 是一种全平台的解释性语言，全平台其实就是 `Python` 文件在经过解释器解释之后 (或者称为编译) 生成的 `pyc` 文件可以在多个平台下运行，这样同样也可以隐藏源代码。其实， `Python` 是完全面向对象的语言， `Python` 文件在经过解释器解释后生成字节码对象 `PyCodeObject` ， `pyc` 文件可以理解为是 `PyCodeObject` 对象的持久化保存方式
+- 而 `pyc` 文件只有在文件被当成模块导入时才会生成。也就是说， `Python` 解释器认为，只有 `import` 进行的模块才需要被重用。 生成 `pyc` 文件的好处显而易见，当我们多次运行程序时，不需要重新对该模块进行重新的解释。主文件一般只需要加载一次，不会被其他模块导入，所以一般主文件不会生成 `pyc` 文件。
+- `python path/to/projectDir` 程序运行结束后便自动为当前目录下所有的脚本生成字节码文件，并保存于本地新文件夹`__pycache__`当中
+- `python path/to/projectDir/__main__.py`生成除`__main__.py`外脚本的字节码文件
+
+> -O，表示优化生成.pyo字节码（这里又有“优化”两个字，得注意啦！）
+> -OO，表示进一步移除-O选项生成的字节码文件中的文档字符串（这是在作用效果上解释的，而不是说从-O选项得到的文件去除）
+> -m，表示导入并运行指定的模块
+
+```python
+# 生成pyc文件：
+python -m py_compile /path/to/a.py #若批量处理.py文件则替换为/path/to/{a, b,...}.py 或 /path/to/
+# 生成pyo文件：
+python -O -m py_compile /path/to/a.py
+```
+
+```python
+# 生成pyc文件 python脚本版：
+import py_compile
+py_compile.compile(r'/path/to/a.py') #同样也可以是包含.py文件的目录路径
+#此处尽可能使用raw字符串，从而避免转义的麻烦。比如，这里不加“r”的话，你就得对斜杠进行转义
+```
+
+- 无论是生成.pyc还是.pyo文件，都将在当前脚本的目录下生成一个含有字节码的文件夹`__pycache__`
+
+## uncompyle6
+
+- 原生python的跨版本反编译器和fragment反编译器，是decompyle、uncompyle、uncompyle2等的接替者
+- uncompyle6可将python字节码转换回等效的python源代码，它接受python 1.3版到3.8版的字节码，这其中跨越了24年的python版本，此外还包括Dropbox的Python 2.5字节码和一些PyPy字节码
+
+> https://github.com/rocky/python-uncompyle6 github repo
+
+```python
+pip install uncompyle6 # install in Linux
+uncompyle6 -o out.py task.pyc # pyc to py
+```
 
 
 
@@ -752,6 +828,8 @@ ret  0
 
 # IDA Pro
 
+> 静态分析
+>
 > 入门笔记 含快捷键 窗口介绍  https://www.zybuluo.com/oro-oro/note/137244
 
 - 查看版本号与逆编译器版本 Help => About program => `Version 7.5.201028 Windows x64 (32-bit address size)` => Addons => 32 bit: `e.g. x86 ARM PowerPC MIPS Decompiler`
@@ -838,4 +916,42 @@ v7 = 'ebmarah'; // 改成Char之后
 .rodata:0000000000400965 aYouEnteredTheC db 'You entered the correct password!',0Ah
 .rodata:0000000000400965                                         ; DATA XREF: sub_4007F0+8↑o
 ```
+
+
+
+
+
+#  Dynamic Analysis
+
+> 动态分析 实践部分
+
+
+
+
+
+## gdb
+
+```bash
+sudo apt-get install gdb
+```
+
+
+
+```bash
+gdb ./a # 将文件加载到gdb中
+b decrypt # 将断点设置在decrypt处
+r # 运行(会在断点处停止)
+n # 运行一步
+x/200wx $eax # x: 查看内存中数值 200表示查看200个 wx以word字节查看 $eax代表eax寄存器中的值
+```
+
+
+
+```python
+# 查看完内存后 可能需要将内存中显示的16进制数转换为字符串
+key = "393434377b"
+flag = key.decode('hex') # hex to str
+```
+
+
 
