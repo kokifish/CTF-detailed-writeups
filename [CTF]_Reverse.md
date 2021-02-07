@@ -428,7 +428,25 @@ int main(int argc, char *argv[]){
 
 
 
+# Assembly Quick Find
 
+> http://c.biancheng.net/view/3560.html
+>
+> 这里仅记录较重要 / 少见 / IDA开启Auto comments后仍可能不清楚功能 的汇编指令
+
+| Instructions       | Comments                                      |
+| ------------------ | --------------------------------------------- |
+| test al, 00001001b | 测试0, 3bit是否置1，全都置0时，ZF=1，否则ZF=0 |
+| test eax, eax      | 如果eax为0，ZF=1; 否则ZF=0                    |
+|                    |                                               |
+|                    |                                               |
+|                    |                                               |
+|                    |                                               |
+|                    |                                               |
+|                    |                                               |
+|                    |                                               |
+
+> `int 3` https://blog.csdn.net/trochiluses/article/details/20209593
 
 
 
@@ -436,7 +454,7 @@ int main(int argc, char *argv[]){
 
 # **Reverse Engineering for Beginners**
 
-> 逆向工程权威指南 [乌克兰]Dennis Yurichev 著, Archer安天安全研究与应急处理中心 译
+> 主要内容摘自 **逆向工程权威指南** [乌克兰]Dennis Yurichev 著, Archer安天安全研究与应急处理中心 译
 
 
 
@@ -494,15 +512,15 @@ EXTRN	_printf:PROC
 ; Function compile flags: /0dtp
 _TEXT	SEGMENT
 _main	PROC       ; 函数序言function prologue
-		push	ebp      ; 把ebp的值入栈 将 caller 的 ebp 入栈
-		mov		ebp, esp ; 把esp的值保存在ebp中，此时ebp的值被改变了
-		push	OFFSET $SG3830 ; 把字符串$SG3830指针入栈
-		call	_printf  ; printf结束后，程序的控制流会返回到main()函数中，此时字符串$SG3830指针仍残留在数据栈中，需要调整栈指针ESP来释放这个指针
-		add		esp, 4   ; 把ESP寄存器(栈指针 Stack Pointer)里的值+4, 因为x86内存地址用32bit(4Byte)数据描述; 直接舍弃了栈里的数据($SG3830指针)
-		xor		eax, eax ; main返回值为0，由该指令计算出来 ; main函数的最后一项任务是使EAX的值为0
-		pop		ebp      ; 把栈中保存的ebp的旧值pop出来赋值给ebp, 还原caller的ebp
-		ret		0        ; 将控制权交给调用程序，通常起到的作用是将控制权交给操作系统，这部分功能由C/C++的CRT实现
-_main ENDP             ; 数尾声function epilogue
+    push ebp      ; 把ebp的值入栈 将 caller 的 ebp 入栈
+    mov  ebp, esp ; 把esp的值保存在ebp中，此时ebp的值被改变了
+    push OFFSET $SG3830 ; 把字符串$SG3830指针入栈
+    call _printf  ; printf结束后，程序的控制流会返回到main()函数中，此时字符串$SG3830指针仍残留在数据栈中，需要调整栈指针ESP来释放这个指针
+    add  esp, 4   ; 把ESP寄存器(栈指针 Stack Pointer)里的值+4, 因为x86内存地址用32bit(4Byte)数据描述; 直接舍弃了栈里的数据($SG3830指针)
+    xor  eax, eax ; main返回值为0，由该指令计算出来 ; main函数的最后一项任务是使EAX的值为0
+    pop  ebp      ; 把栈中保存的ebp的旧值pop出来赋值给ebp, 还原caller的ebp
+    ret  0        ; 将控制权交给调用程序，通常起到的作用是将控制权交给操作系统，这部分功能由C/C++的CRT实现
+_main ENDP  ; 函数尾声function epilogue
 _TEXT ENDS
 ```
 
@@ -1005,4 +1023,86 @@ flag = key.decode('hex') # hex to str
 ```
 
 
+
+
+
+## OllyDbg
+
+> Shareware/Freeware	http://www.ollydbg.de/  v2.01 (27-Sep-2013), v1.10 是v1.x的最终版，v2彻底重写
+>
+> windows的 32bit  x86 汇编级分析调试器, Ring3
+>
+> 吾爱破解论坛上有包含很多插件的v1.1汉化版
+
+- 标题栏 module a: 表示当前在a.exe代码内
+- 菜单栏File下方一栏左边: 显示当前状态，paused一般是到了断点
+- 反汇编窗口（左上）：显示反汇编代码。标题栏上的地址、HEX 数据、反汇编、注释可以通过在窗口中右击出现的菜单 界面选项->隐藏标题 或 显示标题 来进行切换是否显示。用鼠标左键点击注释标签可以切换注释显示的方式
+- 信息窗口（在反汇编窗口下方）：显示选中的第一条指令及跳转目标地址、字串等
+- 寄存器窗口（右上）：显示当前所选线程的 CPU 寄存器内容。点击标签 寄存器 (FPU) 可以切换显示方式
+- 数据窗口（左下）：内存/文件的内容。右键菜单可切换显示方式
+- 堆栈窗口（右下）：显示当前线程的堆栈
+
+
+
+- View =>
+  - Executable modules: 查看可执行模块。右键用户程序 => View names 查看某个模块用到的函数。在函数处右键可以Find references to import(enter)，出现新窗口显示引用到该函数的地址与指令，双击跳转到对应汇编指令处
+- Option => 
+  - Appearance => Directories: 修改udd, plugins 路径。UDD 目录的作用是保存调试工作
+  - Debugging options: 修改调试选项，包括异常、字符串等
+
+
+
+- 配置：od将所有配置放在安装目录的ollydbg.ini中
+- 插件：将下载的插件(e.g. dll)复制到`plugin`文件夹，od启动时会自动识别。但不可超过32个否则会出错
+
+
+
+### shortcut / cmd
+
+| shortcut  | functionality                                                |
+| --------- | ------------------------------------------------------------ |
+| F2        | 设置/删除断点(光标处)                                        |
+| F8        | 单步步过。执行一条指令，call等子过程不进入                   |
+| F7        | 单步步入。遇到call等子过程会进入，进入后停在子过程第一条指令 |
+| F4        | 运行到光标处                                                 |
+| F9        | 运行至断点处                                                 |
+| Ctrl + F9 | 执行到ret指令处暂停。常用于从系统领空返回用户程序领空        |
+| Alt + F9  | 执行到用户代码。可用于从系统领空快速返回到调试程序的领空     |
+|           |                                                              |
+|           |                                                              |
+
+
+
+### cases
+
+```python
+# 从od的汇编指令窗口复制过来的，修改过的地方的原始指令及修改原因将在注释中说明
+00F7108C    .  FF15 1460F700 call dword ptr ds:[<&KERNEL32.IsDebuggerPr>; [IsDebuggerPresent
+00F71092    .  85C0          test eax,eax # 前面在测试是否有debugger 
+00F71094       90            nop # je short 00F710B9 # 这里会导致flag处理函数被跳过
+00F71095       90            nop # 因为指令长度不同 前面改为nop后 这里会自动填充一个nop
+00F71096    >  41            inc ecx
+00F71097    .  41            inc ecx
+00F71098    .  41            inc ecx
+00F71099    .  41            inc ecx
+00F7109A       90            nop # int 3 # 中断3 软件中断
+00F7109B    .  8B55 F4       mov edx,dword ptr ss:[ebp-0xC]
+00F7109E    .  E8 5DFFFFFF   call csaw2013.00F71000 ; 对flag处理的调用 # 因前面的修改，现在可以执行到这
+00F710A3       90            nop # jmp short 00F710EF # 这条指令会导致跳过第1个MessageBoxA
+00F710A4       90            nop # 自动填充 nop
+00F710A5    .  6A 02         push 0x2 ; /Style = MB_ABORTRETRYIGNORE|MB_APPLMODAL
+00F710A7    .  68 2078F700   push csaw2013.00F77820                     ; |Flag
+00F710AC    .  FF75 F4       push dword ptr ss:[ebp-0xC]                ; |Text = ""
+00F710AF    .  6A 00         push 0x0                                   ; |hOwner = NULL
+00F710B1    .  FF15 E460F700 call dword ptr ds:[<&USER32.MessageBoxA>]  ; \MessageBoxA第一次使用
+00F710B7       90            nop # jmp short 00F710CD # 这条指令会导致跳过第2个MessageBoxA
+00F710B8       90            nop # 自动填充 nop
+00F710B9    >  6A 02         push 0x2               ; /Style = MB_ABORTRETRYIGNORE|MB_APPLMODAL
+00F710BB    .  68 2078F700   push csaw2013.00F77820                     ; |Flag
+00F710C0    .  8B45 F4       mov eax,dword ptr ss:[ebp-0xC]             ; |
+00F710C3    .  40            inc eax                                    ; |
+00F710C4    .  50            push eax                                   ; |Text = 00000005 ???
+00F710C5    .  6A 00         push 0x0                                   ; |hOwner = NULL
+00F710C7    .  FF15 E460F700 call dword ptr ds:[<&USER32.MessageBoxA>]  ; \MessageBoxA
+```
 
