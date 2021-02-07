@@ -1,3 +1,5 @@
+> **Tips**: Highly recommend open with markdown editor **Typora**, and enable all *syntax support* and sidebar *Outline*.
+
 # Reverse Engineering Introduction
 
 - 软件代码逆向主要指对软件的结构，流程，算法，代码等进行逆向拆解和分析
@@ -10,12 +12,24 @@
 - 熟悉多种编译器的编译原理
 - 较强的程序理解和逆向分析能力
 
+
+
+## To-Do List
+
+- 疑似用python生成的exe文件 可以直接运行 文件较大的 急需补充背景知识
+
+
+
+
+
+
+
 ## workflow
 
 1. 使用`exeinfope/PEiD/strings/file/binwalk/IDA`等静态分析工具收集信息，并根据这些静态信息进行google/github搜索
 2. 研究程序的保护方法，如代码混淆，保护壳及反调试等技术，并设法破除或绕过保护
-3. 反汇编目标软件，快速定位到关键代码进行分析
-4. 结合动态调试，验证自己的初期猜想，在分析的过程中理清程序功能
+3. 反汇编目标软件(IDA)，快速定位到关键代码进行分析
+4. 结合动态调试(gdb)，验证自己的初期猜想，在分析的过程中理清程序功能
 5. 针对程序功能，写出对应脚本，求解出 flag
 
 
@@ -292,7 +306,7 @@ var int digest := h0 append h1 append h2 append h3 //(expressed as little-endian
 
 
 
-# pyc Reverse
+## pyc Reverse
 
 > `.pyc`文件
 >
@@ -327,7 +341,7 @@ py_compile.compile(r'/path/to/a.py') #同样也可以是包含.py文件的目录
 
 - 无论是生成.pyc还是.pyo文件，都将在当前脚本的目录下生成一个含有字节码的文件夹`__pycache__`
 
-## uncompyle6
+### uncompyle6
 
 - 原生python的跨版本反编译器和fragment反编译器，是decompyle、uncompyle、uncompyle2等的接替者
 - uncompyle6可将python字节码转换回等效的python源代码，它接受python 1.3版到3.8版的字节码，这其中跨越了24年的python版本，此外还包括Dropbox的Python 2.5字节码和一些PyPy字节码
@@ -337,6 +351,25 @@ py_compile.compile(r'/path/to/a.py') #同样也可以是包含.py文件的目录
 ```python
 pip install uncompyle6 # install in Linux
 uncompyle6 -o out.py task.pyc # pyc to py
+```
+
+
+
+## Encoding
+
+> 编码相关知识 包含转换等 Base64等在别的章节
+
+### int, hex, str
+
+```python
+# python 3.5之后 str和bytes实现由重大变化，无法使用encode/decode完成，而是使用bytes.fromhex()等
+key = "39343437"
+s_key = bytes.fromhex(key)
+print(type(s_key), s_key) # <class 'bytes'> b'9447'
+h_key = s_key.hex()
+print(type(h_key), h_key) # <class 'str'> 39343437
+ord('a') # 97 # char to int, ord以Unicode字符为参数 返回对应的ASCII数值或Unicode数值
+chr(0x30) # '0' # 用一个整数作参数，返回对应的字符 # chr(97) # 'a'
 ```
 
 
@@ -354,8 +387,6 @@ uncompyle6 -o out.py task.pyc # pyc to py
 # Windows Reverse
 
 
-
-- 疑似用python生成的exe文件 可以直接运行 文件较大的 急需补充背景知识
 
 
 
@@ -403,7 +434,7 @@ int main(int argc, char *argv[]){
 
 ---
 
-# Reverse Engineering for Beginners
+# **Reverse Engineering for Beginners**
 
 > 逆向工程权威指南 [乌克兰]Dennis Yurichev 著, Archer安天安全研究与应急处理中心 译
 
@@ -826,7 +857,7 @@ ret  0
 
 ---
 
-# IDA Pro
+# **IDA Pro**
 
 > 静态分析
 >
@@ -931,6 +962,8 @@ v7 = 'ebmarah'; // 改成Char之后
 
 ## gdb
 
+> Linux下使用最多的一款调试器Debugger，也有Windows移植版
+
 ```bash
 sudo apt-get install gdb
 ```
@@ -939,10 +972,28 @@ sudo apt-get install gdb
 
 ```bash
 gdb ./a # 将文件加载到gdb中
+gdb ./a -silent # 不打印gdb前导信息(含免责条款)
 b decrypt # 将断点设置在decrypt处
+b 10 # 在第10行设置断点
+b * 0x804865c # 在该地址设置断点
 r # 运行(会在断点处停止)
-n # 运行一步
+run # 运行被调试的程序
+c # 继续运行
+continue # 继续运行
+n # 单步运行
+p v0 # 打印变量v0的值
+p $1 # 依据编号 打印编号为1的变量的值 # 编号由gdb赋予
+list 2 # 列出第二行的源文件
+list main # 列出函数main
+list # 不带参数 展示10行
+
+disas # 检查汇编 给出对应的代码的汇编
+info registers # 查看寄存器内容
+print $rsp # 查看寄存器内容
+stepi # 每步执行
 x/200wx $eax # x: 查看内存中数值 200表示查看200个 wx以word字节查看 $eax代表eax寄存器中的值
+
+q # 退出调试 
 ```
 
 
