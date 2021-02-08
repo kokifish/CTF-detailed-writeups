@@ -1,5 +1,7 @@
 ## 一. sql注入题目
 
+### 1.1 newscenter
+
 1. **题目：攻防世界web高手进阶区的newscenter题目：**
 
    - 为什么要使用单引号`'`，为什么要使用`#`，联合查询的时候，直接select 1，2，3看结果回显哪一个？？为什么还要 0 union。
@@ -42,6 +44,8 @@
 
 ## 二. 序列化与反序列化题目
 
+### 2.1 unserialize3
+
 1. **攻防世界web高手进阶区的unserialize3题目**
 
    ![image-20210204203304279](images/image-20210204203304279.png)
@@ -53,8 +57,10 @@
    因此我们构造payload：`?code=o:4:"xctf":1:{s:4:"flag";s:3:"111";}`,得到结果：
 
    ![image-20210204203935707](images/image-20210204203935707.pn
-   
-2. **攻防世界web高手进阶区的web_php_unserialize题目**
+
+### 2.2 web_php_unserialize
+
+1. **攻防世界web高手进阶区的web_php_unserialize题目**
 
    题目是：
 
@@ -99,7 +105,9 @@
 
    
 
-## 三. Git源码泄露题目（Lottery）
+## 三. Git源码泄露题目
+
+### 3.1 Lottery
 
 > 攻防世界 _ web _ 高手进阶区 _ Lottery
 
@@ -150,6 +158,59 @@
     这个时候就可以买flag了：
 
     ![image-20210118164337064](images/image-20210118164337064.png?lastModify=1612442930)
+
+### 3.2 mfw
+
+> 攻防世界 web 高手进阶区 mfw
+
+一. 题目描述
+
+<img src="images/image-20210208194512739.png" alt="image-20210208194512739" style="zoom:67%;" />
+
+点开about页面：
+
+<img src="images/image-20210208194556117.png" alt="image-20210208194556117" style="zoom:67%;" />
+
+二. 分析
+
+有个git，考虑git源码泄露，输入.git，查看：
+
+![image-20210208203714811](images/image-20210208203714811.png)
+
+使用githack工具扫描：
+![image-20210208204036448](images/image-20210208204036448.png)
+
+发现flag.php文件，直接打开：
+
+![image-20210208204418593](images/image-20210208204418593.png)
+
+什么也没有。
+
+查看index.php文件：
+
+![image-20210208204639802](images/image-20210208204639802.png)
+
+其中
+
+```php
+strpos() 函数查找字符串在另一字符串中第一次出现的位置。如果没有找到则返回False
+file_exists() 函数检查文件或目录是否存在。
+assert()函数会将括号中的字符当成代码来执行，并返回true或false。
+```
+
+因此我们的目标是在assert中执行系统命令获得flag.php文件中的内容。
+
+构造payload：`?page=abc') or system("cat templates/flag.php"); //`
+
+此时 `file="templates/abc') or system("cat templates/flag.php");//.php" `
+
+而	`assert("strpos('templates/abc') or system("cat templates/flag.php");//.php','..'==false")`
+
+`//`后面的内容会被当成注释。
+
+![image-20210208205808487](images/image-20210208205808487.png)
+
+
 
 ## 四. php代码审计题目（warmup）
 
