@@ -1,3 +1,5 @@
+> **Tips**: Highly recommend open with markdown editor **Typora**, and enable all *syntax support* and sidebar *Outline*.
+
 # Reverse Engineering Introduction
 
 - 软件代码逆向主要指对软件的结构，流程，算法，代码等进行逆向拆解和分析
@@ -10,12 +12,24 @@
 - 熟悉多种编译器的编译原理
 - 较强的程序理解和逆向分析能力
 
+
+
+## To-Do List
+
+- 疑似用python生成的exe文件 可以直接运行 文件较大的 急需补充背景知识
+
+
+
+
+
+
+
 ## workflow
 
-1. 使用`strings/file/binwalk/IDA`等静态分析工具收集信息，并根据这些静态信息进行google/github搜索
+1. 使用`exeinfope/PEiD/strings/file/binwalk/IDA`等静态分析工具收集信息，并根据这些静态信息进行google/github搜索
 2. 研究程序的保护方法，如代码混淆，保护壳及反调试等技术，并设法破除或绕过保护
-3. 反汇编目标软件，快速定位到关键代码进行分析
-4. 结合动态调试，验证自己的初期猜想，在分析的过程中理清程序功能
+3. 反汇编目标软件(IDA)，快速定位到关键代码进行分析
+4. 结合动态调试(gdb)，验证自己的初期猜想，在分析的过程中理清程序功能
 5. 针对程序功能，写出对应脚本，求解出 flag
 
 
@@ -40,6 +54,39 @@ Base64 是一种基于 64 个可打印字符来表示二进制数据的表示方
 通常而言 Base64 的识别特征为索引表，当我们能找到 `ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/` 这样索引表，再经过简单的分析基本就能判定是 Base64 编码。
 
 有些题目 base64 的索引表是会变的，一些变种的 base64 主要 就是修改了这个索引表
+
+
+
+#### Bash64: python
+
+```python
+str_ori = "abcd"
+bytes_str = str_ori.encode("utf-8")  
+str_b64 = base64.b64encode(bytes_str) # b64encode # 被编码的参数必须是二进制数据 
+
+str_result = base64.b64decode(str_b64).decode("utf-8") # 连用 b64解码后按utf-8解析
+```
+
+
+
+- case: 将bash64编码进行解码后，逆向一个加密算法的过程
+
+```python
+import base64
+correct = 'XlNkVmtUI1MgXWBZXCFeKY+AaXNt'
+def decode(message):
+    message = base64.b64decode(message) # base64 to byte
+    print(type(message), message)
+    s = ''
+    for i in message:
+        x = ord(chr(i))
+        x = x - 16
+        x = x ^ 32
+        s += chr(x)
+    return s
+
+print(decode(correct))
+```
 
 
 
@@ -259,6 +306,76 @@ var int digest := h0 append h1 append h2 append h3 //(expressed as little-endian
 
 
 
+## pyc Reverse
+
+> `.pyc`文件
+>
+> ctf-wiki中将pyc归类为misc，但是在adworld中pyc在reverse中出现
+>
+> https://www.zhihu.com/question/30296617  知乎 Python什么情况下会生成pyc文件？
+
+- pyc文件是由.py文件经过编译后生成的**字节码文件**(二进制文件)，其加载速度相对于.py文件有所提高，可以实现源码隐藏，一定程度上的反编译。e.g. Python3.3编译生成的.pyc文件，Python3.4无法运行
+- pyo文件也是优化编译后的程序（相比于.pyc文件更小），也可以提高加载速度。但对于嵌入式系统，它可将所需模块编译成.pyo文件以减少容量
+- `Python` 是一种全平台的解释性语言，全平台其实就是 `Python` 文件在经过解释器解释之后 (或者称为编译) 生成的 `pyc` 文件可以在多个平台下运行，这样同样也可以隐藏源代码。其实， `Python` 是完全面向对象的语言， `Python` 文件在经过解释器解释后生成字节码对象 `PyCodeObject` ， `pyc` 文件可以理解为是 `PyCodeObject` 对象的持久化保存方式
+- 而 `pyc` 文件只有在文件被当成模块导入时才会生成。也就是说， `Python` 解释器认为，只有 `import` 进行的模块才需要被重用。 生成 `pyc` 文件的好处显而易见，当我们多次运行程序时，不需要重新对该模块进行重新的解释。主文件一般只需要加载一次，不会被其他模块导入，所以一般主文件不会生成 `pyc` 文件。
+- `python path/to/projectDir` 程序运行结束后便自动为当前目录下所有的脚本生成字节码文件，并保存于本地新文件夹`__pycache__`当中
+- `python path/to/projectDir/__main__.py`生成除`__main__.py`外脚本的字节码文件
+
+> -O，表示优化生成.pyo字节码（这里又有“优化”两个字，得注意啦！）
+> -OO，表示进一步移除-O选项生成的字节码文件中的文档字符串（这是在作用效果上解释的，而不是说从-O选项得到的文件去除）
+> -m，表示导入并运行指定的模块
+
+```python
+# 生成pyc文件：
+python -m py_compile /path/to/a.py #若批量处理.py文件则替换为/path/to/{a, b,...}.py 或 /path/to/
+# 生成pyo文件：
+python -O -m py_compile /path/to/a.py
+```
+
+```python
+# 生成pyc文件 python脚本版：
+import py_compile
+py_compile.compile(r'/path/to/a.py') #同样也可以是包含.py文件的目录路径
+#此处尽可能使用raw字符串，从而避免转义的麻烦。比如，这里不加“r”的话，你就得对斜杠进行转义
+```
+
+- 无论是生成.pyc还是.pyo文件，都将在当前脚本的目录下生成一个含有字节码的文件夹`__pycache__`
+
+### uncompyle6
+
+- 原生python的跨版本反编译器和fragment反编译器，是decompyle、uncompyle、uncompyle2等的接替者
+- uncompyle6可将python字节码转换回等效的python源代码，它接受python 1.3版到3.8版的字节码，这其中跨越了24年的python版本，此外还包括Dropbox的Python 2.5字节码和一些PyPy字节码
+
+> https://github.com/rocky/python-uncompyle6 github repo
+
+```python
+pip install uncompyle6 # install in Linux
+uncompyle6 -o out.py task.pyc # pyc to py
+```
+
+
+
+## Encoding
+
+> 编码相关知识 包含转换等 Base64等在别的章节
+
+### int, hex, str
+
+```python
+# python 3.5之后 str和bytes实现由重大变化，无法使用encode/decode完成，而是使用bytes.fromhex()等
+key = "39343437"
+s_key = bytes.fromhex(key)
+print(type(s_key), s_key) # <class 'bytes'> b'9447'
+h_key = s_key.hex()
+print(type(h_key), h_key) # <class 'str'> 39343437
+ord('a') # 97 # char to int, ord以Unicode字符为参数 返回对应的ASCII数值或Unicode数值
+chr(0x30) # '0' # 用一个整数作参数，返回对应的字符 # chr(97) # 'a'
+```
+
+
+
+
+
 # Linux Reverse
 
 
@@ -270,8 +387,6 @@ var int digest := h0 append h1 append h2 append h3 //(expressed as little-endian
 # Windows Reverse
 
 
-
-- 疑似用python生成的exe文件 可以直接运行 文件较大的 急需补充背景知识
 
 
 
@@ -313,15 +428,33 @@ int main(int argc, char *argv[]){
 
 
 
+# Assembly Quick Find
 
+> http://c.biancheng.net/view/3560.html
+>
+> 这里仅记录较重要 / 少见 / IDA开启Auto comments后仍可能不清楚功能 的汇编指令
+
+| Instructions       | Comments                                      |
+| ------------------ | --------------------------------------------- |
+| test al, 00001001b | 测试0, 3bit是否置1，全都置0时，ZF=1，否则ZF=0 |
+| test eax, eax      | 如果eax为0，ZF=1; 否则ZF=0                    |
+|                    |                                               |
+|                    |                                               |
+|                    |                                               |
+|                    |                                               |
+|                    |                                               |
+|                    |                                               |
+|                    |                                               |
+
+> `int 3` https://blog.csdn.net/trochiluses/article/details/20209593
 
 
 
 ---
 
-# Reverse Engineering for Beginners
+# **Reverse Engineering for Beginners**
 
-> 逆向工程权威指南 [乌克兰]Dennis Yurichev 著, Archer安天安全研究与应急处理中心 译
+> 主要内容摘自 **逆向工程权威指南** [乌克兰]Dennis Yurichev 著, Archer安天安全研究与应急处理中心 译
 
 
 
@@ -379,15 +512,15 @@ EXTRN	_printf:PROC
 ; Function compile flags: /0dtp
 _TEXT	SEGMENT
 _main	PROC       ; 函数序言function prologue
-		push	ebp      ; 把ebp的值入栈 将 caller 的 ebp 入栈
-		mov		ebp, esp ; 把esp的值保存在ebp中，此时ebp的值被改变了
-		push	OFFSET $SG3830 ; 把字符串$SG3830指针入栈
-		call	_printf  ; printf结束后，程序的控制流会返回到main()函数中，此时字符串$SG3830指针仍残留在数据栈中，需要调整栈指针ESP来释放这个指针
-		add		esp, 4   ; 把ESP寄存器(栈指针 Stack Pointer)里的值+4, 因为x86内存地址用32bit(4Byte)数据描述; 直接舍弃了栈里的数据($SG3830指针)
-		xor		eax, eax ; main返回值为0，由该指令计算出来 ; main函数的最后一项任务是使EAX的值为0
-		pop		ebp      ; 把栈中保存的ebp的旧值pop出来赋值给ebp, 还原caller的ebp
-		ret		0        ; 将控制权交给调用程序，通常起到的作用是将控制权交给操作系统，这部分功能由C/C++的CRT实现
-_main ENDP             ; 数尾声function epilogue
+    push ebp      ; 把ebp的值入栈 将 caller 的 ebp 入栈
+    mov  ebp, esp ; 把esp的值保存在ebp中，此时ebp的值被改变了
+    push OFFSET $SG3830 ; 把字符串$SG3830指针入栈
+    call _printf  ; printf结束后，程序的控制流会返回到main()函数中，此时字符串$SG3830指针仍残留在数据栈中，需要调整栈指针ESP来释放这个指针
+    add  esp, 4   ; 把ESP寄存器(栈指针 Stack Pointer)里的值+4, 因为x86内存地址用32bit(4Byte)数据描述; 直接舍弃了栈里的数据($SG3830指针)
+    xor  eax, eax ; main返回值为0，由该指令计算出来 ; main函数的最后一项任务是使EAX的值为0
+    pop  ebp      ; 把栈中保存的ebp的旧值pop出来赋值给ebp, 还原caller的ebp
+    ret  0        ; 将控制权交给调用程序，通常起到的作用是将控制权交给操作系统，这部分功能由C/C++的CRT实现
+_main ENDP  ; 函数尾声function epilogue
 _TEXT ENDS
 ```
 
@@ -742,8 +875,10 @@ ret  0
 
 ---
 
-# IDA Pro
+# **IDA Pro**
 
+> 静态分析
+>
 > 入门笔记 含快捷键 窗口介绍  https://www.zybuluo.com/oro-oro/note/137244
 
 - 查看版本号与逆编译器版本 Help => About program => `Version 7.5.201028 Windows x64 (32-bit address size)` => Addons => 32 bit: `e.g. x86 ARM PowerPC MIPS Decompiler`
@@ -829,5 +964,145 @@ v7 = 'ebmarah'; // 改成Char之后
 .rodata:0000000000400965 ; char aYouEnteredTheC[]
 .rodata:0000000000400965 aYouEnteredTheC db 'You entered the correct password!',0Ah
 .rodata:0000000000400965                                         ; DATA XREF: sub_4007F0+8↑o
+```
+
+
+
+
+
+#  Dynamic Analysis
+
+> 动态分析 实践部分
+
+
+
+
+
+## gdb
+
+> Linux下使用最多的一款调试器Debugger，也有Windows移植版
+
+```bash
+sudo apt-get install gdb
+```
+
+
+
+```bash
+gdb ./a # 将文件加载到gdb中
+gdb ./a -silent # 不打印gdb前导信息(含免责条款)
+b decrypt # 将断点设置在decrypt处
+b 10 # 在第10行设置断点
+b * 0x804865c # 在该地址设置断点
+r # 运行(会在断点处停止)
+run # 运行被调试的程序
+c # 继续运行
+continue # 继续运行
+n # 单步运行
+p v0 # 打印变量v0的值
+p $1 # 依据编号 打印编号为1的变量的值 # 编号由gdb赋予
+list 2 # 列出第二行的源文件
+list main # 列出函数main
+list # 不带参数 展示10行
+
+disas # 检查汇编 给出对应的代码的汇编
+info registers # 查看寄存器内容
+print $rsp # 查看寄存器内容
+stepi # 每步执行
+x/200wx $eax # x: 查看内存中数值 200表示查看200个 wx以word字节查看 $eax代表eax寄存器中的值
+
+q # 退出调试 
+```
+
+
+
+```python
+# 查看完内存后 可能需要将内存中显示的16进制数转换为字符串
+key = "393434377b"
+flag = key.decode('hex') # hex to str
+```
+
+
+
+
+
+## OllyDbg
+
+> Shareware/Freeware	http://www.ollydbg.de/  v2.01 (27-Sep-2013), v1.10 是v1.x的最终版，v2彻底重写
+>
+> windows的 32bit  x86 汇编级分析调试器, Ring3
+>
+> 吾爱破解论坛上有包含很多插件的v1.1汉化版
+
+- 标题栏 module a: 表示当前在a.exe代码内
+- 菜单栏File下方一栏左边: 显示当前状态，paused一般是到了断点
+- 反汇编窗口（左上）：显示反汇编代码。标题栏上的地址、HEX 数据、反汇编、注释可以通过在窗口中右击出现的菜单 界面选项->隐藏标题 或 显示标题 来进行切换是否显示。用鼠标左键点击注释标签可以切换注释显示的方式
+- 信息窗口（在反汇编窗口下方）：显示选中的第一条指令及跳转目标地址、字串等
+- 寄存器窗口（右上）：显示当前所选线程的 CPU 寄存器内容。点击标签 寄存器 (FPU) 可以切换显示方式
+- 数据窗口（左下）：内存/文件的内容。右键菜单可切换显示方式
+- 堆栈窗口（右下）：显示当前线程的堆栈
+
+
+
+- View =>
+  - Executable modules: 查看可执行模块。右键用户程序 => View names 查看某个模块用到的函数。在函数处右键可以Find references to import(enter)，出现新窗口显示引用到该函数的地址与指令，双击跳转到对应汇编指令处
+- Option => 
+  - Appearance => Directories: 修改udd, plugins 路径。UDD 目录的作用是保存调试工作
+  - Debugging options: 修改调试选项，包括异常、字符串等
+
+
+
+- 配置：od将所有配置放在安装目录的ollydbg.ini中
+- 插件：将下载的插件(e.g. dll)复制到`plugin`文件夹，od启动时会自动识别。但不可超过32个否则会出错
+
+
+
+### shortcut / cmd
+
+| shortcut  | functionality                                                |
+| --------- | ------------------------------------------------------------ |
+| F2        | 设置/删除断点(光标处)                                        |
+| F8        | 单步步过。执行一条指令，call等子过程不进入                   |
+| F7        | 单步步入。遇到call等子过程会进入，进入后停在子过程第一条指令 |
+| F4        | 运行到光标处                                                 |
+| F9        | 运行至断点处                                                 |
+| Ctrl + F9 | 执行到ret指令处暂停。常用于从系统领空返回用户程序领空        |
+| Alt + F9  | 执行到用户代码。可用于从系统领空快速返回到调试程序的领空     |
+|           |                                                              |
+|           |                                                              |
+
+
+
+### cases
+
+```python
+# 从od的汇编指令窗口复制过来的，修改过的地方的原始指令及修改原因将在注释中说明
+00F7108C    .  FF15 1460F700 call dword ptr ds:[<&KERNEL32.IsDebuggerPr>; [IsDebuggerPresent
+00F71092    .  85C0          test eax,eax # 前面在测试是否有debugger 
+00F71094       90            nop # je short 00F710B9 # 这里会导致flag处理函数被跳过
+00F71095       90            nop # 因为指令长度不同 前面改为nop后 这里会自动填充一个nop
+00F71096    >  41            inc ecx
+00F71097    .  41            inc ecx
+00F71098    .  41            inc ecx
+00F71099    .  41            inc ecx
+00F7109A       90            nop # int 3 # 中断3 软件中断
+00F7109B    .  8B55 F4       mov edx,dword ptr ss:[ebp-0xC]
+00F7109E    .  E8 5DFFFFFF   call csaw2013.00F71000 ; 对flag处理的调用 # 因前面的修改，现在可以执行到这
+00F710A3       90            nop # jmp short 00F710EF # 这条指令会导致跳过第1个MessageBoxA
+00F710A4       90            nop # 自动填充 nop
+00F710A5    .  6A 02         push 0x2 ; /Style = MB_ABORTRETRYIGNORE|MB_APPLMODAL
+00F710A7    .  68 2078F700   push csaw2013.00F77820                     ; |Flag
+00F710AC    .  FF75 F4       push dword ptr ss:[ebp-0xC]                ; |Text = ""
+00F710AF    .  6A 00         push 0x0                                   ; |hOwner = NULL
+00F710B1    .  FF15 E460F700 call dword ptr ds:[<&USER32.MessageBoxA>]  ; \MessageBoxA第一次使用
+00F710B7       90            nop # jmp short 00F710CD # 这条指令会导致跳过第2个MessageBoxA
+00F710B8       90            nop # 自动填充 nop
+00F710B9    >  6A 02         push 0x2               ; /Style = MB_ABORTRETRYIGNORE|MB_APPLMODAL
+00F710BB    .  68 2078F700   push csaw2013.00F77820                     ; |Flag
+00F710C0    .  8B45 F4       mov eax,dword ptr ss:[ebp-0xC]             ; |
+00F710C3    .  40            inc eax                                    ; |
+00F710C4    .  50            push eax                                   ; |Text = 00000005 ???
+00F710C5    .  6A 00         push 0x0                                   ; |hOwner = NULL
+00F710C7    .  FF15 E460F700 call dword ptr ds:[<&USER32.MessageBoxA>]  ; \MessageBoxA
 ```
 

@@ -17,7 +17,7 @@ This REPO is devoted to writing very detailed writeups so that CTF beginners (in
 
 - level-1 directory: **challenge class**. Mainly includes crypto, web, reverse, misc, pwn, etc
 - level-2 directory: **challenge sub class, game name, year, [sub game name], challenge name**, separated by underscore.
-  - **Format**: `challenge_sub_class_game_name-year_challenge_name`, here are some examples:
+  - **Format**: `challenge_sub_class_game_name_year_challenge_name`, here are some examples:
   - `image_analysis_breakin_ctf_2017_Mysterious_GIF`, here `image_analysis` is challenge sub class
   - `forensic_and_info_retrieval_xctf_2020_huaweictf_s34hunka`, here `huaweictf` is sub game name
   - `image_analysis_zongheng_2020_mosaic`
