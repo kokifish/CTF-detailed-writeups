@@ -1,4 +1,4 @@
-> **Tips**: Highly recommend open with markdown editor **Typora**, and enable all *syntax support* and sidebar *Outline*.
+> **Tips** : Highly recommend open with markdown editor **Typora**, and enable all *syntax support* and sidebar *Outline*.
 
 # Reverse Engineering Introduction
 
@@ -16,7 +16,7 @@
 
 ## To-Do List
 
-- 疑似用python生成的exe文件 可以直接运行 文件较大的 急需补充背景知识
+- 疑似用python生成的exe文件 可以直接运行 文件较大的 急需补充背景知识(shadowCTF secure protocol)
 
 
 
@@ -29,7 +29,7 @@
 1. 使用`exeinfope/PEiD/strings/file/binwalk/IDA`等静态分析工具收集信息，并根据这些静态信息进行google/github搜索
 2. 研究程序的保护方法，如代码混淆，保护壳及反调试等技术，并设法破除或绕过保护
 3. 反汇编目标软件(IDA)，快速定位到关键代码进行分析
-4. 结合动态调试(gdb)，验证自己的初期猜想，在分析的过程中理清程序功能
+4. 结合动态调试(OllyDbg, gdb, etc)，验证自己的初期猜想，在分析的过程中理清程序功能
 5. 针对程序功能，写出对应脚本，求解出 flag
 
 
@@ -45,7 +45,7 @@
 
 ## Common Encryption Algorithms and Code Recognition
 
-> 常见加密算法与代码识别
+> 常见加密算法 编码等
 
 ### Base64
 
@@ -280,6 +280,17 @@ var int digest := h0 append h1 append h2 append h3 //(expressed as little-endian
     h3 = 0x10325476;
 ```
 
+#### md5: python
+
+```python
+import hashlib
+m = hashlib.md5()
+m.update(b'sssssssdddddddsssssssssssddddddddddsddssddwddssssssdddssssdddss')
+print(m.hexdigest()) # 999ea6aa6c365ab43eec2a0f0e5968d5
+```
+
+
+
 
 
 ## Labyrinth Problem
@@ -302,7 +313,7 @@ var int digest := h0 append h1 append h2 append h3 //(expressed as little-endian
 
 ### Cases
 
-- `xctf_2020` MIPS: MIPS的代码，注意IDA的版本，有的不支持MIPS decompile。用了三张地图，三张地图都过了之后，会输出提示`puts((int)"success! the flag is flag{md5(your input)}");` 逆向迷宫处理的主函数可知wasd控制方向，地图大小`15*15`
+- `xctf_2020` MIPS: MIPS的代码，注意IDA的版本，有的不支持MIPS decompile。用了三张地图，三张地图都过了之后，会输出提示`puts((int)"success! the flag is flag{md5(your input)}");` 逆向迷宫处理的主函数可知`wasd`控制方向，地图大小`15*15`
 
 
 
@@ -380,7 +391,39 @@ chr(0x30) # '0' # 用一个整数作参数，返回对应的字符 # chr(97) # '
 
 
 
+## ELF
 
+ELF (Executable and Linkable Format)文件，也就是在 Linux 中的目标文件，主要有以下三种类型
+
+1. 可重定位文件 Relocatable File: 包含由编译器生成的代码以及数据。链接器会将它与其它目标文件链接起来从而创建可执行文件或者共享目标文件。在 Linux 系统中，这种文件的后缀一般为 `.o` 。
+2. 可执行文件 Executable File: 就是我们通常在 Linux 中执行的程序
+3. 共享目标文件 Shared Object File: 包含代码和数据，这种文件是我们所称的库文件，一般以 `.so` 结尾。一般情况下，它有以下两种使用情景：
+   - 链接器 (Link eDitor, ld ) 可能会处理它和其它可重定位文件以及共享目标文件，生成另外一个目标文件。
+   - 动态链接器 (Dynamic Linker) 将它与可执行文件以及其它共享目标组合在一起生成进程镜像。
+
+目标文件由汇编器和链接器创建，是文本程序的二进制形式，可以直接在处理器上运行。那些需要虚拟机才能够执行的程序 (Java) 不属于这一范围
+
+### Format
+
+- 目标文件既会参与程序链接又会参与程序执行。出于方便性和效率考虑，根据过程的不同，目标文件格式提供了其内容的两种并行视图: 链接视图与执行视图
+
+![](https://raw.githubusercontent.com/hex-16/pictures/master/CTF_pic/object_file_format.png)
+
+**链接视图**：文件开始处是 ELF 头部（ **ELF Header**），它给出了整个文件的组织情况。
+
+如果程序头部表（Program Header Table）存在的话，它会告诉系统如何创建进程。用于生成进程的目标文件必须具有程序头部表，但是重定位文件不需要这个表。
+
+节区部分包含在链接视图中要使用的大部分信息：指令、数据、符号表、重定位信息等等。
+
+节区头部表（Section Header Table）包含了描述文件节区的信息，每个节区在表中都有一个表项，会给出节区名称、节区大小等信息。用于链接的目标文件必须有节区头部表，其它目标文件则无所谓，可以有，也可以没有。
+
+对于**执行视图**来说，其主要的不同点在于没有了 section，而有了多个 segment。其实这里的 segment 大都是来源于链接视图中的 section。
+
+>  尽管图中是按照 ELF 头，程序头部表，节区，节区头部表的顺序排列的。但实际上除了 ELF 头部表以外，其它部分都没有严格的的顺序。
+
+
+
+![](https://raw.githubusercontent.com/hex-16/pictures/master/CTF_pic/ELF-Walkthrough.png)
 
 
 
@@ -424,7 +467,7 @@ int main(int argc, char *argv[]){
 }
 ```
 
-![](https://raw.githubusercontent.com/hex-16/pictures/master/Code_pic/RE_function_call_function_stack_layout.png)
+![](https://raw.githubusercontent.com/hex-16/pictures/master/CTF_pic/RE_function_call_function_stack_layout.png)
 
 
 
@@ -970,11 +1013,55 @@ v7 = 'ebmarah'; // 改成Char之后
 
 
 
+
+
+## Remote Debug
+
+> 远程调试 这里一般指Win上的IDA分析虚拟机/局域网内的Linux上的程序 也可指本机上的程序
+
+
+
+Remote Linux: (test in Kali 2020.4 64bit)
+
+1. **Copy** `linux_server64` in `IDAroot\dbgsrv\` to Linux server.
+2. `chmod a+x ./linux_server64`
+3. Run: `./linux_server64`
+
+Then, on local windows:
+
+1. Under the IDA menu bar，debugger change to: **Remote Linux debugger**
+2. IDA menu bar: Debugger => **Process option**
+   - fill the full path or relative path of ELF file in the `Application` and `Input file` fields
+   - `Directory`: the directory path, or empty if using relative path above
+   - `Hostname` field: IP address of the remote machine
+   - `parameters`: run the program with some parameters
+3. [opt] Setup support for x86 on Linux x64(when your ELF is 32bit and Linux is 64bit):
+   - `sudo dpkg --add-architecture i386`
+   - `sudo apt-get update`
+   - `sudo apt-get install libc6:i386 libncurses5:i386 libstdc++6:i386`
+4. Run! Set breakpoint in pseudocode. F9 start/continue; F7 step into; F8 step over.
+
+
+
+
+
+## Python
+
+> 主要记录如何使用python与IDA交互
+
+- At the bottom of the IDA window, below Output window: Python
+
+```python
+print(get_bytes(0x6010E0, 10)) # 输出 0x6010E0 地址及其后的 10 Byte
+```
+
+
+
 #  Dynamic Analysis
 
 > 动态分析 实践部分
 
-
+- 对gdb进行强化的两个工具：peda，pwndbg。强化视觉效果
 
 
 

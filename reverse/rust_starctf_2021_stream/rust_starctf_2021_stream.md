@@ -11,6 +11,11 @@
 > refer writeup: http://www.bxnop.cn/2021/01/17/starctf2021/
 
 - rust code
+- 需掌握的知识点：
+  - rust的main entry point，如何寻找主要过程
+  - rust文件读写的伪c
+  - 算法逆向(涉及数组下标的推导)
+  - rust逆向后的伪c的凌乱+冗余的c代码的分析
 
 
 
@@ -220,6 +225,7 @@ main endp
 
 ## Encrypt Process
 
+- 下图是对算法加密过程的分析
 - More details are in `.i64` file, includes assembly comments.
 
 ![](encrypt_process_analysis.png)
@@ -276,8 +282,8 @@ fn main() {
 - 既然文件已经可以运行了，seed的生成方式也了解了，那么可以通过多次运行rust程序，暴力还原出原本的`flag`文件
 - 暴力破解思路：
   1. `i=4`
-  2. 令`flag[i]`的值遍历字符集，运行rust，看出来的`output[i]`和原本的`output[i]`是否一样，一样的话这个值就是`flag[i]`的值
-  3. `i = (i+4) % len(output)`, 依据题目给的`output`文件，长度为46byte
+  2. 令`flag[i]`的值遍历字符集，运行rust，判断运行结果的`output[i]`和原本的`output[i]`是否一样，一样的话这个值就是`flag[i]`的值
+  3. `i = (i+7) % len(output)`(依据题目给的`output`文件，长度为46byte), go to step 2
 
 ```python
 # modified from https://github.com/sixstars/starctf2021/blob/main/re-stream/solve.py
