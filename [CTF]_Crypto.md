@@ -201,7 +201,7 @@ class SecurePrng(object):
 - OFB：输出反馈模式（Output feedback）
 - CTR：计数器模式（Counter mode）
 
-**注：电话本模式的AES是不安全的。**
+**注：ECB模式的AES是不安全的。**
 
 ### 填充方法
 目前有不少的填充规则。常见的填充规则：
@@ -276,12 +276,12 @@ Boneh and Durfee [D. Boneh and G. Durfee.New results on cryptanalysis of low pri
 ***本质上是当公钥指数较小$e\leq 5$，把问题变成求解$f(x)\equiv 0\ mod\ N$的问题，其中$f(x)=\sum_{i=0}^{e} a_ix^i，a_i\in Z_N$。***
 * **Theorem 3 (Coppersmith)：** $N$是整数，$f\in Z[x]$是度数为**d**的首一多项式。令$X=N^{\frac{1}{d}-\epsilon}$*（$X$是实数）*。则给定$<N,f>$，敌手可以快速找出所有的整数$\{x_0|\ \ |x_0|<X\ 且\ f(x_0)\equiv 0\ mod\ N\}$。运行时间为运行*LLL*算法所花费的时间，记为$O(w), w=min(1/\epsilon,log_2 N)$
 * **Coppersmith方法**主要通过找到与$f\ mod\ N$有 **(1.相同根 2.系数为整数域 3.系数更小)** 性质的多项式$g$，从而找出$g$的根(因为容易找出整数域上的多项式根)
-    * $f到g$的转换方式：预定义一个整数m，定义$g_{u,v}(x)=N^{m-v}x^uf(x)^v$。因此$x_0$是$g_{u,v}(x)\ mod\ N^m$的一个根，其中$u\geq 且0\leq x_0\leq m$。与此同时有$f(x_0)\equiv 0\ mod\ N$
+    * $f到g$的转换方式：预定义一个整数m，定义$$g_{u,v}(x)=N^{m-v}x^uf(x)^v$$。因此$x_0$是$g_{u,v}(x)\ mod\ N^m$的一个根，其中$u\geq 且0\leq x_0\leq m$与此同时有$f(x_0)\equiv 0\ mod\ N$
     * 因此我们可以找到一组$g_{u,v}$的线性组合$h(x)$，满足$h(xX)$有小于$N^m$的范式(根)，其中$X$是$x_0$中满足$X<N^{\frac{1}{d}}$的上界。只要m足够大，那么一定能找到这样的$h(x)$。**此时表示我们找到了这样的$h(x)$，它在整数中有同样的根$x_0$**。
 ##### $h(x)$的寻找方法
 * 定义$h(x)=\sum a_ix^i \in Z[x]$，则$\|h(x)\| = \sum a_i$
 * **Lemma 4 (Howgrave-Graham)：** Let $h(x)\in Z[x]$ be a polynomial of degree $d$ and let $X$ be a positive integer. Suppose $\|h(xX)\| < N/\sqrt{d}$. If $|x_0| < X$ satisfies $h(x_0)=0\ mod\ N$, then $h(x_0)=0$ holds over the integer.（$h(x_0)=0$在整数上成立）
-    * 首先我们把多项式$g_{u,v}(xX)$作为向量，并记格$L$是由它所生成的。固定一个m，我们就可以写出格$L$的表达式，形如下图。
+    * 首先我们把多项式$g_{u,v}(xX)$作为向量，并记格$L$是由它所生成的。固定一个m，我们就可以写出格$L$的表达式，形如下图。其中带``*``号的表示非0系数，空的位置代表0。下图是当$m=3,d=2$时所构造出的格$L$。
     ![格L](crypto/images/lattice_L.PNG)
     * 通过**LLL定理**，可以找出格L中的一个向量$v\in L$，满足$\|v\|\leq 2^{w/4}det(L)^{1/w}$，w表示格的维数。接下来需要证明：$2^{w/4}det(L)^{1/w} < N^m/\sqrt{w}，其中w=d(m+1)$。当m足够大的时候，上式可以被满足。因此通过LLL定理找出的向量$v$就是所求的$h(x)$。
     * 参数的确定:当由$X=N^{\frac{1}{d}-\epsilon}$时，有$m=O(k/d)，k=min(\frac{1}{\epsilon},log\ N)$
@@ -400,3 +400,19 @@ TODO：未完善
 # 哈希函数
 
 # 数字签名
+
+# 常见Crypto攻击思想
+
+常见攻击方法 ¶
+根据不同的攻击模式，可能会有不同的攻击方法，目前常见的攻击方法主要有
+
+* 暴力攻击（通用）
+* 中间相遇攻击（思想）
+* 线性分析（常用于缺陷版AES）
+* 差分分析（常用于缺陷版AES）
+* 不可能差分分析
+* 积分分析
+* 代数分析
+* 相关密钥攻击
+* 侧信道攻击
+* 比特攻击
