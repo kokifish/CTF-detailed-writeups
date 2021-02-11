@@ -226,8 +226,9 @@ class SecurePrng(object):
 7. 基于具体RSA实现的攻击
 
 ***RSA Reference***：
-1.  Boneh D . Twenty Years of Attacks on the RSA Cryptosystem[J]. Notices of the Ams, 2002, 46.
-2. D. Boneh and G. Durfee. New results on cryptanalysis of low private exponent RSA[J]. Preprint, 1998.
+1.  Boneh D . **Twenty Years of Attacks on the RSA Cryptosystem**[J]. Notices of the Ams, 2002, 46.
+2. D. Boneh and G. Durfee. **New results on cryptanalysis of low private exponent RSA**[J]. Preprint, 1998.
+3. Howgrave-Graham N , Seifert J P . **Extending Wiener's Attack in the Presence of Many Decrypting Exponents**[M] Secure Networking — CQRE [Secure] ’ 99. Springer Berlin Heidelberg, 1999.
 
 #### 一、解大整数N
 目前最快的分解大整数N的方法是广义数域筛法(General Number Field Sieve)。对于n-bit的整数，时间为$O(exp((c+o(1))n^{\frac{1}{3}}log^{\frac{2}{3}}n))$
@@ -251,6 +252,7 @@ $$
 Bob有私钥<N,d>，公钥<N,e>。敌手Alice想要Bob对M进行签名，但是Bob不会对M签名。于是Alice计算$M'=r^eM\ mod\ N$。然后Bob就会对M'进行签名得到S'，则有$$S'=r^{ed}M^d\ mod\ N = rM^d\ mod\ N$$因此$$S=S'/r\ mod\ N=M^d\ mod\ N$$。
 
 #### 三、小解密指数攻击
+##### 3.1 Wiener’s attack
 * **Theorem 2 (M. WIener)：** 让$ N=pq, q<p<2q $，并且有$d<\frac{1}{3}N^{\frac{1}{4}}$。给定公钥<N,e>，则有一个有效的方法恢复出私钥d。
 * 证明：此定理是基于连分数的近似。易得
 $$|\frac{e}{\varphi(N)}-\frac{k}{d}|=\frac{1}{d\varphi(N)} \newline
@@ -261,15 +263,35 @@ $$
 $$
 |\frac{e}{N}-\frac{k}{d}|\leq\frac{1}{2d^2}
 $$
-于是只要计算$\frac{e}{N}$的连分数的logN收敛，其中一个就是$\frac{k}{d}$。
+根据![](crypto/images/Th2.2_Continued_Fraction.PNG)
+可知$\frac{e}{N}$的**连分数的收敛式**中有一项为$\frac{k}{d}$。**连分数的收敛式(Convergent)** 的定义：记为$c_i$。令$n$表示连分数最多展开$n$层。即$$a=a_0+\frac{1}{a_1+\frac{1}{\ddots +\frac{1}{a_n}}}简写为a=[a_0;a_1,a_2,...,a_n]$$则连分数的收敛式$c_i$满足$$\forall x\in[0,n],\ c_i=[a_0;a_1,...,a_i]$$ 因此只需要对$\frac{e}{N}$进行连分数展开，找出满足$$ed-1\ mod\ k = 0 \tag{3.1}$$的收敛式$\frac{k}{d}$，即$\exists i'\in[0,n],c_{i'}=\frac{k}{d}$，则$$\phi(n)=\frac{ed-1}{k}$$可能会出现当d比较小的时候$(3.1)$式成立，因此需要进行特殊的判别。
 
 * 避免此类攻击的方法
-    * 选择比较大的公钥e，$e>1.5N$。[这样以来k就会变大]
+    * 选择比较大的公钥$e$，$e>1.5N$。[这样以来k就会变大]
     * 使用中国剩余定理设定两个私钥$d_p, d_q$，一个mod p一个 mod q,这样解密速度会变快，并且通过中国剩余定理恢复出来的d会很大。
 
 Boneh and Durfee [D. Boneh and G. Durfee.New results on cryptanalysis of low private exponent RSA. Preprint, 1998.]等人提出当$d<N^{0.292}$时敌手也能快速恢复出私钥d。
 
-**TODO：给出具体流程，理论上不需要，因为只要实现了Boneh 和Durfee等人的方案即可。**
+* 3.1节代码参考 https://www.cnblogs.com/Guhongying/p/10145815.html
+
+* ***具体python2代码见``crypto/Wieners_Attack.py``*** 在代码中给出$e,n$可恢复出私钥指数$d$。
+
+##### 3.2 Extending Wiener's Attack
+
+原理：对于同一个$N$，有$i, i>1$个公钥指数$e_i$，所有$e_i$所对应的私钥指数$d_i$都比较的小。此时可以使用Extending Wiener's Attack进行求解。下面给出当$i$比较小时$d_i$所取的范围。我们令$d_i< N^{\alpha}$，则$i$与$\alpha$的关系为(一般情况比较的复杂，这里只列举$i$比较小的情况)：
+$i$|$\alpha$
+:-:|:-:
+2|$< 5/14-\epsilon'$
+3|$< 2/5-\epsilon'$
+4|$< 15/34-\epsilon'$
+
+具体思路：令$$g = gcd(p-1,q-1)$$易得$$deg=k(p-1)(q-1)+g$$令$$s=1-p-q$$记方程$W_i$为$$e_id_ig-k_iN=g+k_is \tag{Wi}$$。对于两个公钥指数的情况，有$$e_1d_1-k_1\varphi(N)=1 \newline e_2d_2-k_2\varphi(N)=1$$上式乘$k_2$减去下式乘$k_1$得$$e_1d_1k_2-e_2d_2k_1=k_2-k_1 \tag{G(1,2)}$$计算可得$W_1W_2$同样也是一个等式。由式$$k_1k_2=k_1k_2 \newline W_1*k_2 \newline G_{(1,2)} \newline W_1*W_2 $$四个等式可以构造如下等式$$A*L_2=B_2$$其中$$A=(k_1k_2,d_1gk_2,d_2gk_1,d_1d_2g^2)$$
+![](crypto/images/Extended_Wieners_Attack_L.PNG)
+其中$L_2$矩阵都是已知的项构成的，我们可以把$L_2$看作一个格，然后$B_2$是其最短向量，使用**LLL定理**（见4.1节）可以求出其最短向量。而且若$B_2$为最短向量，则需要满足$||B_2||\leq \sqrt{n}det(L)^{\frac{1}{n}}$，即$$2N^{1+2\alpha}\leq 2N^{(\frac{13}{2}+\alpha)\frac{1}{4}}$$解得$\alpha\leq \frac{5}{14}$从而可以代入$M_2$中。(**编程实现的过程中可稍微缩小$\alpha$使得LLL算法必定有解**)求出最短向量$B_2$后，计算$B_2*L_2^{-1}$得到A。然后用a的前两项计算$$\frac{a[1]}{a[0]}e_1 = \frac{e_1d_1g}{k_1} = \varphi(N)$$从而把$\varphi(N)$恢复出来。
+
+* 代码参考：https://blog.csdn.net/jcbx_/article/details/109306542
+* ***具体Sagemath9.2代码见``crypto/Extended_Wieners_Attack.py``*** 在代码中提供$\alpha,e_1,e_2,n$可恢复出$\varphi(N)$
+
 
 #### 四、小公钥指数攻击(Coppersmith's Theorem)
 ##### 4.1 攻击原理
