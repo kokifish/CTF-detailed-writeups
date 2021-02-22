@@ -224,16 +224,38 @@ class SecurePrng(object):
 5. 选择明密文攻击
 6. 侧信道攻击
 7. 基于具体RSA实现的攻击
+8. 实用小工具
 
 ***RSA Reference***：
 1.  Boneh D . **Twenty Years of Attacks on the RSA Cryptosystem**[J]. Notices of the Ams, 2002, 46.
 2. D. Boneh and G. Durfee. **New results on cryptanalysis of low private exponent RSA**[J]. Preprint, 1998.
 3. Howgrave-Graham N , Seifert J P . **Extending Wiener's Attack in the Presence of Many Decrypting Exponents**[M] Secure Networking — CQRE [Secure] ’ 99. Springer Berlin Heidelberg, 1999.
+4. Cao Z , Sha Q , Fan X . **Adleman-Manders-Miller Root Extraction Method Revisited**[J]. 2011.
 
-#### 一、解大整数N
+#### 一、分解大整数N
 目前最快的分解大整数N的方法是广义数域筛法(General Number Field Sieve)。对于n-bit的整数，时间为$O(exp((c+o(1))n^{\frac{1}{3}}log^{\frac{2}{3}}n))$
 
 另一种分解大整数的方法：已知私钥$d$，和公钥$e$，则可快速对$N$进行分解。反之亦然，即已知$N$的分解$N=pq$，则可以快速恢复出$d$。
+
+* 常见大整数$N$分解工具：
+    * yafu (p,q相差过大或过小yafu可分解成功)
+    * http://www.factordb.com
+
+##### 1.1 已知 $(N, e, d)$ 求 $(p, q)$ V1
+* 攻击条件，$e$或$d$比较小(不超过一亿)
+* 攻击原理：$ed-1=k\varphi(N)$。因为$e$或$d$比较小，然后$\varphi(N)$与$N$比较接近，因此爆破$k$，从而找到$\varphi(N)$。然后由$$N=pq \newline \varphi(N)=(p-1)(q-1)$$得$$N-\varphi(N)+1=p+q$$接下来构造方程$$x^2+(N-\varphi(N)+1)x+N=(x-p)(x-q)=0 \tag{1.1}$$只需要解方程$(1.1)$就可以把$p$和$q$解出来。
+
+* 代码参考 https://blog.csdn.net/ayang1986/article/details/112714749
+* ***具体python2代码见``crypto/code/Known_ed_factor_N_V1.py``*** 
+
+##### 1.2 已知 $(N, e, d)$ 求 $(p, q)$ V2
+* 没有攻击条件的限制
+* 分解原理：
+![](crypto/images/RSA_Factor_N.PNG)
+**TODO:中间有个小细节不太懂，需要弄清楚一点**
+
+* 代码参考 https://blog.csdn.net/ayang1986/article/details/112714749
+* ***具体python2代码见``crypto/code/Known_ed_factor_N_V2.py``*** 
 
 #### 二、基本攻击
 ##### 2.1. N不互素
@@ -246,10 +268,13 @@ $$
 c_1 = m^{e_1}\ mod \ N \newline 
 c_2 = m^{e_2}\ mod \ N
 $$
-截获$c_1和c_2$后，计算$re_1+se_2=1\ mod \ n$，则$m^{re_1+se_2}\ mod\ n\equiv m\ mod\ n$
+截获$c_1和c_2$后，计算$re_1+se_2=1\ mod \ n$中的$r$和$s$，则$m^{re_1+se_2}\ mod\ n\equiv m\ mod\ n$
 
 ##### 2.3 盲化攻击(Blinding)
 Bob有私钥<N,d>，公钥<N,e>。敌手Alice想要Bob对M进行签名，但是Bob不会对M签名。于是Alice计算$M'=r^eM\ mod\ N$。然后Bob就会对M'进行签名得到S'，则有$$S'=r^{ed}M^d\ mod\ N = rM^d\ mod\ N$$因此$$S=S'/r\ mod\ N=M^d\ mod\ N$$。
+
+##### 2.4 已知$dp\equiv d\ mod\ (p-1)$
+已知$$d_p\equiv d\ mod\ (p-1)\newline ed\equiv 1\ mod\ (p-1)(q-1)$$有$$d_p=k(p-1)+d \newline ed=k'(p-1)(q-1)+1$$则有$$ed_p-1=(p-1)(ek+k'(q-1))$$因为$$0\leq ed_p-1\leq ep$$因此$$0\leq (p-1)(ek+k'(q-1))\leq ep \newline 0\leq (ek+k'(q-1))\leq e+1$$因此遍历$i\in[0,e]$若发现$N$能被$(ed_p-1)/i+1$整除，则$p=(ed_p-1)/i+1$。
 
 #### 三、小解密指数攻击
 ##### 3.1 Wiener’s attack
@@ -274,7 +299,7 @@ Boneh and Durfee [D. Boneh and G. Durfee.New results on cryptanalysis of low pri
 
 * 3.1节代码参考 https://www.cnblogs.com/Guhongying/p/10145815.html
 
-* ***具体python2代码见``crypto/Wieners_Attack.py``*** 在代码中给出$e,n$可恢复出私钥指数$d$。
+* ***具体python2代码见``crypto/code/Wieners_Attack.py``*** 在代码中给出$e,n$可恢复出私钥指数$d$。
 
 ##### 3.2 Extending Wiener's Attack
 
@@ -290,34 +315,39 @@ $i$|$\alpha$
 其中$L_2$矩阵都是已知的项构成的，我们可以把$L_2$看作一个格，然后$B_2$是其最短向量，使用**LLL定理**（见4.1节）可以求出其最短向量。而且若$B_2$为最短向量，则需要满足$||B_2||\leq \sqrt{n}det(L)^{\frac{1}{n}}$，即$$2N^{1+2\alpha}\leq 2N^{(\frac{13}{2}+\alpha)\frac{1}{4}}$$解得$\alpha\leq \frac{5}{14}$从而可以代入$M_2$中。(**编程实现的过程中可稍微缩小$\alpha$使得LLL算法必定有解**)求出最短向量$B_2$后，计算$B_2*L_2^{-1}$得到A。然后用a的前两项计算$$\frac{a[1]}{a[0]}e_1 = \frac{e_1d_1g}{k_1} = \varphi(N)$$从而把$\varphi(N)$恢复出来。
 
 * 代码参考：https://blog.csdn.net/jcbx_/article/details/109306542
-* ***具体Sagemath9.2代码见``crypto/Extended_Wieners_Attack.py``*** 在代码中提供$\alpha,e_1,e_2,n$可恢复出$\varphi(N)$
+* ***具体Sagemath9.2代码见``crypto/code/Extended_Wieners_Attack.py``*** 在代码中提供$\alpha,e_1,e_2,n$可恢复出$\varphi(N)$
 
 
 #### 四、小公钥指数攻击(Coppersmith's Theorem)
 ##### 4.1 攻击原理
-***本质上是当公钥指数较小$e\leq 5$，把问题变成求解$f(x)\equiv 0\ mod\ N$的问题，其中$f(x)=\sum_{i=0}^{e} a_ix^i，a_i\in Z_N$。***
+***本质上是当公钥指数较小$e\leq 5$，把问题变成求解$f(x)\equiv 0\ mod\ N$的问题，其中$f(x)=\sum_{i=0}^{e} a_ix^i，a_i\in Z_N$。主要应用场景在e很小，方程的根比较小的情况。***
 * **Theorem 3 (Coppersmith)：** $N$是整数，$f\in Z[x]$是度数为**d**的首一多项式。令$X=N^{\frac{1}{d}-\epsilon}$*（$X$是实数）*。则给定$<N,f>$，敌手可以快速找出所有的整数$\{x_0|\ \ |x_0|<X\ 且\ f(x_0)\equiv 0\ mod\ N\}$。运行时间为运行*LLL*算法所花费的时间，记为$O(w), w=min(1/\epsilon,log_2 N)$
 * **Coppersmith方法**主要通过找到与$f\ mod\ N$有 **(1.相同根 2.系数为整数域 3.系数更小)** 性质的多项式$g$，从而找出$g$的根(因为容易找出整数域上的多项式根)
     * $f到g$的转换方式：预定义一个整数m，定义$$g_{u,v}(x)=N^{m-v}x^uf(x)^v$$。因此$x_0$是$g_{u,v}(x)\ mod\ N^m$的一个根，其中$u\geq 且0\leq x_0\leq m$与此同时有$f(x_0)\equiv 0\ mod\ N$
     * 因此我们可以找到一组$g_{u,v}$的线性组合$h(x)$，满足$h(xX)$有小于$N^m$的范式(根)，其中$X$是$x_0$中满足$X<N^{\frac{1}{d}}$的上界。只要m足够大，那么一定能找到这样的$h(x)$。**此时表示我们找到了这样的$h(x)$，它在整数中有同样的根$x_0$**。
 ##### $h(x)$的寻找方法
 * 定义$h(x)=\sum a_ix^i \in Z[x]$，则$\|h(x)\| = \sum a_i$
-* **Lemma 4 (Howgrave-Graham)：** Let $h(x)\in Z[x]$ be a polynomial of degree $d$ and let $X$ be a positive integer. Suppose $\|h(xX)\| < N/\sqrt{d}$. If $|x_0| < X$ satisfies $h(x_0)=0\ mod\ N$, then $h(x_0)=0$ holds over the integer.（$h(x_0)=0$在整数上成立）
-    * 首先我们把多项式$g_{u,v}(xX)$作为向量，并记格$L$是由它所生成的。固定一个m，我们就可以写出格$L$的表达式，形如下图。其中带``*``号的表示非0系数，空的位置代表0。下图是当$m=3,d=2$时所构造出的格$L$。
+* **Lemma 4 (Howgrave-Graham)：** Let $h(x)\in Z[x]$ be a polynomial of degree $dg$ and let $X$ be a positive integer. Suppose $\|h(xX)\| < N/\sqrt{dg}$. If $|x_0| < X$ satisfies $h(x_0)=0\ mod\ N$, then $h(x_0)=0$ holds over the integer.（$h(x_0)=0$在整数上成立）
+    * 首先我们把多项式$g_{u,v}(xX)$作为向量，并记格$L$是由它所生成的。固定一个m，我们就可以写出格$L$的表达式，形如下图。其中带``*``号的表示非0系数，空的位置代表0。下图是当$m=3,dg=2$时所构造出的格$L$。
     ![格L](crypto/images/lattice_L.PNG)
-    * 通过**LLL定理**，可以找出格L中的一个向量$v\in L$，满足$\|v\|\leq 2^{w/4}det(L)^{1/w}$，w表示格的维数。接下来需要证明：$2^{w/4}det(L)^{1/w} < N^m/\sqrt{w}，其中w=d(m+1)$。当m足够大的时候，上式可以被满足。因此通过LLL定理找出的向量$v$就是所求的$h(x)$。
-    * 参数的确定:当由$X=N^{\frac{1}{d}-\epsilon}$时，有$m=O(k/d)，k=min(\frac{1}{\epsilon},log\ N)$
+    * 通过**LLL定理**，可以找出格L中的一个向量$v\in L$，满足$\|v\|\leq 2^{w/4}det(L)^{1/w}$，w表示格的维数。接下来需要证明：$2^{w/4}det(L)^{1/w} < N^m/\sqrt{w}，其中w=dg(m+1)$。当m足够大的时候，上式可以被满足。因此通过LLL定理找出的向量$v$就是所求的$h(x)$。
+    * 参数的确定:当由$X=N^{\frac{1}{dg}-\epsilon}$时，有$m=O(k/dg)，k=min(\frac{1}{\epsilon},log\ N)$
 
-**LLL定理：** Let L be a lattice spanned by $<u_1,...,u_w>$. When $<u_1,...,u_w>$ are given as input, then the LLL algorithm outputs a point $v\in L$ satisfying $$\|v\|\leq 2^{w/4}det(L)^{1/w}$$ LLL的运行时间是输入长度w的四次方。
+**LLL定理：** Let L be a lattice spanned by $<u_1,...,u_w>$. When $<u_1,...,u_w>$ are given as input, then the LLL algorithm outputs a point $v\in L$ satisfying $$\|v\|\leq 2^{w/4}det(L)^{1/w}$$ LLL的运行时间是输入长度$w$的四次方。
+* **Coppersmith定理所使用的攻击方法一般都被写在了``Magma``的``SmallRoots``函数中，以及``SageMath``的``small_root``函数中。**
+* 详细实现过程参考：https://github.com/mimoo/RSA-and-LLL-attacks
+
 ##### 4.2 Hastad的广播攻击
-假设e=3，并且加密者使用了三个不同的模数$n_1,n_2,n_3$给三个不同的用户发送了加密后的消息$m$: $$c_1=m^3\ mod\ n_1 \newline 
+假设$e=3$，并且加密者使用了三个不同的模数$n_1,n_2,n_3$给三个不同的用户发送了加密后的消息$m$: $$c_1=m^3\ mod\ n_1 \newline 
 c_2=m^3\ mod\ n_2 \newline 
 c_3=m^3\ mod\ n_3$$
 其中$n_1,n_2,n_3$不互素，$m < n_i$。
-* 攻击方法：首先通过中国剩余定理得到$m^3\equiv C\ mod\ n_1n_2n_3$。因此只要对C开三次根就可以得到m的值。即令$f(x)=x^3$，然后我们现在就要解$f(x)=x^3\ mod\ n_1n_2n_3$，使用Coppersmith's Theorem即可。
-> **拓展：** 具有线性填充的广播攻击也能通过Coppersmith's Theorem被攻破。
-
+* 攻击方法：首先通过中国剩余定理得到$m^3\equiv C\ mod\ n_1n_2n_3$。因此只要对$C$开三次根就可以得到$m$的值。开根可以使用``SageMath``中的``iroot``函数。
+    * 代码参考：https://github.com/yifeng-lee/RSA-In-CTF/blob/master/exp2.sage
+    * ***具体Sagemath9.2代码见``crypto/code/Hastad_Broadcast_Attact.sage``***
+* **拓展：** 具有线性填充的广播攻击也能通过Coppersmith's Theorem被攻破。
 * 因此广播攻击的避免方式可以使用随机填充(padding)
+
 ##### 4.3 Franklin-Reiter 相关信息攻击
 (**Franklin-Reiter**)当 Alice 使用同一公钥对两个具有某种线性关系的消息 M1 与 M2 进行加密，并将加密后的消息 C1，C2 发送给了 Bob 时，我们就可能可以获得对应的消息 M1 与 M2。这里我们假设模数为 N，两者之间的线性关系为$M_1\equiv f(M_2)\ mod\ N，f=ax+b$。则此时可以比较容易地恢复出$M$。
 * 方法：当e=3时，$C_1=M_1^e\ mod\ N$，则有$M_2$是$g_1(x) = f(x)^e - C_1\equiv 0\ mod\ N$的根，而且$M_2$也是$g_2(x)=x^e - C_2\equiv 0\ mod\ N$的根。如果$g_1,g_2$的最大公因子是线性的，那么$M_2 = gcd(g_1,g_2)$。
@@ -332,22 +362,35 @@ c_3=m^3\ mod\ n_3$$
 ##### 4.5 Known High Bits Message Attack(已知高比特信息攻击)
 已知$C\equiv m^e\ mod\ N$，假设已知很大一部分$m_0$,则有$C\equiv(m_0+x)^e\ mod\ N$。直接使用Coppersmith定理求解$x$，但记得其中的$x$需要满足Coppersmith定理中的约束，即$x < N^{\frac{1}{e}}$。
 
-##### 4.6 Partial Key Exposure attack （部分密钥泄露攻击）
-* **Theorem 9 (BDF)：** 给定私钥<$N,d$>，$N$长为$n$比特，并给出私钥d的$\lceil n/4\rceil$位最低有效位，那么可以在时间$O(elog_2\ e)$中恢复出$d$。
+* ***具体Magma代码见``crypto/code/Known_High_Bits_Message_Attack.m``***
+
+##### 4.6 Factoring with High Bits Known(已知高比特分解)
+已知$p$或$q$中其中一个数的高位比特，我们就有一定几率来分解 $N$。
+**这里的原理就是Theorem 10，但是原理的具体流程没有找到。这里只是使用现成的代码能做到已知p的高比特部分，代码运行之后能得到相应的$p$。**
+原理则是求解$x+p_{fake}\equiv 0\ mod\ Factor(N)$，Sage里面恰好有这样的一个函数，可以直接使用。
+
+* 代码参考：https://github.com/yifeng-lee/RSA-In-CTF/blob/master/exp6.sage
+* ***具体Sagemath9.2代码见``crypto/code/Factoring_with_High_Bits_Known.py``***
+
+##### 4.7 Partial Key Exposure attack （部分密钥泄露攻击）
+此时公钥$e$很小
+* **Theorem 9 (BDF)：** 给定私钥<$N,d$>，$N$长为$n$比特，并给出私钥d的$\lceil n/4\rceil$位最低有效位(即$d$的低位)，那么可以在时间$O(elog_2\ e)$中恢复出$d$。
 * **Theorem 10 (Coppersmith)：**$N=pq$，N为n比特。给出私钥p的高或低n/4比特，那么可以快速分解N。
 
 我们主要讨论定理10，
 
-**原理：** 首先已知$ed-k(N-p-q+1)=1$，因为$d<\varphi(N)$，所以有$0< k\leq e$。则有$$(ed)p-kp(N-p+1)+kN=p\ mod\ (2^{n/4})$$
-因为敌手Marvin得到了d的n/4个最低有效位，所以他知道$ed\ mod\ 2^{n/4}$。因此，他得到了一个关于k和p的方程。对于k的每一个可能的值，Marvin求解了关于p的二次方程，得到了一些$p\ mod\ 2^{n/4}$的候选值。对于每一个候选值，他执行定理10的算法去尝试分解N。可以看出，对于$p\ mod\ 2^{n/4}$的候选值的总数最多为$elog_2\ e$。因此，最多尝试$elog_2\ e$次后，N将被因式分解。
-* ！！！这里的问题在于算法10的流程没有给出。
+**原理：** 首先已知$ed-k(N-p-q+1)=1$，因为$d<\varphi(N)$，所以有$0< k\leq e$。然后又因为$q=N/p$。则有$$(ed)p-kp(N-p+1)+kN=p\ mod\ (2^{n/4})$$因为敌手Marvin得到了$d$的$n/4$个最低有效位$d_0$，所以他知道$ed\equiv ed_0\ mod\ 2^{n/4}$。因此，他得到了一个关于$k$和$p$的方程。对于$k$的每一个可能的值$[0,e]$，Marvin求解了关于$p$的二次方程$$(ed_0)x-kx(N-x+1)+kN=x\ mod\ (2^{n/4})$$得到了一些$p$的候选值$x\ mod\ 2^{n/4}$的候选值。对于每一个候选值，执行定理10的算法(**4.6节**)去尝试分解$N$。可以看出，对于$p\ mod\ 2^{n/4}$的候选值的总数最多为$elog_2\ e$。因此，最多尝试$elog_2\ e$次后，$N$将被因式分解。然后就可以通过$e$和$\varphi (N)$求出私钥$d$。
+* 定理10的代码见4.6节。
 
-##### 4.7 Boneh and Durfee attack
+* 代码参考：https://github.com/yifeng-lee/RSA-In-CTF/blob/master/exp8.sage
+* ***具体Sagemath9.2代码见``crypto/code/Partial_Key_Exposure_attack.py``***
+
+##### 4.8 Boneh and Durfee attack
 当 $d$ 较小时，满足 $d < N0.292$ 时，我们可以利用该攻击，比 Wiener's Attack 要强一些。
 
-* 注意：4.2~4.6节的公钥指数$e$都是非常小(一般为3)。而本节仅仅是私钥指数$d$比较的小，而一般假设$e$非常的大。
+* 注意：4.2~4.7节的公钥指数$e$都是非常小(一般为3)。而本节仅仅是私钥指数$d$比较的小，而一般假设$e$非常的大。
 
-######4.7.1 攻击原理
+###### 4.8.1 攻击原理
 假设$gcd(p-1, q-1)=2$，已知$\varphi(N)=N-p-q+1$，则有
 $$ed\equiv 1\ mod\ \varphi(N)/2$$
 $$ed+k(\frac{N+1}{2}-\frac{p+q}{2})=1$$
@@ -355,7 +398,41 @@ $$ed+k(\frac{N+1}{2}-\frac{p+q}{2})=1$$
 而且满足$|k|< e^{\delta}$以及$|s|< e^{0.5}$，其中$\delta < 0.292$
 这里$k$和$s$是未知数，因此我们相当于求一个二元二次方程的解。这里用到的是Coppersmith算法的广义的形式。
 
-* **TODO：求解的过程另外给出。**
+* 代码参考：https://github.com/mimoo/RSA-and-LLL-attacks/blob/master/boneh_durfee.sage
+* ***具体Sagemath9.2代码见``crypto/code/boneh_and_durfee.sage``***
+
+##### 4.9 低加密指数攻击
+$m ^ e = kN + c$其中一般 $e = 3$，$k$比较小($k$小于10亿爆破时间一般小于半小时)
+
+##### 4.10 公钥$e$与$\varphi(N)$不互素
+* 攻击前提：$p,q$已知，$e$比较小(不超过65535)
+但是由于$e$与$\varphi(N)$不互素，所以我们无法求解得到私钥$d$。只有当他们互素时，才能保证$e$的逆元$d$唯一存在。
+###### 4.10.1 $e \nmid \varphi(N)$
+一般情况下会对同一个信息$m$给出两对$c_1,e_1,n_1,c_2,e_2,n_2$信息，且$n_1 = pq_1$、$n_2=pq_2$。于此同时还有$$gcd(e_1,(p-1)*(q_1-1)) = gcd(e2,(p-1)*(q_2-1)) = b$$然后令$e_i=a_ib$则$a_i$与$\varphi(N)$互素，又因为$ed\equiv 1\ mod\ \varphi(N)$因此每个$a_i$都唯一确定一个$bd_i$，则有$c_i^{bd_i} \equiv m^b\ mod\ N$记$c_i^{bd_i}=res_i$从而我们可以得到$$res_1 \equiv m^b\ mod\ n_1 \newline res_2 \equiv m^b\ mod\ n_2$$展开得$$res_1 \equiv m^b\ mod\ p \newline res_1 \equiv m^b\ mod\ q_1 \newline res_2 \equiv m^b\ mod\ q_2$$通过中国剩余定理计算可得$$res \equiv m^b\ mod\ q_1q_2$$此时求出$b' = gcd(b,q_1q_2)$，$d'=e/b'$，$d'd'^{-1}\equiv 1\ mod\ \varphi(q_1q_2)$，则$$res^{d'^{-1}} \equiv m^{bd'^{-1}} \equiv m^{b'}\ mod\ q_1q_2$$一般来说$b'$为2，此时$res^{d'^{-1}}$已知，因此之需要开个平方就可以得到$m$，**若$b'$不为2，则相当于变成了4.10.2节的情况**。
+
+###### 4.10.2 $e\ |\ \varphi(N)$
+现在相当于是这样的一种情况，我们有这样的一个方程$$c\equiv m^e\ mod\ N \tag{4.10}$$，其中$c,N,e,p,q$已知，需要求$m$。但是此时有$e | \varphi(N)$。因此这个方程可以化为$$c\equiv m^e\ mod\ p \newline c\equiv m^e\ mod\ q$$因为$e$与$p,q$互素，因此两个方程各有$e$个根，从而方程$(4.10)$有$e^2$个根。我们的目的就是找到这$e^2$个根中我们需要的那个，**就是找到有特殊字符串开头比如``flag{``开头的根$m$**。
+
+* 主要流程：
+    1. 用**Adleman-Manders-Miller rth Root Extraction Method**在GF(p)和GF(q)上对$c$开$e$次根，分别得到一个解。
+    2. 找到所有的$e$个primitive $e^{th}$ root of 1，乘以上面那个解，得到所有的$e$个方程$c\equiv m^e\ mod\ p$和方程$c\equiv m^e\ mod\ q$的解.
+    3. 用**中国剩余定理CRT**对GF(p)和GF(q)上的两组$e$个解组合成$mod\ N$下的解，可以得到$e^2$个方程$(4.10)$解。
+
+**Adleman-Manders-Miller rth Root Extraction Method （AMM）**
+![AMM](crypto/images/AMM.PNG)
+https://arxiv.org/pdf/1111.4877.pdf  **Cao Z , Sha Q , Fan X . Adleman-Manders-Miller Root Extraction Method Revisited[J]. 2011.** 这篇文章里给出了算法的推导过程，由于稍微有点复杂，就不写在这里了。
+更详细的解释可参考 https://blog.csdn.net/jcbx_/article/details/105303760 这篇博客。
+
+题外话：其实开n次方根的方法还有很多，这只是其中一种比较好理解和实现的。
+
+**找出所有的$e$个primitive $e^{th}$ root of 1**：一种不严谨的做法就是随机生成$e$个$GF(p)$上的数记$x_i,\ i\in[1,e]$，然后计算$x^{\frac{p-1}{e}}\ mod\ p = x_i$，这样一来每个$x_i^e \equiv 1\ mod\ p$。不严谨就在于可能会出现重复的现象。
+
+进而只要用AMM算法求出的$c$在$GF(p)$上的$e$次根记$m_p$，则计算$m_p·x_i\ mod\ p$就得到所有的$e$个方程$c\equiv m^e\ mod\ p$的解。
+
+* 代码参考：https://blog.csdn.net/cccchhhh6819/article/details/112766888 本质上这里的代码是参考starctf2021_Crypto_little_case题目中的writeup。
+* ***具体Sagemath9.2代码见``crypto/code/AMM.sage``***
+
+
 #### 五、选择明密文攻击
 ##### 5.1 选择明文攻击
 * 前提：我们有一个Oracle，对于给定任意明文，Oracle都会给出相应的密文。
@@ -407,6 +484,15 @@ TODO：未完善
 1. ***Coppersmith方案解方程的实现***
 2. ***部分密钥泄露攻击***
 3. ***Boneh and Durfee attack***
+
+#### 八、实用小工具
+* RSA工具集-openssl,rsatool,RsaCtfTool
+参考：https://www.jianshu.com/p/c945b0f0de0a
+    * openssl可以实现：秘钥证书管理、对称加密和非对称加密。一般来说Windows有自带的，Ubuntu中apt可以方便地下载。
+    * 根据给定的两个素数（p，q）或模数和私有指数（n，d）来计算RSA（p，q，n，d，e）和RSA-CRT（dP，dQ，qInv）参数。 https://github.com/ius/rsatool
+    * RsaCtfTool:RSA多重攻击工具，从弱公钥解密数据并尝试恢复私钥针对给定的公钥自动选择最佳攻击。 https://github.com/Ganapati/RsaCtfTool
+
+
 
 ## $\mathrm I\mathrm I.\mathrm I\mathrm I$ 背包加密 TODO
 
