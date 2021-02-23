@@ -1094,6 +1094,69 @@ print(get_bytes(0x6010E0, 10)) # 输出 0x6010E0 地址及其后的 10 Byte
 
 
 
+# Function Reference
+
+
+
+## File / IO Related
+
+
+
+### FILENO
+
+- This function returns the file descriptor number associated with a specified stream.
+
+```cpp
+#define _POSIX_SOURCE
+#include <stdio.h>
+int fileno(const FILE *stream);
+```
+
+- `stream`: The stream for which the associated file descriptor will be returned.
+- `unistd.h`定义了如下宏，映射到标准流的fd
+- `STDIN_FILENO`: Standard input, `stdin` (value 0).
+- `STDOUT_FILENO`: Standard output, `stdout` (value 1).
+- `STDERR_FILENO`: Standard error, `stderr` (value 2).
+
+```cpp
+#define _POSIX_SOURCE
+#include <errno.h>
+#include <stdio.h>
+main() {
+  FILE *stream;
+  char my_file[]="my.file";
+  printf("fileno(stdin) = %d\n", fileno(stdin)); // fileno(stdin) = 0
+  if ((stream = fopen(my_file, "w")) == NULL)
+    perror("fopen() error");
+  else {
+    printf("fileno() of the file is %d\n", fileno(stream)); // fileno() of the file is 3
+    fclose(stream);   remove(my_file);
+  }
+}
+```
+
+
+
+- `_fileno`: Gets the file descriptor associated with a stream.
+
+```cpp
+int _fileno(
+   FILE *stream
+);
+// This program uses _fileno to obtain
+// the file descriptor(fd) for some standard C streams.
+#include <stdio.h>
+int main( void ){
+   printf( "fd of stdin %d\n", _fileno( stdin ) ); // fd of stdin 0
+   printf( "fd of stdin %d\n", _fileno( stdout ) ); // fd of stdin 1
+   printf( "fd of stdin %d\n", _fileno( stderr ) ); // fd of stdin 2
+}
+```
+
+
+
+
+
 #  Dynamic Analysis
 
 > 动态分析 实践部分
