@@ -424,6 +424,14 @@ print(type(h_key), h_key) # <class 'str'> 39343437
 
 
 
+## **.NET** Reverse
+
+> .NET Decompiler: dnSpy(https://github.com/dnSpy/dnSpy), ILSpy
+
+- 可以大致了解一下 .NET Native
+
+
+
 # Linux Reverse
 
 
@@ -461,6 +469,14 @@ ELF (Executable and Linkable Format)文件，也就是在 Linux 中的目标文�
 
 
 ![](https://raw.githubusercontent.com/hex-16/pictures/master/CTF_pic/ELF-Walkthrough.png)
+
+
+
+### 程序加载
+
+程序加载过程其实就是系统创建或者或者扩充进程镜的过程。它只是按照一定的规则把文件的段拷贝到虚拟内存段中。进程只有在执行的过程中使用了对应的逻辑页面时，才会申请相应的物理页面。通常来说，一个进程中有很多页是没有被引用的。因此，延迟物理读写可以提高系统的性能。为了达到这样的效率，可执行文件以及共享目标文件所拥有的段的文件偏移以及虚拟地址必须是合适的，也就是说他们必须是页大小的整数倍。
+
+
 
 
 
@@ -514,17 +530,17 @@ int main(int argc, char *argv[]){
 >
 > 这里仅记录较重要 / 少见 / IDA开启Auto comments后仍可能不清楚功能 的汇编指令
 
-| Instructions       | Comments                                      |
-| ------------------ | --------------------------------------------- |
-| test al, 00001001b | 测试0, 3bit是否置1，全都置0时，ZF=1，否则ZF=0 |
-| test eax, eax      | 如果eax为0，ZF=1; 否则ZF=0                    |
-|                    |                                               |
-|                    |                                               |
-|                    |                                               |
-|                    |                                               |
-|                    |                                               |
-|                    |                                               |
-|                    |                                               |
+| Instructions       | Comments                                                     |
+| ------------------ | ------------------------------------------------------------ |
+| test al, 00001001b | 测试0, 3bit是否置1，全都置0时，ZF=1，否则ZF=0                |
+| test eax, eax      | 如果eax为0，ZF=1; 否则ZF=0                                   |
+| lea dst, src       | Load Effective Address 取有效地址 将src的4bit偏移地址到寄存器dst |
+| jnz label          | if(ZF!=0)则跳转                                              |
+|                    |                                                              |
+|                    |                                                              |
+|                    |                                                              |
+|                    |                                                              |
+|                    |                                                              |
 
 > `int 3` https://blog.csdn.net/trochiluses/article/details/20209593
 
@@ -608,7 +624,7 @@ _TEXT ENDS
 
 ```assembly
 ; 指令清单3.3 GCC 4.4.1 x86; 在IDA中观察到的汇编指令
-Main	proc	near
+Main proc near
 var_10	= dword ptr -10h
 	push ebp ; 将EBP旧值入栈 (后面在leave指令中恢复) 将caller的ebp入栈
 	mov  ebp, esp ; 将ESP的值赋值给EBP
@@ -973,29 +989,30 @@ ret  0
 
 ## Shortcut Quick Find
 
-| Short Cut | Functionality                               |
-| --------- | ------------------------------------------- |
-| space     | 切换显示方式                                |
-| C         | 转换为代码                                  |
-| D         | 转换为数据                                  |
-| R         | 转换为char                                  |
-|           |                                             |
-|           |                                             |
-| N         | 为标签重命名(包含寄存器等)                  |
-| ?         | 计算器                                      |
-| G         | 跳转到地址(然后会出来Jump to address对话框) |
-| ;         | 添加注释(Pseudocode窗口下按 / 添加注释)     |
-| ctrl+X    | 查看当前函数、标签、变量的参考(显示栈)      |
-| X         | 查看当前函数、标签、变量的参考              |
-| Alt + I   | 搜索常量constant                            |
-| Ctrl + I  | 再次搜索常量constant                        |
-| Alt + B   | 搜索byte序列                                |
-| Ctrl + B  | 再次搜索byte序列                            |
-| Alt + T   | 搜索文本(包括指令中的文本)                  |
-| Ctrl + T  | 再次搜索文本                                |
-| Alt + P   | 编辑当前函数                                |
-| Enter     | 跳转到函数、变量等对象                      |
-| Esc       | 返回                                        |
+| Short Cut | Functionality                                                |
+| --------- | ------------------------------------------------------------ |
+| space     | 切换显示方式                                                 |
+| C         | 转换为代码                                                   |
+| D         | 转换为数据                                                   |
+| R         | 转换为char                                                   |
+| Alt + M   | Mark position 也可以在地址处右键(可在汇编/伪c窗口使用，对文件位置mark，在Jump菜单) |
+| Ctrl + M  | Jump to marked position也可以在地址处右键(与上一个一起用，方便分析复杂指令) |
+| N         | 为标签重命名(包含寄存器等)                                   |
+| ?         | 计算器                                                       |
+| G         | 跳转到地址(然后会出来Jump to address对话框)                  |
+| ;         | 添加注释(Pseudocode窗口下按 / 添加注释)                      |
+| Ctrl+X    | 查看当前函数、标签、变量的参考(显示栈)                       |
+| X         | 查看当前函数、标签、变量的参考                               |
+| Alt + I   | 搜索常量constant                                             |
+| Ctrl + I  | 再次搜索常量constant                                         |
+| Alt + B   | 搜索byte序列                                                 |
+| Ctrl + B  | 再次搜索byte序列                                             |
+| Alt + T   | 搜索文本(包括指令中的文本)                                   |
+| Ctrl + T  | 再次搜索文本                                                 |
+| P         | 创建函数(Edit=>Functions)                                    |
+| Alt + P   | 编辑当前函数                                                 |
+| Enter     | 跳转到函数、变量等对象                                       |
+| Esc       | 返回                                                         |
 
 
 
@@ -1292,4 +1309,45 @@ flag = key.decode('hex') # hex to str
 00F710C5    .  6A 00         push 0x0                                   ; |hOwner = NULL
 00F710C7    .  FF15 E460F700 call dword ptr ds:[<&USER32.MessageBoxA>]  ; \MessageBoxA
 ```
+
+
+
+
+
+# Machine Code
+
+```assembly
+90 nop
+E8 call
+
+```
+
+
+
+# 反调试技术
+
+
+
+## 花指令
+
+> 可能会涉及修改机器码，参考**Machine Code**章节
+
+- 企图隐藏掉不想被逆向工程的代码块/功能的一种方法, 在真实代码中插入一些垃圾代码的同时保证原有程序的正确执行, 而程序无法很好地反编译, 难以理解程序内容, 达到反调试的效果
+
+> 比如使用`jz ... jnz ... call`(`call`机器码`E8`). call 永不执行，而后面一些指令的机器码被当成`call`的一部分而被掩藏
+
+
+
+花指令情形列举：
+
+- IDA中显示类似`jump short xxx+2`，该地址`xxx`很可能就是一个混淆用的机器码，将被跳过的字节改为`90`(`nop`)来消除影响
+- 
+
+
+
+
+
+
+
+
 
