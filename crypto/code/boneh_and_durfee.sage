@@ -44,7 +44,7 @@ def helpful_vectors(BB, modulus):
         if BB[ii,ii] >= modulus:
             nothelpful += 1
 
-    print nothelpful, "/", BB.dimensions()[0], " vectors are not helpful"
+    print(nothelpful, "/", BB.dimensions()[0], " vectors are not helpful")
 
 # display matrix picture with 0 and X
 def matrix_overview(BB, bound):
@@ -56,7 +56,7 @@ def matrix_overview(BB, bound):
                 a += ' '
         if BB[ii, ii] >= bound:
             a += '~'
-        print a
+        print(a)
 
 # tries to remove unhelpful vectors
 # we start at current = n-1 (last vector)
@@ -83,7 +83,7 @@ def remove_unhelpful(BB, monomials, bound, current):
             # if no other vectors end up affected
             # we remove it
             if affected_vectors == 0:
-                print "* removing unhelpful vector", ii
+                print("* removing unhelpful vector", ii)
                 BB = BB.delete_columns([ii])
                 BB = BB.delete_rows([ii])
                 monomials.pop(ii)
@@ -104,7 +104,7 @@ def remove_unhelpful(BB, monomials, bound, current):
                 # this helpful vector is not helpful enough
                 # compared to our unhelpful one
                 if affected_deeper and abs(bound - BB[affected_vector_index, affected_vector_index]) < abs(bound - BB[ii, ii]):
-                    print "* removing unhelpful vectors", ii, "and", affected_vector_index
+                    print("* removing unhelpful vectors", ii, "and", affected_vector_index)
                     BB = BB.delete_columns([affected_vector_index, ii])
                     BB = BB.delete_rows([affected_vector_index, ii])
                     monomials.pop(affected_vector_index)
@@ -182,7 +182,7 @@ def boneh_durfee(pol, modulus, mm, tt, XX, YY):
         # reset dimension
         nn = BB.dimensions()[0]
         if nn == 0:
-            print "failure"
+            print("failure")
             return 0,0
 
     # check if vectors are helpful
@@ -193,15 +193,15 @@ def boneh_durfee(pol, modulus, mm, tt, XX, YY):
     det = BB.det()
     bound = modulus^(mm*nn)
     if det >= bound:
-        print "We do not have det < bound. Solutions might not be found."
-        print "Try with highers m and t."
+        print("We do not have det < bound. Solutions might not be found.")
+        print("Try with highers m and t.")
         if debug:
             diff = (log(det) - log(bound)) / log(2)
-            print "size det(L) - size e^(m*n) = ", floor(diff)
+            print("size det(L) - size e^(m*n) = ", floor(diff))
         if strict:
             return -1, -1
     else:
-        print "det(L) < e^(m*n) (good! If a solution exists < N^delta, it will be found)"
+        print("det(L) < e^(m*n) (good! If a solution exists < N^delta, it will be found)")
 
     # display the lattice basis
     if debug:
@@ -209,16 +209,16 @@ def boneh_durfee(pol, modulus, mm, tt, XX, YY):
 
     # LLL
     if debug:
-        print "optimizing basis of the lattice via LLL, this can take a long time"
+        print("optimizing basis of the lattice via LLL, this can take a long time")
 
     BB = BB.LLL()
 
     if debug:
-        print "LLL is done!"
+        print("LLL is done!")
 
     # transform vector i & j -> polynomials 1 & 2
     if debug:
-        print "looking for independent vectors in the lattice"
+        print("looking for independent vectors in the lattice")
     found_polynomials = False
     
     for pol1_idx in range(nn - 1):
@@ -238,14 +238,14 @@ def boneh_durfee(pol, modulus, mm, tt, XX, YY):
             if rr.is_zero() or rr.monomials() == [1]:
                 continue
             else:
-                print "found them, using vectors", pol1_idx, "and", pol2_idx
+                print("found them, using vectors", pol1_idx, "and", pol2_idx)
                 found_polynomials = True
                 break
         if found_polynomials:
             break
 
     if not found_polynomials:
-        print "no independant vectors could be found. This should very rarely happen..."
+        print("no independant vectors could be found. This should very rarely happen...")
         return 0, 0
     
     rr = rr(q, q)
@@ -254,7 +254,7 @@ def boneh_durfee(pol, modulus, mm, tt, XX, YY):
     soly = rr.roots()
 
     if len(soly) == 0:
-        print "Your prediction (delta) is too small"
+        print("Your prediction (delta) is too small")
         return 0, 0
 
     soly = soly[0][0]
@@ -308,31 +308,31 @@ def example():
 
     # Checking bounds
     if debug:
-        print "=== checking values ==="
-        print "* delta:", delta
-        print "* delta < 0.292", delta < 0.292
-        print "* size of e:", int(log(e)/log(2))
-        print "* size of N:", int(log(N)/log(2))
-        print "* m:", m, ", t:", t
+        print("=== checking values ===")
+        print("* delta:", delta)
+        print("* delta < 0.292", delta < 0.292)
+        print("* size of e:", int(log(e)/log(2)))
+        print("* size of N:", int(log(N)/log(2)))
+        print("* m:", m, ", t:", t)
 
     # boneh_durfee
     if debug:
-        print "=== running algorithm ==="
+        print ("=== running algorithm ===")
         start_time = time.time()
 
     solx, soly = boneh_durfee(pol, e, m, t, X, Y)
 
     # found a solution?
     if solx > 0:
-        print "=== solution found ==="
+        print("=== solution found ===")
         if False:
-            print "x:", solx
-            print "y:", soly
+            print("x:", solx)
+            print("y:", soly)
 
         d = int(pol(solx, soly) / e)
-        print "private key found:", d
+        print("private key found:", d)
     else:
-        print "=== no solution was found ==="
+        print("=== no solution was found ===")
 
     if debug:
         print("=== %s seconds ===" % (time.time() - start_time))

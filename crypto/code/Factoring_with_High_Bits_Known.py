@@ -28,9 +28,9 @@ pbits = p_fake.nbits()
 kbits = 900
 #kbits = 200
 pbar = p_fake & (2^pbits-2^kbits)
-print "upper %d bits (of %d bits) is given" % (pbits-kbits, pbits)
+print("upper %d bits (of %d bits) is given" % (pbits-kbits, pbits))
 PR.<x> = PolynomialRing(Zmod(n))
 f = x + pbar
 x0 = f.small_roots(X=2^kbits, beta=0.4)[0]  # find root < 2^kbits with factor >= n^0.3
 p= x0 + pbar
-print 'p =',p
+print('p =',p)

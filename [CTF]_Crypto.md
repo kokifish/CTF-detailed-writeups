@@ -217,6 +217,8 @@ class SecurePrng(object):
 
 ### RSA 相关攻击
 ***TITLE:***
+
+0. 实用工具
 1. 分解大整数N
 2. 基本攻击
 3. 小解密指数攻击
@@ -224,13 +226,30 @@ class SecurePrng(object):
 5. 选择明密文攻击
 6. 侧信道攻击
 7. 基于具体RSA实现的攻击
-8. 实用小工具
+8. 实用工具
 
 ***RSA Reference***：
 1.  Boneh D . **Twenty Years of Attacks on the RSA Cryptosystem**[J]. Notices of the Ams, 2002, 46.
 2. D. Boneh and G. Durfee. **New results on cryptanalysis of low private exponent RSA**[J]. Preprint, 1998.
 3. Howgrave-Graham N , Seifert J P . **Extending Wiener's Attack in the Presence of Many Decrypting Exponents**[M] Secure Networking — CQRE [Secure] ’ 99. Springer Berlin Heidelberg, 1999.
 4. Cao Z , Sha Q , Fan X . **Adleman-Manders-Miller Root Extraction Method Revisited**[J]. 2011.
+
+#### 零、实用工具
+* RSA工具集-openssl,rsatool,RsaCtfTool
+参考：https://www.jianshu.com/p/c945b0f0de0a
+    * openssl可以实现：秘钥证书管理、对称加密和非对称加密。一般来说Windows有自带的，Ubuntu中apt可以方便地下载。
+    * 根据给定的两个素数（p，q）或模数和私有指数（n，d）来计算RSA（p，q，n，d，e）和RSA-CRT（dP，dQ，qInv）参数。 https://github.com/ius/rsatool
+    * RsaCtfTool:RSA多重攻击工具，从弱公钥解密数据并尝试恢复私钥针对给定的公钥自动选择最佳攻击。 https://github.com/Ganapati/RsaCtfTool
+
+* **Sagemath9.2**: Sage是免费的、开源的数学软件，支持代数、几何、数论、密码学、数值计算和相关领域的研究和教学。Sage的开发模式和Sage本身的技术都非常强调开放性、社区性、合作性和协作性：我们在制造汽车，而不是重新发明轮子。Sage的总体目标是为Maple、Mathematica、Magma和MATLAB创建一个可行的、免费的、开源的替代品。
+    * 入门中文文档：https://www.osgeo.cn/sagemath/tutorial/index.html
+    * Reference：https://doc.sagemath.org/html/en/reference/index.html
+    * 官方网站：https://www.sagemath.org/
+    * 简单使用：Windows上Sagemath安装完成后，运行``SageMath 9.2 Notebook``文件，然后会打开Jupyter Notebook，在里面进行编程即可。
+
+* Crypto常用的python库
+    * gmpy2 (pip 一般不能直接安装，要在网上下载.whl文件然后用pip进行安装)
+    * Crypto (安装命令``pip install pycryptodome``)
 
 #### 一、分解大整数N
 目前最快的分解大整数N的方法是广义数域筛法(General Number Field Sieve)。对于n-bit的整数，时间为$O(exp((c+o(1))n^{\frac{1}{3}}log^{\frac{2}{3}}n))$
@@ -242,17 +261,24 @@ class SecurePrng(object):
     * http://www.factordb.com
 
 ##### 1.1 已知 $(N, e, d)$ 求 $(p, q)$ V1
-* 攻击条件，$e$或$d$比较小(不超过一亿)
-* 攻击原理：$ed-1=k\varphi(N)$。因为$e$或$d$比较小，然后$\varphi(N)$与$N$比较接近，因此爆破$k$，从而找到$\varphi(N)$。然后由$$N=pq \newline \varphi(N)=(p-1)(q-1)$$得$$N-\varphi(N)+1=p+q$$接下来构造方程$$x^2+(N-\varphi(N)+1)x+N=(x-p)(x-q)=0 \tag{1.1}$$只需要解方程$(1.1)$就可以把$p$和$q$解出来。
+* 攻击条件，$e$或$d$足够小
+* 攻击原理：$ed-1=k\varphi(N)$。因为$e$或$d$比较小，然后$\varphi(N)$与$N$比较接近，因此爆破$k$，从而找到$\varphi(N)$。**但是实际上求解$\varphi(N)$是非常困难的，只有少数特殊情况能求解**。然后由$$N=pq \newline \varphi(N)=(p-1)(q-1)$$得$$N-\varphi(N)+1=p+q$$接下来构造方程$$x^2+(N-\varphi(N)+1)x+N=(x-p)(x-q)=0 \tag{1.1}$$只需要解方程$(1.1)$就可以把$p$和$q$解出来。
 
 * 代码参考 https://blog.csdn.net/ayang1986/article/details/112714749
 * ***具体python2代码见``crypto/code/Known_ed_factor_N_V1.py``*** 
+**注意：代码中那种爆破$k$求解出$\varphi(N)$的方法实际上需要$e$或$d$非常的小，而且足够小了也不一定能用上。因此这里最好仅仅是作为一种已知$\varphi(N)$求解$p,q$的方案。**
 
 ##### 1.2 已知 $(N, e, d)$ 求 $(p, q)$ V2
 * 没有攻击条件的限制
 * 分解原理：
 ![](crypto/images/RSA_Factor_N.PNG)
-**TODO:中间有个小细节不太懂，需要弄清楚一点**
+
+参考书籍：**密码学原理与实践(第三版)** 作者：**冯登国**
+* 关键定理：
+**定理1.2.1：** 假定$p$为一个奇素数，$a$为一个正整数,$x$为一个数，且$gcd(x,p)=1$。那么同余方程$y^2\equiv x(mod\ p^a)$当$(\frac{a}{p})=-1$时没有解，当$(\frac{a}{p})=1$时有两个解$(mod\ p^a)$。
+**定理1.2.2：** 假定$n>1$时一个奇数，且有如下分解$$n=\prod_{i=1}^{l}p_i^{a_i}$$其中$p_i$为不同的素数，且$a_i$为正整数。进一步假定$gcd(x,n)=1$。那么同于方程$y^2\equiv x(mod\ n)$当$(\frac{a}{p_i})=1$对于所有的$i\in\{1,...,l\}$成立时有$2^l$个模$n$的解，其它情况无解。
+
+由定理1.2.2可知，$N=pq$对于方程$x^2\equiv 1\ mod\ N$有4个解。展开可得$$x\equiv\pm1\ mod\ p \newline x\equiv\pm1\ mod\ q$$其中$\pm1\ mod\ N$为平凡平方根。另外两个根称为非平凡平方根。而对于非平凡平方根，是由$$x\equiv1\ mod\ p \newline x\equiv-1\ mod\ q$$和$$x\equiv-1\ mod\ p \newline x\equiv1\ mod\ q$$所生成的。因此如果我们找到了$1\ mod\ N$的非平凡平方根$x$，那么我们就可以通过计算$gcd(x+1,N)$和$gcd(x-1,N)$来分解$N$。因为非平凡平方根满足$x\equiv\pm1\ mod\ p$。然后通过下方代码是算法能够以$\frac{1}{2}$的概率分解$N$。具体证明过程见参考书籍中的P159~P161。或者参考：https://www.cnblogs.com/jcchan/p/8430904.html
 
 * 代码参考 https://blog.csdn.net/ayang1986/article/details/112714749
 * ***具体python2代码见``crypto/code/Known_ed_factor_N_V2.py``*** 
@@ -484,14 +510,6 @@ TODO：未完善
 1. ***Coppersmith方案解方程的实现***
 2. ***部分密钥泄露攻击***
 3. ***Boneh and Durfee attack***
-
-#### 八、实用小工具
-* RSA工具集-openssl,rsatool,RsaCtfTool
-参考：https://www.jianshu.com/p/c945b0f0de0a
-    * openssl可以实现：秘钥证书管理、对称加密和非对称加密。一般来说Windows有自带的，Ubuntu中apt可以方便地下载。
-    * 根据给定的两个素数（p，q）或模数和私有指数（n，d）来计算RSA（p，q，n，d，e）和RSA-CRT（dP，dQ，qInv）参数。 https://github.com/ius/rsatool
-    * RsaCtfTool:RSA多重攻击工具，从弱公钥解密数据并尝试恢复私钥针对给定的公钥自动选择最佳攻击。 https://github.com/Ganapati/RsaCtfTool
-
 
 
 ## $\mathrm I\mathrm I.\mathrm I\mathrm I$ 背包加密 TODO

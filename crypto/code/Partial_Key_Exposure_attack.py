@@ -15,7 +15,7 @@ def partial_p(p0, kbits, n):
 def find_p(d0, kbits, e, n):
     X = var('X')
 
-    for k in xrange(1, e+1):
+    for k in range(1, e+1):
         results = solve_mod([e*d0*X - k*X*(n-X+1) + k*n == X], 2^kbits)
         for x in results:
             p0 = ZZ(x[0])
@@ -36,10 +36,10 @@ if __name__ == '__main__':
     nbits = n.nbits()
     kbits = floor(nbits*(beta^2+epsilon))
     d0 = d & (2^kbits-1)
-    print "lower %d bits (of %d bits) is given" % (kbits, nbits)
+#     print "lower %d bits (of %d bits) is given" % (kbits, nbits)
 
     p = find_p(d0, kbits, e, n)
-    print "p = %d" % p
+    print("p = %d" % p)
     q = n//p
-    print "d0 = %d" % d
-    print "d = %d" % inverse_mod(e, (p-1)*(q-1))
+    print("d0 = %d" % d)
+    print("d = %d" % inverse_mod(e, (p-1)*(q-1)))

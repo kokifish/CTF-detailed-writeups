@@ -14,13 +14,13 @@ k = e * d - 1
 while k % 2 == 0:
     k /= 2
     if cal_bit(k) == cal_bit(n):
-        print k
+        print(k)
         break
  
 a = 1
 b = (n - k + 1)
 c = n
-p = (b + gmpy2.iroot(b**2-4*a*c, 2)[0])/2
+p = (b + gmpy2.iroot(int(b**2-4*a*c), 2)[0])/2
 q = n / p
-print int(p)
-print q
+print(int(p))
+print(q)

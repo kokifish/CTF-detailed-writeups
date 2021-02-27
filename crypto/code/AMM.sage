@@ -54,32 +54,32 @@ q = 1122136959054721424152214445153265323203524294783416833528111835032696765554
 e = 4919
 
 start_time = time.time()
-print "Start time: 0.0"
+print("Start time: 0.0")
 # find all roots for pow(x, e, p)=1 and pow(x, e, q)=1 
 cp = c % p
 cq = c % q
 p_proot = findAllPRoot(p, e)
-print "P roots found: %s" % str(time.time()-start_time)
+print("P roots found: %s" % str(time.time()-start_time))
 q_proot = findAllPRoot(q, e)
-print "Q roots found: %s" % str(time.time()-start_time)
+print("Q roots found: %s" % str(time.time()-start_time))
 
 # find all roots for pow(x, e, p)=cp and pow(x, e, q)=cq
 mp = AMM(cp, e, p)
-print "mp found: %s" % str(time.time()-start_time)
+print("mp found: %s" % str(time.time()-start_time))
 mq = AMM(cq, e, q)
-print "mq found: %s" % str(time.time()-start_time)
+print("mq found: %s" % str(time.time()-start_time))
 
 mps = findAllSolutions(mp, p_proot, cp, p)
-print "mps found: %s" % str(time.time()-start_time)
+print("mps found: %s" % str(time.time()-start_time))
 mqs = findAllSolutions(mq, q_proot, cq, q)
-print "mqs found: %s" % str(time.time()-start_time)
+print("mqs found: %s" % str(time.time()-start_time))
 
 def check(m):
-    h = m.hex()
+    h = hex(int(m))[2:]
     if len(h) & 1:
         return False
-    if h.decode('hex').startswith('*CTF'):
-        print(h.decode('hex'))
+    if bytes.fromhex(h).startswith(b'*CTF'):    
+        print(bytes.fromhex(h))
         return True
     else:
         return False
@@ -89,5 +89,5 @@ for mpp in mps:
     for mqq in mqs:
         solution = CRT_list([int(mpp), int(mqq)], [p, q])
         if check(solution):
-            print solution
-            print "solution found: %s" % str(time.time()-start_time)
+            print(solution)
+            print("solution found: %s" % str(time.time()-start_time))
