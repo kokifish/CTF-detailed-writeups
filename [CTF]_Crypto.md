@@ -512,13 +512,125 @@ TODO：未完善
 3. ***Boneh and Durfee attack***
 
 
-## $\mathrm I\mathrm I.\mathrm I\mathrm I$ 背包加密 TODO
+## $\mathrm I\mathrm I.\mathrm I\mathrm I$ 背包加密
+* 参考：https://ctf-wiki.org/crypto/asymmetric/knapsack/knapsack/#_9
 
-## $\mathrm I\mathrm I.\mathrm I\mathrm I\mathrm I$ 离散对数 TODO
+![Knapsack_problem](crypto/images/Knapsack_problem.PNG)
+背包问题需要满足$a_i$为超递增序列的时候才能满足解密的要求，但此时其他人也可以截获密文进行破译。因此出现了**Merkle-Hellman**算法，从而设计出背包加密。所谓的超递增序列是指满足$$a_i>\sum_{k=1}^{i-1}a_k$$的序列。
 
-### 一 ElGammal
+* **Merkle-Hellman算法**
+    * 参考：http://en.wikipedia.org/wiki/Merkle%E2%80%93Hellman_knapsack_cryptosystem
+    * 私钥：超递增序列$a_i$。
+    * 公钥：首先生成模数$m$，满足$m>\sum_{i=1}^{n}a_i$。选取$w$满足$gcd(w,m)=1$，然后计算$b_i\equiv wa_i\ mod\ m$。最后序列$b_i$和$m$作为公钥。
+    * 加密：假设我们要加密的明文为$v$，其每一个比特位为$v_i$，那么我们加密的结果为$$\sum_{i=1}^{n}b_iv_i\ mod\ m$$
+    * 解密：计算$w^{-1}$，计算$$\sum_{i=1}^{n}w^{-1}b_iv_i\ mod\ m = \sum_{i=1}^{n}a_iv_i\ mod\ m$$从而根据背包方案恢复出明文。
+* 破解：该加密体制在提出后两年后该体制即被破译，破译的基本思想是我们不一定要找出正确的乘数 $w$（即陷门信息），只需找出任意模数 $m'$ 和乘数 $w'$，只要使用 $w'$ 去乘公开的背包向量 $B$ 时，能够产生超递增的背包向量即可。
+* 参考代码：https://github.com/ctfs/write-ups-2014/tree/b02bcbb2737907dd0aa39c5d4df1d1e270958f54/asis-ctf-quals-2014/archaic
 
-### 二 ECC
+
+## $\mathrm I\mathrm I.\mathrm I\mathrm I\mathrm I$ 离散对数
+**离散对数问题定义：** 给定有限乘法群$(G,\cdot)$，$g\in G$，且有$|G|=n$。则$\langle g \rangle$是$G$的一个子群，使得$g^d\equiv1\ mod\ n$成立的最小的正整数$d$为群$\langle g \rangle$的阶。（一般来说，密码体制中G一般是有限域$Z_p$。）给定一个$n$阶元素$\alpha\in G$和元素$\beta\in\alpha$，找出唯一的整数$a，0\leq a\leq n$，满足$$\alpha^a=\beta$$则整数$a$为$\beta$的离散对数。离散对数问题就是把整数$a$求出来。
+
+性质：模$m$剩余系存在原根的充要条件$m=2,4,p^{\alpha},2p^{\alpha}$其中$p$为奇素数，$\alpha$为正整数。
+
+* 离散对数求解相关算法实现：https://blog.csdn.net/qq_41956187/article/details/104981499
+* ***具体Python3.7代码见``crypto/code/Discrete_logarithm_algorithm.py``***
+
+#### 常见求解方法：
+##### 1 Baby-step giant-step 大步小步法
+有中间相遇攻击的思想。
+
+令$m=\sqrt(n)$，对于离散对数$\beta=\alpha^a$。有$a=mj+i，i < m$。因此有$$\alpha^{mj+i}=\beta \newline \alpha^{mj}=\beta \alpha^{-i}$$因此计算出$m$个$\alpha^{mj}$记为$L_1=(j,\alpha^{mj})$。以及$m$个$\beta \alpha^{-i}$记为$L_2=(i,\beta \alpha^{-i})$。然后找出$L_1,L_2$中满足$\alpha^{mj}=\beta \alpha^{-i}$重复的数值对，那么就有$a=(mj+i)\ mod\ n$。
+
+##### 2 Pollard’s ρ algorithm
+
+此算法能以$O(\sqrt{n})$的时间复杂度和$O(1)$的空间复杂度来解决上述问题。
+
+算法的原理是生日攻击。（扩展的算法有分布式Pollard $\rho$算法，时间复杂度比最初始的算法要快许多）
+
+##### 3 Pollard’s kangaroo algorithm 也称为$\lambda$算法
+
+若有离散对数问题$h=g^x$。那么当已知$a\leq x\leq b$时，此算法能以$O(\sqrt{b-a})$的时间复杂度求出$x$。
+
+形象的来说，Pollard's Kangaroo算法就是使得两只袋鼠在解空间里面各自跳跃，其中一只为驯化的袋鼠，它的参数都是确定的，而另一只为野生的袋鼠，它的参数是要求的。驯化袋鼠每次跳跃之后都会做一个陷阱，如果野生袋鼠的某次跳跃碰到了这个陷阱，则表明他们的参数是一致的。这样，就可以使用驯化袋鼠的参数来推导出野生袋鼠的参数。由于这样一个过程是两条不同的路径经过变化得到一个交点，路径看起来有点像希腊字母lambda，所以该算法也称为lambda算法。
+
+原文链接：https://blog.csdn.net/hillman_yq/article/details/1648141
+
+* 高效算法：https://github.com/JeanLucPons/Kangaroo
+
+* Sagemath中各种求离散对数的方法
+```python
+# Sagemath 9.2
+#通用的求离散对数的方法
+# ALGORITHM: Pohlig-Hellman and Baby step giant step.
+x=discrete_log(a,base,ord,operation)
+
+#求离散对数的Pollard-Rho算法
+x=discrete_log_rho(a,base,ord,operation)
+
+#求离散对数的Pollard-kangaroo算法(也称为lambda算法)
+x=discrete_log_lambda(a,base,bounds,operation)
+
+#小步大步法
+x=bsgs(base,a,bounds,operation)
+```
+
+* 更详细的用法和例子参考Sage文档：https://doc.sagemath.org/html/en/reference/groups/sage/groups/generic.html?highlight=discrete_log_rho
+
+##### 4 Pohlig-Hellman algorithm
+
+此算法用于元素$\alpha\in G$的阶$n$不为素数的情况。假设$n=\prod_{i-1}^kp_i^{c_i}$，其中$p_i$为不同的素数。因为$a=log_{\alpha}\beta$是模$n$唯一确定的。因此如果能计算出每个$a\ mod\ p_i^{c_i}$，那么就可以使用中国剩余定理计算出$a\ mod\ n$。
+
+对于每一个素数$p_i$，因为$$a = \sum_{j=0}^{c_i-1}a_jp_i^j+sp_i^{c_i}$$我们有$$\beta^{n/p_i} = (\alpha^a)^{n/p_i} \newline =(\alpha^{a_0+a_1p_i+...+a_{c-1}p_i^{c-1}+sp_i^c})^{n/p_i} \newline =\alpha^{a_0n/p_i}\alpha^{Kn} \newline =\alpha^{a_0n/p_i}$$因此有$$\beta^{n/p_i} = \alpha^{a_0n/p_i}$$这就相当于归结为1个新的离散对数问题，但是此离散对数问题规约到一个阶为$p_i$的子群。因此我们可以使用**Pollard Rho**等算法算出这个离散对数。
+最后算出这$k$个离散对数$a_0$，从而利用中国剩余定理计算出$a\ mod\ n$。而算法的时间复杂度取决于$n$中最大的一个素因子$p_{max}$。因此算法的时间复杂度是$O(\sqrt{p_{max}})$。
+
+### 一 ElGamal
+**密码体制**
+![ElGamal](crypto/images/ElGamal.PNG)
+一般来说，$p$至少是160位的十进制素数，**并且$p-1$有大的素因子**。
+
+### 二 ECC 椭圆曲线加密
+ECC 全称为椭圆曲线加密，EllipseCurve Cryptography，是一种基于椭圆曲线数学的公钥密码。与传统的基于大质数因子分解困难性的加密方法不同，ECC 依赖于解决椭圆曲线离散对数问题的困难性。它的优势主要在于相对于其它方法，它可以在使用较短密钥长度的同时保持相同的密码强度。ECC密码体制在区块链等多种领域中都有应用。
+
+* **椭圆曲线介绍**
+代数闭包不完善定义：使用域K中的元素作为系数的所有多项式方程的解所构成的域。成为K的代数闭域$~K$
+代数闭包一定是无限域。
+椭圆曲线E定义：在域K上满足下列非奇异的Weierstrass方程的所有点$(x,y)\in K^2$的集合。$$E:y^2+a_1xy+a_3y=x^3+a_2x^2+a_4x+a_6$$下标的定义，$a_i$中的i是权重填充。x的权重是2，y的权重是3.
+**非奇异：** Weierstrass方程定义的函数没有奇异点(奇点)，即没有$(x,y)$满足E，以及E的两个偏导数方程$E_x'=0$和$E_y'=0$
+
+* 简化版的Weierstrass方程：$$E:y^2=x^3+ax+b$$其中
+(1)$\Delta=-16(4a^3+27b)\neq0$，用来保证曲线是光滑的。即保证是椭圆曲线。
+(2)$a,b\in K,K$为$E$的基域，$K$一般为$GF(p)$。
+(3)点$O_{\infty}$是曲线上唯一的无穷远点。
+
+* **椭圆曲线上的阿贝尔群**
+**椭圆曲线上的点加运算构成一个阿贝尔群。** 此点加运算有多种形式，下面给出常见的简化版的Weierstrass方程的两种形式。
+* 在素数域GF(q)上，椭圆曲线的点加公式如下：
+![椭圆曲线素数域点加公式](crypto/images/GFq_PointAdd.PNG)
+* 在扩域GF(2^p)上，椭圆曲线的点加公式如下：
+![椭圆曲线扩域点加公式](crypto/images/GF2-131_PointAdd.jpg)
+
+**椭圆曲线的阶：** 如果椭圆曲线上一点$P$，存在最小的正整数$n$使得数乘$nP = O_{\infty}$，则将$n$成为点$P$的阶。若$n$不存在，则$P$是无限阶的。
+
+#### ECC中的ElGammal方案，简称ECIES
+* 假设用户B要把消息加密后传输给用户A
+
+* 密钥生成：用户A选择椭圆曲线$E$，令$P$是椭圆曲线$E$上的点，点$P$的阶为$n$，并把点$P$作为基点。随机选取一个正整数$m,m < n$有$Q = mP$。则$E,P,Q,n$是**公钥**，$m$是私钥。
+* 加密：
+    1. 用户A将$E,P,G,n$传输给用户B。
+    2. 用户B接受到信息后，将明文$msg$编码到椭圆曲线$E$的一个点$M$上，并生成一个随机整数$r,r < n$。
+    3. 用户B计算点$C_1=M+rQ$，$C_2=rP$
+    4. 用户B将$C_1,C_2$发送给用户A。
+* 解密：
+    用户A接受到$C_1,C_2$后，有$M=C_1-mC_2$。
+
+原理：$$C_1-mC_2\newline=M+rQ-m(rP)\newline = M+rmP-mrP\newline=M$$
+
+#### 常见ECC攻击方法
+* 分布式Pollard Rho算法
+* Pohlig-Hellman攻击(同样用于基点$P$的阶是可被分解成比较小的质因数的情景)
+* 暴力枚举私钥
+* 常见曲线（理论上需要使用特定的方法把该曲线转换成Weierstrass曲线的形式）：https://www.hyperelliptic.org/EFD/index.html
 
 ## $\mathrm I\mathrm I.\mathrm I\mathrm V$ 格密码 TODO
 

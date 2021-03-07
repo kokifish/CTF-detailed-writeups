@@ -42,7 +42,9 @@ if __name__ == '__main__':
 
 3. 既然猜测到``special``，而且``special``是整除$\varphi(N)$的。接下来就要对方程$$c\equiv m^{special}\ mod\ N \tag{1}$$开$``special``次根。这里用到了4.10中的**Adleman-Manders-Miller rth Root Extraction Method**算法。由于方程有``special^2``个根，因此我们需要对每个根进行判断，题目中说flag的开头是``*CTF``，因此对于每个根，我们需要判断其是否以``*CTF``开头。
 
-### leak函数中数据的恢复
+* **WienersAttack**算法和**Adleman-Manders-Miller rth Root Extraction Method**算法都有在 **[CTF]_Crypto.md**文件中涉及，也提供了相应的代码。
+
+### 主要步骤
 
 1. 首先使用**little_cast.py**中的代码恢复出
 ``d1=36167461773898995192586226632578677184913220227461899855497899052924496298787``
@@ -51,7 +53,7 @@ if __name__ == '__main__':
 
 2. 然后计算出$\varphi(N)$的值，$\varphi(N)$的分解如下：
 ![分解$\varphi(N)$](decomposition_phin.PNG)
-接下来很多writeup都说看到一个``4919^2``，然后一般就猜测是``special``就是4919。有点writeup说``gcd(p-1, q-1) = 9383 = 2*4919``于是猜测``special``就是4919。
+接下来很多writeup都说看到一个``4919^2``，然后就猜测``special``是4919。有的writeup说``gcd(p-1, q-1) = 9383 = 2*4919``于是猜测``special``就是4919。
 
 3. 通过程序**AMM.sage**，对方程(1)开``special``次根，并找出以``*CTF``开头的那个根，运行结果如下。
 ```
