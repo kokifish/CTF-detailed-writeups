@@ -52,7 +52,7 @@
 
 
 
-## Workflow
+## Reverse Workflow
 
 1. 使用`exeinfope/PEiD/strings/file/binwalk/IDA`等静态分析工具收集信息，并根据这些静态信息进行google/github搜索
 2. 研究程序的保护方法，如代码混淆，保护壳及反调试等技术，并设法破除或绕过保护
@@ -402,7 +402,7 @@ uncompyle6 -o out.py task.pyc # pyc to py
 
 - **Attention! Python里按位异或 `^` 等的优先级低于 `+, -`等操作符**
 
-### int, hex, str
+### int, hex, str, byte
 
 ```python
 ord('a') # 97 # char to int, ord以Unicode字符为参数 返回对应的ASCII数值或Unicode数值
@@ -422,6 +422,59 @@ print(type(h_key), h_key) # <class 'str'> 39343437
 
 ```
 
+```python
+# class bytes to str # and class str to bytes
+str = "ABCabc" # <class 'str'>
+arr = bytes(str, 'utf-8') # <class 'bytes'> # b'ABCabc' # for byte in arr: 65 66 67 97 98 99
+arr2 = bytes(str, 'ascii') # <class 'bytes'> # b'ABCabc' # for byte in arr: 65 66 67 97 98 99
+```
+
+
+
+
+
+### Cases
+
+```python
+import random
+arr = [0x5F, 0xF2, 0x5E, 0x8B, 0x4E, 0x0E, 0xA3, 0xAA, 0xC7, 0x93,
+       0x81, 0x3D, 0x5F, 0x74, 0xA3, 0x09, 0x91, 0x2B, 0x49, 0x28,
+       0x93, 0x67]
+
+in_str = [0 for i in range(len(arr))]
+
+for idx in range(len(arr)):
+    v19 = 0
+    for i in range(idx + 1):
+        v19 = 1828812941 * v19 + 12345
+    in_str[idx] = arr[idx] ^ v19 & 0xff
+print(len(in_str), in_str)
+print(''.join(map(chr, in_str)))
+
+# below: original algorithm
+v20 = 10  # 其实这个循环控制变量不影响解题 因为这里idx是随机生成的 相当于10是生成随机idx的次数
+v21 = True
+while(v20 > 0):
+    idx = random.randint(0, 22) % 22
+    v16 = arr[idx]
+    v15 = in_str[idx]
+    v18 = 0
+    v19 = 0
+    while(v18 < idx + 1):  # 做idx+1次加密
+        v18 += 1
+        v19 = 1828812941 * v19 + 12345
+    v13 = v19 ^ v15
+    if(v16 != v19 ^ v15):
+        v21 = False
+    v20 -= 1
+```
+
+
+
+
+
+
+
 
 
 ## **.NET** Reverse
@@ -431,6 +484,21 @@ print(type(h_key), h_key) # <class 'str'> 39343437
 - 可以大致了解一下 .NET Native
 
 
+
+## Java Reverse
+
+- 命令行工具：jad
+- 带GUI的逆向工具：jadx(https://github.com/skylot/jadx)
+
+```java
+带参数运行.jar文件: java -jar Guess-the-Number.jar 309137378
+```
+
+
+
+
+
+---
 
 # Linux Reverse
 
@@ -530,17 +598,17 @@ int main(int argc, char *argv[]){
 >
 > 这里仅记录较重要 / 少见 / IDA开启Auto comments后仍可能不清楚功能 的汇编指令
 
-| Instructions       | Comments                                                     |
-| ------------------ | ------------------------------------------------------------ |
-| test al, 00001001b | 测试0, 3bit是否置1，全都置0时，ZF=1，否则ZF=0                |
-| test eax, eax      | 如果eax为0，ZF=1; 否则ZF=0                                   |
-| lea dst, src       | Load Effective Address 取有效地址 将src的4bit偏移地址到寄存器dst |
-| jnz label          | if(ZF!=0)则跳转                                              |
-|                    |                                                              |
-|                    |                                                              |
-|                    |                                                              |
-|                    |                                                              |
-|                    |                                                              |
+| Instructions         | Comments                                                     |
+| -------------------- | ------------------------------------------------------------ |
+| `test al, 00001001b` | 测试0, 3bit是否置1，全都置0时，`ZF=1`，否则`ZF=0`            |
+| `test eax, eax`      | 如果`eax`为0，`ZF=1`; 否则`ZF=0`                             |
+| `lea dst, src`       | Load Effective Address 取有效地址 将src的4bit偏移地址到寄存器dst |
+| `jnz label`          | `if( ZF!=0 )` 跳转                                           |
+| `leave`              | High Level Procedure Exit, in 32bit: `mov esp, ebp; pop ebp`, 将`ebp`的值赋值给`esp`，从栈中恢复`ebp`的值 |
+|                      |                                                              |
+|                      |                                                              |
+|                      |                                                              |
+|                      |                                                              |
 
 > `int 3` https://blog.csdn.net/trochiluses/article/details/20209593
 
@@ -963,11 +1031,83 @@ ret  0
 
 ## 5. 栈 Stack
 
+- 栈: 寄存器的某个指针所指向的一片内存区域。某个指针通常为：
+  - x86/x64: ESP/RSP
+  - ARM: SP
+- 栈向下(栈已经处于高地址)向低地址方向增长
+- 在分配栈的空间之后，栈指针Stack Pointer所指向的地址是栈的底部。PUSH将减少栈指针的值，POP会增加栈指针的值
+- ARM的栈分为递增栈(ascending stack)和递减栈(descending stack). 递减栈和上面描述的相似，而递增栈首地址占用栈的最低地址，栈向高地址增长
 
 
 
+### 保存函数结束时的返回地址
+
+x86:
+
+- CALL == PUSH 返回地址; JMP 函数地址
+- RET == POP 返回地址; JMP 函数地址
+
+ARM
+
+- 返回地址保存在LR(link register)寄存器里。如果程序会继续调用其他函数，就需要在调用前保存LR寄存器的值。通常在序言看到`PUSH R4-7, LR`，尾声`POP R4-7, PC`
+- 如果一个函数不调用其他函数，就叫**叶函数(leaf function)**. 叶函数不必保存LR寄存器的值。若用不到几个寄存器，可能不会使用数据栈
+
+### 参数传递 局部变量
+
+> 包含`cdecl, stdcall, fastcall, thiscall` ...
+
+- x86平台中，最常用的参数传递约定是`cdecl`，其上下文大体为：
+
+```assembly
+push arg3
+push arg2
+push arg1
+call f
+add esp, 12; 3 * 4byte = 12byte
+```
+
+Callee functions通过栈指针获取所需参数。
+
+在运行f()之前，传递给它的参数以以下格式存储在内存里
+
+| ESP     | 返回地址              |
+| ------- | --------------------- |
+| ESP+4   | arg1, IDA记为 `arg_0` |
+| ESP+8   | arg2, IDA记为 `arg_4` |
+| ESP+0xC | arg3, IDA记为 `arg_8` |
+| ......  | ......                |
 
 
+
+- 通过向栈底调整栈指针的方法，函数可在数据栈里分配出一篇可用于存储局部变量的内存空间。无论函数声明了多少个局部变量，都不影响分配栈空间的速度。虽然可以在栈以外的地方存储局部变量，但是用数据栈来存储局部变量已经是一种约定俗成的习惯了。
+
+### x86 alloca() 函数
+
+> 书p30有对应的汇编指令
+
+- alloca()函数直接使用栈来分配内存，除此之外与malloc函数没有显著区别
+- 函数尾声的代码会还原ESP的值，把数据栈还原为函数启动前的状态，直接抛弃由alloca函数分配的内存，所以程序不需要使用free函数释放由alloca申请的内存
+
+### 典型的栈的内存存储格式
+
+在32bit系统中，在程序调用函数之后，执行它的第一条指令前，栈在内存中的存储格式一般如下所示
+
+| ......    | ......                          |
+| --------- | ------------------------------- |
+| ESP - 0xC | 第2个局部变量，IDA中记为`var_8` |
+| ESP - 8   | 第1个局部变量，IDA中记为`var_4` |
+| ESP - 4   | 保存的EBP值                     |
+| ESP       | 返回地址                        |
+| ESP + 4   | arg1，IDA中记为`arg_0`          |
+| ESP + 8   | arg2，IDA中记为`arg_4`          |
+| ESP + 0xC | arg3，IDA中记为`arg_8`          |
+| ......    | ......                          |
+
+
+
+### 栈的噪音
+
+- TBD
 
 ---
 
@@ -1028,7 +1168,7 @@ ret  0
 | space     | 在Text view和Graph view显示模式之间切换                    |
 | a         | 转换显示形式为char (如在.rodata段将一些整型转换成char显示) |
 | x         | Jump to xref to operand... 将打开                          |
-| shift+E   | 光标选中后，export data                                    |
+| shift+E   | 光标选中后，提取对应位置的数据。Edit => Export data        |
 |           |                                                            |
 |           |                                                            |
 |           |                                                            |
@@ -1103,7 +1243,10 @@ Then, on local windows:
 
 > 主要记录如何使用python与IDA交互
 
-- At the bottom of the IDA window, below Output window: Python
+在IDA中使用python的两种方式
+
+1. At the bottom of the IDA window, below Output window: Python
+2. File => Script command
 
 ```python
 print(get_bytes(0x6010E0, 10)) # 输出 0x6010E0 地址及其后的 10 Byte
@@ -1111,7 +1254,13 @@ print(get_bytes(0x6010E0, 10)) # 输出 0x6010E0 地址及其后的 10 Byte
 
 
 
+
+
 # Function Reference
+
+> 一些典型/常见函数的解析，有助于阅读逆向出来的代码
+
+
 
 
 
@@ -1160,10 +1309,8 @@ main() {
 int _fileno(
    FILE *stream
 );
-// This program uses _fileno to obtain
-// the file descriptor(fd) for some standard C streams.
 #include <stdio.h>
-int main( void ){
+int main( void ){ //  uses _fileno to obtain the file descriptor(fd) for some standard C streams
    printf( "fd of stdin %d\n", _fileno( stdin ) ); // fd of stdin 0
    printf( "fd of stdin %d\n", _fileno( stdout ) ); // fd of stdin 1
    printf( "fd of stdin %d\n", _fileno( stderr ) ); // fd of stdin 2
@@ -1185,6 +1332,8 @@ int main( void ){
 ## gdb
 
 > Linux下使用最多的一款调试器Debugger，也有Windows移植版
+>
+> 逆向工程权威指南(下册) p940 有**GDB指令速查表**
 
 ```bash
 sudo apt-get install gdb
@@ -1210,10 +1359,12 @@ list main # 列出函数main
 list # 不带参数 展示10行
 
 disas # 检查汇编 给出对应的代码的汇编
-info registers # 查看寄存器内容
+info registers # 查看寄存器内容  # same as: i r
 print $rsp # 查看寄存器内容
 stepi # 每步执行
 x/200wx $eax # x: 查看内存中数值 200表示查看200个 wx以word字节查看 $eax代表eax寄存器中的值
+
+set $eax=1 # 设置寄存器 eax 为 0
 
 q # 退出调试 
 ```
@@ -1258,6 +1409,12 @@ flag = key.decode('hex') # hex to str
 
 - 配置：od将所有配置放在安装目录的ollydbg.ini中
 - 插件：将下载的插件(e.g. dll)复制到`plugin`文件夹，od启动时会自动识别。但不可超过32个否则会出错
+
+
+
+主界面右键 => Search for => All referenced text strings: 会显示被引用的所有文本文件
+
+
 
 
 
@@ -1314,17 +1471,63 @@ flag = key.decode('hex') # hex to str
 
 
 
-# Machine Code
+# Machine Code 机器码
+
+> 机器码 用于应对花指令
 
 ```assembly
 90 nop
-E8 call
-
+9A # CALL immed32
+E8 call # CALL immed16
+E9 # JMP immed16
+EB # JMP immed8
 ```
 
 
 
 # 反调试技术
+
+
+
+
+
+## SMC(Self Modifying Code)
+
+- SMC技术,就是一种将可执行文件中的代码或数据进行加密，防止别人使用逆向工程工具（e.g. 反汇编工具）对程序进行静态分析的方法，只有程序运行时才对代码和数据进行解密，从而正常运行程序和访问数据
+- 计算机病毒通常也会采用SMC技术动态修改内存中的可执行代码来达到变形或对代码加密的目的，从而躲过杀毒软件的查杀或者迷惑反病毒工作者对代码进行分析。现在，很多加密软件（或者称为“壳”程序）为了防止Cracker（破解者）跟踪自己的代码，也采用了动态代码修改技术对自身代码进行保护
+
+SMC应对方式：
+
+1. 找到程序中的SMC解密过程，手动解密被SMC加密过的代码/数据
+2. 动态调试，在SMC解密结束后的部分下断点
+
+
+
+```cpp
+// IDA  逆向出来的一个片段 包含简单smc解密过程
+  for ( i = 0; i <= 181; ++i ) // simple smc decrypt
+    judge[i] ^= 0xCu; // 使用异或解密
+  printf("Please input flag:");
+  __isoc99_scanf("%20s", s);
+  v5 = strlen(s);
+  if ( v5 == 14 && (*(unsigned int (__fastcall **)(char *))judge)(s) ) // call function judge(after decrypted)
+    puts("Right!");
+```
+
+- 在IDA中打开后，因为上述解密代码需要在程序运行后才会执行 所以IDA打开的judge函数还处于被加密过的状态
+- 因为已经可以看到smc解密过程了，可以根据smc解密过程，对程序文件做patch，使用脚本在未运行时解密
+- 以下为上述smc解密过程的python脚本，可以解密judge函数。注意只能运行一次
+
+```python
+from ida_bytes import patch_byte, get_byte
+s = 0x600b00 # judge函数的地址
+for i in range(182): # 182为judege函数的总长度
+    patch_byte(s+i, get_byte(s+i) ^ 0xc)
+```
+
+> IDA python ida_bytes:  https://www.hex-rays.com/products/ida/support/idapython_docs/ida_bytes-module.html
+
+- 脚本运行结束后，U取消原本定义，C生成汇编代码，P生成函数。至此judge函数可以正常逆向了
 
 
 
