@@ -1109,6 +1109,10 @@ Callee functions通过栈指针获取所需参数。
 
 - TBD
 
+
+
+
+
 ---
 
 # **IDA Pro**
@@ -1375,6 +1379,102 @@ q # 退出调试
 # 查看完内存后 可能需要将内存中显示的16进制数转换为字符串
 key = "393434377b"
 flag = key.decode('hex') # hex to str
+```
+
+
+
+
+
+## pwndbg
+
+> https://github.com/pwndbg/pwndbg
+>
+>https://blog.csdn.net/Breeze_CAT/article/details/103789233  指令参考
+
+Installation: 
+
+1. `git clone https://github.com/pwndbg/pwndbg`
+2. `cd pwndbg`
+3. `chmod 777 ./setup.sh`
+4. `./setup.sh`
+
+- 安装完成后，使用`gdb`指令后，命令行左侧显示的是`pwndbg`
+
+
+
+### cmd quick find
+
+```bash
+pwndbg # 显示可用命令
+b *0x080486AE # 在这个地址处下断点
+r # 运行
+help # 帮助 # 会显示不同类别的帮助信息 但是没有详细的指令帮助信息
+help breakpoints # 显示 breakpoints 类目下的指令
+backtrace # 显示函数调用栈
+```
+
+- 执行指令
+
+```bash
+s # 单步步入 step into # 源码层的一步
+si # step into 汇编层的一步
+n # 单步步过 step over # 源码层面的一步
+ni # step over 汇编层面的一步
+c # continue # 继续执行到断点，没断点就一直执行下去
+r # run # 重新开始执行
+```
+
+- 断点指令
+
+```bash
+# 普通断点指令b(break)
+b *0x080486AE # 在这个地址处下断点
+b func # 给函数 func 下断点，目标文件需保留符号 # b file_name:func
+b file_name:15 # 给 file_name 的15行下断点，需有源码 # b 15
+b +0x10 # 在程序当前停住的位置下 0x10 处下断点
+
+# 查看 删除 禁用断点
+info break # i b # 查看断点编号 # 还可以看到断点命中几次
+delete 1 # 删除 1 号断点
+disable 1 # 禁用 1 号断点
+enable 1 # 启用 1 号断点
+
+# 内存断点指令watch
+watch 0x123456 # 0x123456地址的数据改变的时候会断
+watch a # 变量 a 改变时命中断点
+info watchpoints # 显示watch断点信息
+
+# 捕获断点catch
+catch syscall # syscall 系统调用时断
+tcatch syscall # syscall 系统调用时断 但只断一次
+info break # i b # 查看catch的断点
+```
+
+- 打印指令
+
+```bash
+# 查看内存指令x   # x /nuf 0x123456
+
+# 打印指令p(print)
+p *(0x123456) # 查看0x123456地址的值 # 与x指令的区别： x指令查看地址的值不用星号
+
+# 打印汇编指令disass(disassemble)
+disass 0x123456 # 显示0x123456前后的汇编指令
+
+# 打印源代码指令list
+```
+
+
+
+
+
+```bash
+stack # 查看栈
+retaddr # 打印包含返回地址的栈地址
+canary # 直接看canary的值
+plt # 查看plt表
+got # 查看got表
+hexdump # 像 IDA 那样显示数据，带字符串
 ```
 
 
