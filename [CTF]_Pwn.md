@@ -1,6 +1,6 @@
 - main author: hex, https://github.com/hex-16
-- 未加说明时，默认系统为kali 20.04(64bit), python3
-- 部分内容与 Reverse.md 有重叠，部分交叉内容会记录在Reverse.md 中
+- 未加说明时，默认系统为kali 20.04(64bit), python3.7或以上, 其余套件为2021.3前后的最新版
+- 部分内容与 Reverse.md 有重叠，部分交叉内容会记录在Reverse.md 中，会有注明
 
 # Pwn
 
@@ -801,7 +801,7 @@ sh.interactive() # 将代码交互转换为手工交互
 
 
 
-### Primary ROP
+### ROP
 
 > ROP(Return Oriented Programming)
 >
@@ -828,17 +828,28 @@ sh.interactive() # 将代码交互转换为手工交互
 - 也可以控制程序执行好几段不相邻的已有代码(gadgets)
 - 需要知道对应的返回的代码的位置
 
+> 案例ret2text见  https://github.com/hex-16/CTF-detailed-writeups/tree/main/pwn/demo_ROP_ret2text
+>
+> 该案例总结：
+>
+> 1. IDA分析出危险函数(`gets`)
+> 2. IDA分析出可以用于getshell的地方(`system("/bin/sh");`)，记录可以 getshell 的地址
+> 3. gdb(pwndbg)分析出`gets`函数所用字符串 s 与 return address 之间的偏移量，构造payload，将用于getshell的地址覆盖到 return address
 
 
 
+#### ret2shellcode
 
-### Intermediate ROP
+- 控制程序执行shellcode代码
+- shellcode: 指的是用于完成某个功能的汇编代码，常见的功能主要是获取目标系统的 shell
+- 通常，shellcode 需要自行填充。这是另外一种典型的利用方法，即此时需要自己填充一些可执行的代码。(ret2text则是利用程序自身的代码)
+- 在栈溢出的基础上，要想执行 shellcode，需要对应的 binary 在运行时，shellcode 所在的区域具有可执行权限
 
 
 
+- TBD
 
 
-### Advanced ROP
 
 
 

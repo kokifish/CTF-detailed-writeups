@@ -1339,9 +1339,7 @@ int main( void ){ //  uses _fileno to obtain the file descriptor(fd) for some st
 >
 > 逆向工程权威指南(下册) p940 有**GDB指令速查表**
 
-```bash
-sudo apt-get install gdb
-```
+Installation: `sudo apt-get install gdb`
 
 
 
@@ -1403,6 +1401,8 @@ Installation:
 
 
 ### cmd quick find
+
+- 指的是执行`gdb`后，可以使用的指令。(`gdb exefile -q`, `-q` for quiet)
 
 ```bash
 pwndbg # 显示可用命令
