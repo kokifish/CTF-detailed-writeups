@@ -835,6 +835,10 @@ sh.interactive() # 将代码交互转换为手工交互
 > 1. IDA分析出危险函数(`gets`)
 > 2. IDA分析出可以用于getshell的地方(`system("/bin/sh");`)，记录可以 getshell 的地址
 > 3. gdb(pwndbg)分析出`gets`函数所用字符串 s 与 return address 之间的偏移量，构造payload，将用于getshell的地址覆盖到 return address
+>
+> 比赛案例：
+>
+> - NahamCon 2021 (ctf.nahamcon.com): Ret2basic: 没开canary等保护，找到打开`flag.txt`的函数，覆盖return address就行了，栈分析可以用gdb也可以用IDA(没分析错)。这类题没有其他操作就是巨简单。
 
 
 
