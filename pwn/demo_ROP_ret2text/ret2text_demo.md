@@ -2,6 +2,8 @@
 
 > 出自 https://github.com/ctf-wiki/ctf-wiki 中的Pwn: Linux Pwn: 栈溢出: 基本ROP
 >
+> writer: github.com/hex-16   data: 2021.3   contact: hexhex16@outlook.com
+>
 > file: ret2text      (download from https://github.com/ctf-wiki/ctf-wiki)
 >
 > 原始出处未知，非比赛题目(也许)，故所在文件夹命名方式有所区别
@@ -17,6 +19,8 @@
 
 # checksec
 
+- 注意这里使用的是旧版`checksec`，指令格式、显示格式与新版不同，新版的指令为`checksec --file=ret2text`
+
 ```bash
 $ checksec ret2text
 [*] '/home/kali/CTF/pwn/ret2text'
@@ -26,7 +30,7 @@ $ checksec ret2text
     NX:       NX enabled              # 栈不可执行
     PIE:      No PIE (0x8048000)      # 没有PIE(Position Independent Executable)
 $ cat /proc/sys/kernel/randomize_va_space
-0   # 所在kali系统没有开启 ASLR 
+0   # 所在kali系统没有开启 ASLR che
 ```
 
 
@@ -229,7 +233,7 @@ LEGEND: STACK | HEAP | CODE | DATA | RWX | RODATA
 +00000010 envp            dd ?                    ; offset
 ```
 
-- 按照上面显示的相对地址(左侧显示的) s与return address(也就是上面显示的 r )之间的偏移量为 `0x64+0x4`，然而实际应为`0x6c + 0x4`
+- 按照上面显示的相对地址(左侧显示的)，字符串s与return address(也就是上面显示的 r )之间的偏移量为 `0x64+0x4`，然而实际应为`0x6c + 0x4`
 - 也不知道错误是出在哪。属于TBD事项
 
 
@@ -250,7 +254,7 @@ sh.interactive()
 - 运行效果：
 
 ```bash
-$ python ret2text.py
+$ python ret2text.py  # python3.7
 [+] Starting local process './ret2text': pid 26436
 [*] Switching to interactive mode
 There is something amazing here, do you know anything?

@@ -1,3 +1,4 @@
+- writer: github.com/hex-16   data: from 2020   contact: hexhex16@outlook.com
 > **Tips** : Highly recommend open with markdown editor **Typora**, and enable all *syntax support* and sidebar *Outline*.
 
 # Reverse Engineering Introduction
@@ -1371,11 +1372,17 @@ int main( void ){ //  uses _fileno to obtain the file descriptor(fd) for some st
 
 Installation: `sudo apt-get install gdb`
 
-
+- 启动gdb
 
 ```bash
-gdb ./a # 将文件加载到gdb中
+gdb ./a # 将文件加载到gdb中 # 使用gdb调试文件a
 gdb ./a -silent # 不打印gdb前导信息(含免责条款)
+gdb attach PID # 调试某个正在运行的进程 进程ID为PID
+```
+
+- 下断点、运行程序
+
+```bash
 b decrypt # 将断点设置在decrypt处
 b 10 # 在第10行设置断点
 b * 0x804865c # 在该地址设置断点
@@ -1384,6 +1391,17 @@ run # 运行被调试的程序
 c # 继续运行
 continue # 继续运行
 n # 单步运行
+
+stepi # 每步执行
+
+set $eax=1 # 设置寄存器 eax 为 0
+
+q # 退出调试 
+```
+
+- 查看、显示信息
+
+```bash
 p v0 # 打印变量v0的值
 p $1 # 依据编号 打印编号为1的变量的值 # 编号由gdb赋予
 list 2 # 列出第二行的源文件
@@ -1391,14 +1409,12 @@ list main # 列出函数main
 list # 不带参数 展示10行
 
 disas # 检查汇编 给出对应的代码的汇编
+info reg # 查看寄存器信息
 info registers # 查看寄存器内容  # same as: i r
 print $rsp # 查看寄存器内容
-stepi # 每步执行
+info  proc # 查看进程信息
+
 x/200wx $eax # x: 查看内存中数值 200表示查看200个 wx以word字节查看 $eax代表eax寄存器中的值
-
-set $eax=1 # 设置寄存器 eax 为 0
-
-q # 退出调试 
 ```
 
 
@@ -1607,7 +1623,7 @@ hexdump # 像 IDA 那样显示数据，带字符串
 
 ```assembly
 90 nop
-9A # CALL immed32
+9A CALL # CALL immed32
 E8 call # CALL immed16
 E9 # JMP immed16
 EB # JMP immed8

