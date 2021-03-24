@@ -822,7 +822,7 @@ sh.interactive() # 将代码交互转换为手工交互
 
 - 随着 NX 保护的开启，以往直接向栈或者堆上直接注入代码的方式难以继续发挥效果。攻击者们也提出来相应的方法来绕过保护，目前主要的是 ROP(Return Oriented Programming)
 - 在**栈缓冲区溢出的基础上，利用程序中已有的小片段 (gadgets) 来改变某些寄存器或者变量的值，从而控制程序的执行流程**
-- gadgets: 以 `ret` 结尾的指令序列，通过这些指令序列，可修改某些地址的内容，以控制程序的执行流程
+- **gadgets**: 以 `ret` 结尾的指令序列，通过这些指令序列，可修改某些地址的内容，以控制程序的执行流程
 
 所需条件：
 
@@ -880,14 +880,22 @@ sh.interactive() # 将代码交互转换为手工交互
 
 #### ret2shellcode
 
-- 控制程序执行shellcode代码
+- 控制程序执行shellcode代码（例如sh）
 - shellcode: 指的是用于完成某个功能的汇编代码，常见的功能主要是获取目标系统的 shell
 - 通常，shellcode 需要自行填充。这是另外一种典型的利用方法，即此时需要自己填充一些可执行的代码。(ret2text则是利用程序自身的代码)
 - 在栈溢出的基础上，要想执行 shellcode，需要对应的 binary 在运行时，shellcode 所在的区域具有可执行权限
 
 
 
-- TBD
+> 案例见 https://github.com/hex-16/CTF-detailed-writeups/tree/main/pwn/demo_ROP_ret2shellcode
+
+
+
+#### ret2syscall
+
+- 控制程序执行系统调用(system call)，获取 shell
+
+
 
 
 

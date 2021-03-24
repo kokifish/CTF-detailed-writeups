@@ -422,16 +422,16 @@ arr = [ord('a') + i for i in range(4)] # [97, 98, 99, 100]
 # python 3.5之后 str和bytes实现由重大变化，无法使用encode/decode完成，而是使用bytes.fromhex()等
 s_key = bytes.fromhex("39343437") # hex bytes str to str
 print(type(s_key), s_key) # <class 'bytes'> b'9447'
-h_key = s_key.hex() # str to hex bytes str
+h_key = s_key.hex() # bytes to hex bytes
 print(type(h_key), h_key) # <class 'str'> 39343437
 
 ```
 
 ```python
 # class bytes to str # and class str to bytes
-str = "ABCabc" # <class 'str'>
-arr = bytes(str, 'utf-8') # <class 'bytes'> # b'ABCabc' # for byte in arr: 65 66 67 97 98 99
-arr2 = bytes(str, 'ascii') # <class 'bytes'> # b'ABCabc' # for byte in arr: 65 66 67 97 98 99
+s = "ABCabc" # <class 'str'>
+arr = bytes(s, 'utf-8') # <class 'bytes'> # b'ABCabc' # for byte in arr: 65 66 67 97 98 99
+arr2 = bytes(s, 'ascii') # <class 'bytes'> # b'ABCabc' # for byte in arr: 65 66 67 97 98 99
 ```
 
 
