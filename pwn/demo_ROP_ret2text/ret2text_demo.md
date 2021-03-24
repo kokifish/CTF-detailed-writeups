@@ -240,6 +240,8 @@ LEGEND: STACK | HEAP | CODE | DATA | RWX | RODATA
 
 # Exploit
 
+- kali 20.04  python 3.9.2 pwntools 4.3.1
+
 ```python
 # !/usr/bin/env python
 from pwn import *
