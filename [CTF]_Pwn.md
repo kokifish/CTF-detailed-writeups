@@ -17,7 +17,24 @@
 
 ## checksec
 
+> https://github.com/slimm609/checksec.sh
 
+`checksec` Installation
+
+- 实际上有些app, module已经包含`checksec`, e.g. miniconda3, pwntools
+
+```bash
+git clone https://github.com/slimm609/checksec.sh
+cd checksec.sh
+chmod 777 ./checksec
+env | grep PATH # 查看系统路径包含哪些
+sudo cp ./checksec /usr/bin # 这里的路径是上面 PATH 中出现的其中一个 # 只要是 PATH 中出现过的路径都可以
+```
+
+```bash
+checksec filename  # 使用方法（旧版）
+checksec --file=filename  # 新版
+```
 
 
 
@@ -255,21 +272,7 @@ disasm(open('/tmp/quiet-cat','rb').read(1))
 
 
 
-`checksec` Installation
 
-- 实际上有些app, module已经包含`checksec`, e.g. miniconda3, pwntools
-
-```bash
-git clone https://github.com/slimm609/checksec.sh
-cd checksec.sh
-chmod 777 ./checksec
-env | grep PATH # 查看系统路径包含哪些
-sudo cp ./checksec /usr/bin # 这里的路径是上面 PATH 中出现的其中一个 # 只要是 PATH 中出现过的路径都可以
-```
-
-```bash
-checksec filename   # 使用方法
-```
 
 
 
