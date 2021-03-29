@@ -844,7 +844,7 @@ sh.interactive() # 将代码交互转换为手工交互
 - 也可以控制程序执行好几段不相邻的已有代码(gadgets)
 - 需要知道对应的返回的代码的位置
 
-> 案例ret2text见  https://github.com/hex-16/CTF-detailed-writeups/tree/main/pwn/demo_ROP_ret2text , 所使用的脚本：
+> 案例demo_ROP_bamboofox_ret2text见  https://github.com/hex-16/CTF-detailed-writeups/tree/main/pwn/demo_ROP_bamboofox_ret2text , 所使用的脚本：
 >
 > ```python
 > # python3 pwntools # demo_ROP_ret2text
@@ -890,7 +890,7 @@ sh.interactive() # 将代码交互转换为手工交互
 
 
 
-> 案例见 https://github.com/hex-16/CTF-detailed-writeups/tree/main/pwn/demo_ROP_ret2shellcode 有一些问题，见writeup
+> 案例见demo_ROP_bamboofox_ret2shellcode  https://github.com/hex-16/CTF-detailed-writeups/tree/main/pwn/demo_ROP_bamboofox_ret2shellcode 有一些问题，见writeup
 
 
 
@@ -928,7 +928,8 @@ sh.interactive() # 将代码交互转换为手工交互
 
 #### ret2libc
 
-- 控制函数的执行 libc 中的函数
+- 控制函数的执行 libc 中的函数。通常是返回至某个函数的 plt 处或者函数的具体位置 (即函数对应的 got 表项的内容)
+- 一般情况下，我们会选择执行 `system("/bin/sh")`，故而此时我们需要知道 system 函数的地址
 
 
 
