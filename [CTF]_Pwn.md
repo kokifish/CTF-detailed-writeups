@@ -890,7 +890,7 @@ sh.interactive() # 将代码交互转换为手工交互
 
 
 
-> 案例见 https://github.com/hex-16/CTF-detailed-writeups/tree/main/pwn/demo_ROP_ret2shellcode
+> 案例见 https://github.com/hex-16/CTF-detailed-writeups/tree/main/pwn/demo_ROP_ret2shellcode 有一些问题，见writeup
 
 
 
@@ -922,11 +922,13 @@ sh.interactive() # 将代码交互转换为手工交互
 2. 把**函数参数存入其它通用寄存器**
 3. 触发 0x80 号中断`int 0x80`
 
+> 案例见 demo_ROP_bamboofox_ret2syscall (https://github.com/hex-16/CTF-detailed-writeups/tree/main/pwn/demo_ROP_bamboofox_ret2syscall)
 
 
 
+#### ret2libc
 
-
+- 控制函数的执行 libc 中的函数
 
 
 
