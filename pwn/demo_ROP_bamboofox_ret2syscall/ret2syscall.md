@@ -138,29 +138,6 @@ execve("/bin/sh", NULL, NULL);
 
 
 
-## ROPgadget Installation
-
-> https://github.com/JonathanSalwan/ROPgadget
->
-> test on Kali 20.04, 2021.3
-
-```bash
-sudo pip install capstone
-pip install ropgadget
-# 添加至$PATH :  /usr/local/lib/python3.9/dist-packages/bin # 路径的可能值
-ROPgadget -v
-Version:        ROPgadget v6.5
-Author:         Jonathan Salwan
-Author page:    https://twitter.com/JonathanSalwan
-Project page:   http://shell-storm.org/project/ROPgadget/
-
-ROPgadget --help # 选项及使用案例
-```
-
-
-
-
-
 ## ROPgadget: 逐步构造
 
 

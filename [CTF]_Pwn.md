@@ -264,6 +264,42 @@ disasm(open('/tmp/quiet-cat','rb').read(1))
 
 
 
+## ROPgadget
+
+> https://github.com/JonathanSalwan/ROPgadget
+>
+> ROPgadget v6.5 installation test on Kali 20.04, 2021.3
+
+```bash
+sudo pip install capstone
+pip install ropgadget
+# 添加至$PATH :  /usr/local/lib/python3.9/dist-packages/bin # 路径的可能值
+ROPgadget -v
+Version:        ROPgadget v6.5
+Author:         Jonathan Salwan
+Author page:    https://twitter.com/JonathanSalwan
+Project page:   http://shell-storm.org/project/ROPgadget/
+
+ROPgadget --help # 选项及使用案例
+
+ROPgadget --version
+Version:        ROPgadget v6.5
+Author:         Jonathan Salwan
+Author page:    https://twitter.com/JonathanSalwan
+Project page:   http://shell-storm.org/project/ROPgadget/
+```
+
+
+
+```bash
+ROPgadget --binary ret2syscall  --only 'pop|ret' | grep 'eax' # 寻找控制 eax 的 gadgets
+ROPgadget --binary ret2syscall  --only "int" # 找 int xxx 的地址
+ROPgadget --binary ret2syscall  --string "/bin/sh" # 获得 /bin/sh 字符串对应的地址
+
+```
+
+
+
 
 
 ---
