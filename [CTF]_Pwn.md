@@ -274,27 +274,29 @@ disasm(open('/tmp/quiet-cat','rb').read(1))
 sudo pip install capstone
 pip install ropgadget
 # 添加至$PATH :  /usr/local/lib/python3.9/dist-packages/bin # 路径的可能值
-ROPgadget -v
-Version:        ROPgadget v6.5
-Author:         Jonathan Salwan
-Author page:    https://twitter.com/JonathanSalwan
-Project page:   http://shell-storm.org/project/ROPgadget/
-
 ROPgadget --help # 选项及使用案例
-
-ROPgadget --version
-Version:        ROPgadget v6.5
+ROPgadget -v
+Version:        ROPgadget v6.5 # 测试时的最新版
 Author:         Jonathan Salwan
 Author page:    https://twitter.com/JonathanSalwan
 Project page:   http://shell-storm.org/project/ROPgadget/
+
+ROPgadget.py [-h] [-v] [-c] [--binary <binary>] [--opcode <opcodes>]
+                    [--string <string>] [--memstr <string>] [--depth <nbyte>]
+                    [--only <key>] [--filter <key>] [--range <start-end>]
+                    [--badbytes <byte>] [--rawArch <arch>] [--rawMode <mode>]
+                    [--rawEndian <endian>] [--re <re>] [--offset <hexaddr>]
+                    [--ropchain] [--thumb] [--console] [--norop] [--nojop]
+                    [--callPreceded] [--nosys] [--multibr] [--all] [--noinstr]
+                    [--dump] [--silent] [--align ALIGN]
 ```
 
 
 
 ```bash
-ROPgadget --binary ret2syscall  --only 'pop|ret' | grep 'eax' # 寻找控制 eax 的 gadgets
-ROPgadget --binary ret2syscall  --only "int" # 找 int xxx 的地址
-ROPgadget --binary ret2syscall  --string "/bin/sh" # 获得 /bin/sh 字符串对应的地址
+ROPgadget --binary ret2baby  --only 'pop|ret' | grep 'eax' # 寻找控制 eax 的 gadgets
+ROPgadget --binary ret2baby  --only "int" # 找 int xxx 的地址
+ROPgadget --binary ret2baby  --string "/bin/sh" # 获得 /bin/sh 字符串对应的地址
 
 ```
 
@@ -939,6 +941,10 @@ sh.interactive() # 将代码交互转换为手工交互
 > ROP(Return Oriented Programming)
 >
 > 核心在于利用指令集中的 `ret` 指令，改变了指令流的执行顺序
+>
+> 参考链接：
+>
+> https://www.anquanke.com/post/id/85831
 
 - 随着 NX 保护的开启，以往直接向栈或者堆上直接注入代码的方式难以继续发挥效果。攻击者们也提出来相应的方法来绕过保护，目前主要的是 ROP(Return Oriented Programming)
 - 在**栈缓冲区溢出的基础上，利用程序中已有的小片段 (gadgets) 来改变某些寄存器或者变量的值，从而控制程序的执行流程**
@@ -1046,6 +1052,8 @@ sh.interactive() # 将代码交互转换为手工交互
 #### ret2libc
 
 > https://wooyun.js.org/drops/return2libc%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0.html 
+>
+> https://xz.aliyun.com/t/3402
 
 - 控制函数的执行 libc 中的函数。通常是返回至某个函数的 **PLT** 处或者函数的具体位置 (即函数对应的 **GOT** 表项的内容)
 - 一般情况下，我们会选择执行 `system("/bin/sh")`，故而此时我们需要知道 system 函数的地址

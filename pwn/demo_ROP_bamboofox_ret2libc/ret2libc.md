@@ -1,3 +1,5 @@
+> **Tips**: ret2libc的问题目测较常见，案例ret2libc3类似的出现较多，故在ret2libc3下不仅有对例题的解析，也有知识点总结、参考链接等
+
 # ret2libc
 
 > 出自 https://github.com/ctf-wiki/ctf-wiki 中的Pwn: Linux Pwn: 栈溢出: 基本ROP
@@ -10,7 +12,10 @@
 >
 > https://wooyun.js.org/drops/return2libc%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0.html    
 
-- 由简单到难分别给出三个例子
+- 由简单到难分别给出三个例子。
+- ret2libc1：可以找到`system`和`"/bin/sh"`
+- ret2libc2：找得到`system`找不到`"/bin/sh"`，调用多一次`gets`，用于输入`"/bin/sh"`
+- ret2libc3：`system`和`"/bin/sh"`都找不到，
 
 # ret2libc1
 
@@ -245,4 +250,51 @@ deadbeef ; 0xdeadbeef system函数的虚假返回地址
 `pop_ebx`处的作用为将ESP抬至`system_plt`使得能够pop `08048490` 给EIP，即让EIP指向`system_plt`，控制程序执行`system`函数。也就是说，`pop ebx; ret`里的ebx没有实际意义，gets和system函数均未使用ebp寄存器来传递参数（而是用栈），换成其他不会影响后续程序的寄存器均可。但是由前面`ROPgadget --binary ret2libc2 --only 'pop|ret'`的输出可知，`pop Ereg; ret`模式的只有`0x0804843d`一处，而当前问题恰需抬栈2次(2x4bytes)。
 
 # ret2libc3
+
+> file: ret2libc3
+>
+> 相关参考链接：
+>
+> https://xz.aliyun.com/t/3402
+
+- ret2libc3在ret2libc2的基础上，去掉了可直接查找的`system`函数的地址，亦即ret2libc3不会出现`system`函数。故此时需同时查找`system`和`"/bin/sh"`的地址
+- 思路：
+
+
+
+查找`system`函数地址所涉两个重要知识点：
+
+1. system 函数属于 libc，而 libc.so 动态链接库中的函数之间相对偏移是固定的。
+2. 即使程序有 ASLR 保护，也只是针对于地址中间位进行随机，最低的 12 位并不会发生改变。查 libc 版本: https://github.com/niklasb/libc-database
+
+故如果知道libc中某个函数的地址，就可以知道该程序使用的libc的版本，进而确定`system`函数地址。libc 中也有 `/bin/sh` 字符串，也可获得
+
+
+
+```bash
+$ checksec --file=ret2libc3
+RELRO         STACK CANARY    NX          PIE     RPATH     RUNPATH     Symbols      FORTIFY Fortified  Fortifiable  FILE
+Partial RELRO No canary found NX enabled  No PIE  No RPATH  No RUNPATH  83) Symbols    No    0          2            ret2libc3
+```
+
+
+
+
+
+## IDA Analysis
+
+- main函数如下，存在高危函数gets，可供栈溢出
+
+```c
+int __cdecl main(int argc, const char **argv, const char **envp)
+{
+  char s[100]; // [esp+1Ch] [ebp-64h] BYREF
+  setvbuf(stdout, 0, 2, 0);
+  setvbuf(stdin, 0, 1, 0);
+  puts("No surprise anymore, system disappeard QQ.");
+  printf("Can you find it !?");
+  gets(s);
+  return 0;
+}
+```
 
