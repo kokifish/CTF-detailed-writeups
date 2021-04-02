@@ -274,7 +274,22 @@ disasm(open('/tmp/quiet-cat','rb').read(1))
 
 
 
+## PLT and GOT
 
+> the key to code sharing and dynamic libraries. 对代码复用、动态库有关键作用. 运行时重定位
+>
+> 
+
+GOT: Global Offset Table, 全局偏移表。存放函数地址的数据表
+
+PLT: Procedure Linkage Table, 程序链接表。**额外代码段**表
+
+动态链接所需要的：
+
+- 需要存放外部函数的数据段
+- 获取数据段存放函数地址的一小段额外代码
+
+![](https://raw.githubusercontent.com/hex-16/pictures/master/CTF_pic/pwn_PLT_GOT_very_simple_illustration.jpg)
 
 
 
@@ -313,7 +328,7 @@ disasm(open('/tmp/quiet-cat','rb').read(1))
 
 - 开启 Canary 保护的 stack 结构大概如下：
 
-```
+```assembly
         High
         Address |                 |
                 +-----------------+
@@ -554,6 +569,94 @@ io.interactive() # 将代码交互转换为手工交互
 
 
 
+​           
+
+---
+
+## The Function Stack 函数调用栈
+
+> related registers: ESP, EBP, EIP...            https://www.tenouk.com/Bufferoverflowc/Bufferoverflow2a.html
+
+CPU在执行call指令时需要进行两步操作：
+
+1. 将当前的IP(也就是函数返回地址)入栈，即：`push IP`;
+2. 跳转，即： `jmp dword ptr 内存单元地址`。
+
+CPU在执行ret指令时只需要恢复IP寄存器即可，因此ret指令相当于`pop IP`。
+
+32bit系统：
+
+- ESP: 栈指针寄存器(extended stack pointer), ESP永远指向系统栈最上面一个栈帧的栈顶(低地址)。注意指向的是**栈顶元素的地址**，而**不是下一个空闲地址**。ESP寄存器是固定的，只有当函数的调用后，发生入栈操作而改变
+- EBP: 基址指针寄存器(extended base pointer), EBP永远指向系统栈最上面一个栈帧的底部(高地址)。通常情况下ESP是可变的，随着栈的生产而逐渐变小，用ESP来标记栈的底部
+
+intel系统中栈是向下生长的(栈越扩大其值越小,堆恰好相反)
+
+通过固定的地址与偏移量来寻找在栈参数与变量，EBP寄存器存放的就是固定的地址。但是这个值在函数调用过程中会变化，函数执行结束后需要还原，因此要在函数的出栈入栈中进行保存
+
+### 入栈顺序
+
+以**Windows/Intel**为例，通常当函数调用发生时，数据将以以下方式存储在栈中：
+
+1. **函数参数从右往左入栈**。The function parameters are pushed on the stack before the function is called. The parameters are pushed from right to left.
+2. x86 call指令将**返回地址**入栈，返回地址存储的是**当前EIP寄存器的值**。The function **return address** is placed on the stack by the x86 CALL instruction, which stores the current value of the EIP register.
+3. caller的**栈帧基址EBP**入栈。Then, the frame pointer that is the previous value of the EBP register is placed on the stack.
+4. 如果函数有try/catch或其他**异常处理结构**，编译器会将异常处理信息入栈。If a function includes try/catch or any other exception handling construct such as SEH (Structured Exception Handling - Microsoft implementation), the compiler will include exception handling information on the stack.
+5. **局部声明的变量**。Next, the locally declared variables.
+6. 将缓冲区分配给**临时数据**存储。Then the buffers are allocated for temporary data storage.
+7. 存储在callee会被使用的**寄存器**（对于Linux/intel，该步在Step 4 后，局部声明变量前）。Finally, the callee save registers such as ESI, EDI, and EBX are stored if they are used at any point during the functions execution. For Linux/Intel, this step comes after step no. 4. 
+
+**Linux/Intel 入栈顺序**：
+
+1. 实参N\~1
+2. 返回地址，当前EIP寄存器的值
+3. caller帧基指针EBP
+4. 异常处理信息
+5. callee中会用到的寄存器
+6. callee局部变量1\~N
+
+### Memory Layout 内存布局
+
+- 函数调用栈的典型内存布局（x86-32bit）如下所示。包含caller和callee，包含寄存器和临时变量的栈帧布局。注意这里的Called-saved Registers的位置是**Linux/Intel**的
+
+![](https://raw.githubusercontent.com/hex-16/pictures/master/CTF_pic/pwn_function_stack_caller_and_callee.jpg)
+
+- `m(%ebp)`表示以EBP为基地址、偏移量为m字节的内存空间(中的内容)
+- 该图基于两个假设：第一，函数返回值不是结构体或联合体，否则第一个参数将位于`12(%ebp)` 处；第二，每个参数都是4字节大小(栈的粒度为4字节)
+- 函数可以没有参数和局部变量，故图中“Argument(参数)”和“Local Variable(局部变量)”不是函数栈帧结构的必需部分
+
+
+
+- 结构体成员变量的入栈顺序与其在结构体中声明的顺序相反
+- **局部变量的布局依赖于编译器实现等因素。局部变量并不总在栈中，有时出于性能(速度)考虑会存放在寄存器中**。
+- 数组/结构体型的局部变量通常分配在栈内存中
+
+> 局部变量以何种方式布局并未规定。编译器计算函数局部变量所需要的空间总数，并确定这些变量存储在寄存器上还是分配在程序栈上(甚至被优化掉)——某些处理器并没有堆栈。局部变量的空间分配与主调函数和被调函数无关，仅仅从函数源代码上无法确定该函数的局部变量分布情况。
+>
+> 基于不同的编译器版本(gcc3.4中局部变量按照定义顺序依次入栈，gcc4及以上版本则不定)、优化级别、目标处理器架构、栈安全性等，相邻定义的两个变量在内存位置上可能相邻，也可能不相邻，前后关系也不固定。若要确保两个对象在内存上相邻且前后关系固定，可使用结构体或数组定义
+
+
+
+### Examples
+
+> https://www.tenouk.com/Bufferoverflowc/Bufferoverflow2a.html
+
+- 许多编译器使用帧指针（FP，Frame Pointer）来引用局部变量和参数，FP的值不随push, pop改变。在Intel cpu上，EBP用作FP
+
+```cpp
+#include <stdio.h>  // https://www.tenouk.com/Bufferoverflowc/Bufferoverflow2a.html
+int MyFunc(int parameter1, char parameter2){ // 取这两个参数时，相对EBP的偏移量为正
+	int local1 = 9;
+	char local2 = 'Z';
+    return 0;
+}
+int main(int argc, char *argv[]){
+	MyFunc(7, '8'); // 参数从右向左压栈，push '8'; push 7 // 然后将EIP入栈，此时EIP指向main函数的下一个要执行的指令，即call指令以后的
+	return 0;
+}
+```
+
+![](https://raw.githubusercontent.com/hex-16/pictures/master/CTF_pic/RE_function_call_function_stack_layout.png)
+
 ## 栈溢出 Stack Buffer Overflow
 
 > 栈缓冲区溢出（stack buffer overflow, stack buffer overrun）
@@ -586,8 +689,6 @@ Stack Overflow Workflow:
 
 
 
-
-
 32 位和 64 位程序有以下简单的区别
 
 - x86
@@ -606,27 +707,7 @@ Stack Overflow Workflow:
 
 
 
-### 函数调用栈
 
-- 函数调用栈的典型内存布局（x86-32bit）如下所示。包含caller和callee，包含寄存器和临时变量的栈帧布局
-
-![](https://raw.githubusercontent.com/hex-16/pictures/master/CTF_pic/pwn_function_stack_caller_and_callee.jpg)
-
-- `m(%ebp)`表示以EBP为基地址、偏移量为m字节的内存空间(中的内容)
-- 该图基于两个假设：第一，函数返回值不是结构体或联合体，否则第一个参数将位于`12(%ebp)` 处；第二，每个参数都是4字节大小(栈的粒度为4字节)
-- 函数可以没有参数和局部变量，故图中“Argument(参数)”和“Local Variable(局部变量)”不是函数栈帧结构的必需部分
-
-函数调用时入栈顺序： 实参N\~1→主调函数返回地址→主调函数帧基指针EBP→被调函数局部变量1\~N
-
-
-
-- 结构体成员变量的入栈顺序与其在结构体中声明的顺序相反
-- 局部变量的布局依赖于编译器实现等因素。局部变量并不总在栈中，有时出于性能(速度)考虑会存放在寄存器中。
-- 数组/结构体型的局部变量通常分配在栈内存中
-
-> 局部变量以何种方式布局并未规定。编译器计算函数局部变量所需要的空间总数，并确定这些变量存储在寄存器上还是分配在程序栈上(甚至被优化掉)——某些处理器并没有堆栈。局部变量的空间分配与主调函数和被调函数无关，仅仅从函数源代码上无法确定该函数的局部变量分布情况。
->
-> 基于不同的编译器版本(gcc3.4中局部变量按照定义顺序依次入栈，gcc4及以上版本则不定)、优化级别、目标处理器架构、栈安全性等，相邻定义的两个变量在内存位置上可能相邻，也可能不相邻，前后关系也不固定。若要确保两个对象在内存上相邻且前后关系固定，可使用结构体或数组定义
 
 
 
@@ -885,7 +966,7 @@ sh.interactive() # 将代码交互转换为手工交互
 
 - 控制程序执行shellcode代码（例如sh）
 - shellcode: 指的是用于完成某个功能的汇编代码，常见的功能主要是获取目标系统的 shell
-- 通常，shellcode 需要自行填充。这是另外一种典型的利用方法，即此时需要自己填充一些可执行的代码。(ret2text则是利用程序自身的代码)
+- 通常，ret2shellcode问题中，shellcode 需要自行填充。这是另外一种典型的利用方法，即此时需要自己填充一些可执行的代码。(ret2text则是利用程序自身的代码)
 - 在栈溢出的基础上，要想执行 shellcode，需要对应的 binary 在运行时，shellcode 所在的区域具有可执行权限
 
 
@@ -928,8 +1009,15 @@ sh.interactive() # 将代码交互转换为手工交互
 
 #### ret2libc
 
-- 控制函数的执行 libc 中的函数。通常是返回至某个函数的 plt 处或者函数的具体位置 (即函数对应的 got 表项的内容)
+> https://wooyun.js.org/drops/return2libc%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0.html 
+
+- 控制函数的执行 libc 中的函数。通常是返回至某个函数的 **PLT** 处或者函数的具体位置 (即函数对应的 **GOT** 表项的内容)
 - 一般情况下，我们会选择执行 `system("/bin/sh")`，故而此时我们需要知道 system 函数的地址
+- r2libc技术是一种缓冲区溢出利用技术，主要用于克服常规缓冲区溢出漏洞利用技术中面临的no stack executable限制(所以后续实验还是需要关闭系统的ASLR，以及堆栈保护)，比如PaX和ExecShield安全策略。该技术主要是通过覆盖栈帧中保存的函数返回地址(eip)，让其定位到libc库中的某个库函数(如，system等)，而不是直接定位到shellcode。然后通过在栈中精心构造该库函数的参数，以便达到类似于执行shellcode的目的
+
+
+
+
 
 
 

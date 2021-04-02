@@ -401,7 +401,7 @@ uncompyle6 -o out.py task.pyc # pyc to py
 
 
 
-## Encoding: Python
+## Python: Encoding
 
 > 编码相关知识与Python实现 包含转换等 Base64等在别的章节
 
@@ -589,57 +589,27 @@ apktool.jar d -r andra.apk -o andra # 与上面一样
 
 
 
-# The Function Stack
-
-> 函数栈，ESP EBP寄存器
->
-> https://www.tenouk.com/Bufferoverflowc/Bufferoverflow2a.html
-
-1. ESP: 栈指针寄存器(extended stack pointer), 该指针永远指向系统栈最上面一个栈帧的栈顶
-2. EBP: 基址指针寄存器(extended base pointer), 该指针永远指向系统栈最上面一个栈帧的底部
-
-intel系统中栈是向下生长的(栈越扩大其值越小,堆恰好相反)
-
-在通常情况下ESP是可变的，随着栈的生产而逐渐变小，用ESP来标记栈的底部
-
-ESP寄存器是固定的，只有当函数的调用后，发生入栈操作而改变
-
-通过固定的地址与偏移量来寻找在栈参数与变量，EBP寄存器存放的就是固定的地址。但是这个值在函数调用过程中会变化，函数执行结束后需要还原，因此要在函数的出栈入栈中进行保存
-
-```cpp
-#include <stdio.h>
-int MyFunc(int parameter1, char parameter2){
-	int local1 = 9;
-	char local2 = 'Z';
-    return 0;
-}
-int main(int argc, char *argv[]){
-	MyFunc(7, '8');
-	return 0;
-}
-```
-
-![](https://raw.githubusercontent.com/hex-16/pictures/master/CTF_pic/RE_function_call_function_stack_layout.png)
-
-
-
-# Assembly Quick Find
+# Assembly Instruction Quick Find
 
 > http://c.biancheng.net/view/3560.html
 >
+> https://blog.csdn.net/abc_12366/article/details/79774530   汇编语言入门：CALL和RET指令（一）
+>
 > 这里仅记录较重要 / 少见 / IDA开启Auto comments后仍可能不清楚功能 的汇编指令
 
-| Instructions         | Comments                                                     |
-| -------------------- | ------------------------------------------------------------ |
-| `test al, 00001001b` | 测试0, 3bit是否置1，全都置0时，`ZF=1`，否则`ZF=0`            |
-| `test eax, eax`      | 如果`eax`为0，`ZF=1`; 否则`ZF=0`                             |
-| `lea dst, src`       | Load Effective Address 取有效地址 将src的4bit偏移地址到寄存器dst |
-| `jnz label`          | `if( ZF!=0 )` 跳转                                           |
-| `leave`              | High Level Procedure Exit, in 32bit: `mov esp, ebp; pop ebp`, 将`ebp`的值赋值给`esp`，从栈中恢复`ebp`的值 |
-|                      |                                                              |
-|                      |                                                              |
-|                      |                                                              |
-|                      |                                                              |
+| Instructions              | Comments                                                     |
+| ------------------------- | ------------------------------------------------------------ |
+| `test al, 00001001b`      | 测试0, 3bit是否置1，全都置0时，`ZF=1`，否则`ZF=0`            |
+| `test eax, eax`           | 如果`eax`为0，`ZF=1`; 否则`ZF=0`                             |
+| `lea dst, src`            | Load Effective Address 取有效地址 将src的4bit偏移地址到寄存器dst |
+| `jnz label`               | `if( ZF!=0 )` 跳转                                           |
+| `leave`                   | High Level Procedure Exit, in 32bit: `mov esp, ebp; pop ebp`, 将`ebp`的值赋值给`esp`，从栈中恢复`ebp`的值 |
+| `call tag`                | `push IP;  jmp near ptr tag`                                 |
+| `call dword ptr mem_addr` | `push CS; push IP; jmp dword ptr mem_addr`                   |
+| `ret`                     | 相等于执行`pop IP`，指令用栈中的数据，修改IP的内容，从而实现近转移 |
+|                           |                                                              |
+|                           |                                                              |
+|                           |                                                              |
 
 > `int 3` https://blog.csdn.net/trochiluses/article/details/20209593
 
@@ -1404,11 +1374,13 @@ q # 退出调试
 ```bash
 p v0 # 打印变量v0的值
 p $1 # 依据编号 打印编号为1的变量的值 # 编号由gdb赋予
+p system # 获取 system 函数的地址 # 该方法可以获取任意libc函数的地址
 list 2 # 列出第二行的源文件
 list main # 列出函数main
 list # 不带参数 展示10行
 
 disas # 检查汇编 给出对应的代码的汇编
+disassemble 0xf7e39980 # 查看该地址的汇编代码，如果是函数，到ret结束
 info reg # 查看寄存器信息
 info registers # 查看寄存器内容  # same as: i r
 print $rsp # 查看寄存器内容
@@ -1521,6 +1493,7 @@ canary # 直接看canary的值
 plt # 查看plt表
 got # 查看got表
 hexdump # 像 IDA 那样显示数据，带字符串
+hexdump 0xffffd3cc # 像 IDA 那样显示 0xffffd3cc 地址后的64bytes，带字符串
 ```
 
 

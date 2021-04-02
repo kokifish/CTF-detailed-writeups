@@ -395,9 +395,10 @@ int main() {
 ```python
 import hashlib
 m = hashlib.md5()
-m.update(b'sssssssdddddddsssssssssssddddddddddsddssddwddssssssdddssssdddss')
-print(m.hexdigest())
+m.update(b'sssssssdddddddsssssssssssddddddddddsddssddwddssssssdddssssdddss') # bytes  str
+print(m.hexdigest()) # 999ea6aa6c365ab43eec2a0f0e5968d5
 ```
 
 - flag: `999ea6aa6c365ab43eec2a0f0e5968d5`
+- `flag{999ea6aa6c365ab43eec2a0f0e5968d5}`
 

