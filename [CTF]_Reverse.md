@@ -1399,6 +1399,34 @@ flag = key.decode('hex') # hex to str
 
 
 
+### gdb调试时输入不可见字符
+
+- 使用类似如下的python脚本，将输入写入文件`input`中：
+
+```python
+s = b"\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f\x00\n\n\n\nabcdABCD"
+with open("input", "wb") as f:
+    f.write(s)
+```
+
+- 存入`input`的内容：
+
+```assembly
+$ hexdump input
+0000000 0201 0403 0605 0807 0a09 0c0b 0e0d 000f
+0000010 0a0a 0a0a 6261 6463 4241 4443
+```
+
+- 在GDB 开始调试时，使用run时添加`< input`
+
+```assembly
+r < input
+```
+
+
+
+
+
 
 
 ## pwndbg

@@ -70,6 +70,7 @@ Installation:
 
 ```python
 from pwn import *
+context.log_level = "DEBUG"
 io = remote("127.0.0.1", 32152)
 # 与互联网主机交互
 io.sendline("hello") # sendline发送数据会在最后多添加一个回车
@@ -94,9 +95,7 @@ io.u64("12345678")
 # 将字节数组与数组进行以小端对齐的方式相互转化，32负责转化dword，64负责转化qword
 ```
 
-
-
-### Installation
+- Installation: 
 
 > (2021.3) 官方文档建议使用python3
 
@@ -613,7 +612,9 @@ io.interactive() # 将代码交互转换为手工交互
 
 ## The Function Stack 函数调用栈
 
-> related registers: ESP, EBP, EIP...            https://www.tenouk.com/Bufferoverflowc/Bufferoverflow2a.html
+> related registers: ESP, EBP, EIP...            
+>
+> https://www.tenouk.com/Bufferoverflowc/Bufferoverflow2a.html
 
 CPU在执行call指令时需要进行两步操作：
 
@@ -1058,6 +1059,10 @@ sh.interactive() # 将代码交互转换为手工交互
 - 控制函数的执行 libc 中的函数。通常是返回至某个函数的 **PLT** 处或者函数的具体位置 (即函数对应的 **GOT** 表项的内容)
 - 一般情况下，我们会选择执行 `system("/bin/sh")`，故而此时我们需要知道 system 函数的地址
 - r2libc技术是一种缓冲区溢出利用技术，主要用于克服常规缓冲区溢出漏洞利用技术中面临的no stack executable限制(所以后续实验还是需要关闭系统的ASLR，以及堆栈保护)，比如PaX和ExecShield安全策略。该技术主要是通过覆盖栈帧中保存的函数返回地址(eip)，让其定位到libc库中的某个库函数(如，system等)，而不是直接定位到shellcode。然后通过在栈中精心构造该库函数的参数，以便达到类似于执行shellcode的目的
+
+```bash
+readelf -S ret2libc # 可以获得段地址，比如bbs段的地址 # 也可在IDA中获得bbs段的地址
+```
 
 
 
