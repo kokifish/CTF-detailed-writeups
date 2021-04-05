@@ -1011,7 +1011,8 @@ addiu $sp, 0x20 ; 注意这里由于 源操作数1 与 目标寄存器 相同，
 ```assembly
 push ebp      ; 在栈里保存EBP寄存器的内容
 mov  ebp, esp ; 将ESP的值复制到EBP寄存器
-sub  esp, X   ; 修改栈的高度，以便为本函数的局部变量申请存储空间
+and esp, 0FFFFFFF0h ; (可能有)16bit对齐
+sub  esp, X   ; 修改栈的高度，以便为本函数的局部变量申请存储空间 ; e.g. add esp, -80h
 ```
 
 - 在函数执行期间，EBP寄存器不受函数运行的影响，EBP是函数访问局部变量和函数参数的基准值
