@@ -1327,6 +1327,28 @@ int main( void ){ //  uses _fileno to obtain the file descriptor(fd) for some st
 
 
 
+
+
+
+
+# Ghidra
+
+> 由美国国家安全局开发的免费和开源的逆向工程工具，可在Windows\macOS\Linux进行源代码分析
+
+- TBD
+
+
+
+
+
+
+
+
+
+
+
+---
+
 #  Dynamic Analysis
 
 > 动态分析 实践部分

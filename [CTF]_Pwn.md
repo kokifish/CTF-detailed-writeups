@@ -1,6 +1,6 @@
-- writer: github.com/hex-16   data: from 2020   contact: hexhex16@outlook.com
+- writer: github.com/hex-16   data: from 2020   contact: hexhex16@outlook.com  recommended editor: Typora
 - 未加说明时，默认系统为kali 20.04(64bit), python3.7或以上, 其余套件为2021.3前后的最新版
-- 部分内容与 Reverse.md 有重叠，部分交叉内容会记录在Reverse.md 中，会有注明
+- 部分内容与 Reverse.md 有重叠or交叉，会有注明
 
 # Pwn
 
@@ -10,8 +10,6 @@
 
 - pwn是一个骇客语法的俚语词，自"own"这个字引申出来的
 - 在计算机技术领域，pwn一般指攻破(to compromise, 危及, 损害)，或是控制(to control)
-
-> Linux中的GOT和PLT到底是个啥？   https://www.freebuf.com/articles/system/135685.html 
 
 
 
@@ -315,7 +313,7 @@ ROPgadget --binary ret2baby  --string "/bin/sh" # 获得 /bin/sh 字符串对应
 
 > the key to code sharing and dynamic libraries. 对代码复用、动态库有关键作用. 运行时重定位
 >
-> 
+> https://www.freebuf.com/articles/system/135685.html Linux中的GOT和PLT到底是个啥？
 
 GOT: Global Offset Table, 全局偏移表。存放函数地址的数据表
 
@@ -939,13 +937,21 @@ sh.interactive() # 将代码交互转换为手工交互
 
 ### ROP
 
-> ROP(Return Oriented Programming)
+> ROP(Return Oriented Programming)   栈溢出问题
 >
 > 核心在于利用指令集中的 `ret` 指令，改变了指令流的执行顺序
 >
 > 参考链接：
 >
-> https://www.anquanke.com/post/id/85831
+> https://www.anquanke.com/post/id/85831   【技术分享】现代栈溢出利用技术基础：ROP   
+>
+> https://zhuanlan.zhihu.com/p/25816426
+>
+> https://zhuanlan.zhihu.com/p/25892385
+>
+> https://wooyun.js.org/drops/return2libc%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0.html
+>
+> https://xz.aliyun.com/t/3402
 
 - 随着 NX 保护的开启，以往直接向栈或者堆上直接注入代码的方式难以继续发挥效果。攻击者们也提出来相应的方法来绕过保护，目前主要的是 ROP(Return Oriented Programming)
 - 在**栈缓冲区溢出的基础上，利用程序中已有的小片段 (gadgets) 来改变某些寄存器或者变量的值，从而控制程序的执行流程**
@@ -1081,6 +1087,14 @@ readelf -S ret2libc # 可以获得段地址，比如bbs段的地址 # 也可在I
 
 
 ## 格式化字符串漏洞
+
+
+
+
+
+
+
+
 
 
 
