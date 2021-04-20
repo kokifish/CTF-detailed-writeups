@@ -1,6 +1,6 @@
 - writer: github.com/hex-16   data: from 2020   contact: hexhex16@outlook.com  recommended editor: Typora
 - 未加说明时，默认系统为kali 20.04(64bit), python3.7或以上, 其余套件为2021.3前后的最新版
-- 部分内容与 Reverse.md 有重叠or交叉，会有注明
+- 部分内容与 Reverse.md 有重叠or交叉，会有注明。其中动态调试如何使用优先记录在 Reverse.md 
 
 # Pwn
 
@@ -324,6 +324,20 @@ ROPgadget --binary ret2baby  --string "/bin/sh" # 获得 /bin/sh 字符串对应
 
 
 
+## Set Linux ASLR 
+
+> Linux系统上控制ASLR启动与否
+
+修改`/proc/sys/kernel/randomize_va_space`来控制ASLR启动与否，具体选项：
+
+- 0: 关闭 ASLR，没有随机化。栈、堆、.so 的基地址每次都相同
+- 1: 普通的 ASLR。栈基地址、mmap 基地址、.so 加载基地址都将被随机化，但是堆基地址没有随机化
+- 2: 增强的 ASLR，在 1 的基础上，增加了堆基地址随机化
+
+可以使用`echo 0 > /proc/sys/kernel/randomize_va_space`关闭Linux系统的ASLR。kali20.04测试时需用`sudo bash -c "echo 0 > /proc/sys/kernel/randomize_va_space"`
+
+
+
 ---
 
 # Linux Pwn
@@ -631,8 +645,10 @@ io.interactive() # 将代码交互转换为手工交互
 
 ---
 
-## The Function Stack 函数调用栈
+## The Function Stack
 
+> 函数调用栈
+>
 > related registers: ESP, EBP, EIP...            
 >
 > https://www.tenouk.com/Bufferoverflowc/Bufferoverflow2a.html
@@ -717,9 +733,9 @@ int main(int argc, char *argv[]){
 
 ![](https://raw.githubusercontent.com/hex-16/pictures/master/CTF_pic/RE_function_call_function_stack_layout.png)
 
-## 栈溢出 Stack Buffer Overflow
+## Stack Buffer Overflow
 
-> 栈缓冲区溢出（stack buffer overflow, stack buffer overrun）
+> 栈溢出 栈缓冲区溢出（stack buffer overflow, stack buffer overrun）
 >
 > 函数调用栈基础知识参考链接：
 >
@@ -944,15 +960,6 @@ sh.interactive() # 将代码交互转换为手工交互
 
 
 
-### Linux ASLR修改
-
-修改`/proc/sys/kernel/randomize_va_space`来控制ASLR启动与否，具体选项：
-
-- 0: 关闭 ASLR，没有随机化。栈、堆、.so 的基地址每次都相同
-- 1: 普通的 ASLR。栈基地址、mmap 基地址、.so 加载基地址都将被随机化，但是堆基地址没有随机化
-- 2: 增强的 ASLR，在 1 的基础上，增加了堆基地址随机化
-
-可以使用`echo 0 > /proc/sys/kernel/randomize_va_space`关闭Linux系统的ASLR。kali20.04测试时需用`sudo bash -c "echo 0 > /proc/sys/kernel/randomize_va_space"`
 
 
 
@@ -1604,9 +1611,9 @@ gef➤  hexdump byte 0xffd58258 32 # 以bytes显示格式化字符串所在地�
 
 
 
-## 沙箱逃逸
+## Sandbox Escape
 
-
+> 沙箱逃逸
 
 ## Kernel
 
