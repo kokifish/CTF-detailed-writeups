@@ -23,6 +23,9 @@
 #### 替换密码
 http://quipqiup.com/
 
+#### XOR 密码(异或密码)
+https://www.dcode.fr/xor-cipher
+
 #### 维吉尼亚密码
 * 解密工具
     * https://www.mygeocachingprofile.com/codebreaker.vigenerecipher.aspx 
@@ -100,6 +103,17 @@ JSFuck 在线加密网站 http://www.jsfuck.com/
 Brainfuck，是一种极小化的计算机语言
 > 工具
 https://www.splitbrain.org/services/ook
+
+#### WINGDING
+WINGDING是一个将文本符号转换为Wingding符号的工具，Wingding符号是"Unicode"符号，可以进行复制粘贴。(这里其实更像misc)，因为本质上是编码的转换而不是密码。
+例子：
+```
+♐●♋♑❀♏📁🖮🖲📂♍♏⌛🖰♐🖮📂🖰📂🖰🖰♍📁🗏🖮🖰♌📂♍📁♋🗏♌♎♍🖲♏❝
+解码：flag{e0791ce68f718188c0378b1c0a3bdc9e}
+```
+> 工具
+https://lingojam.com/WingDing
+
 
 #### 猪圈密码
 ![猪圈密码](crypto/images/pip_sty.PNG)
@@ -632,7 +646,8 @@ ECC 全称为椭圆曲线加密，EllipseCurve Cryptography，是一种基于椭
 * 暴力枚举私钥
 * 常见曲线（理论上需要使用特定的方法把该曲线转换成Weierstrass曲线的形式）：https://www.hyperelliptic.org/EFD/index.html
 
-## $\mathrm I\mathrm I.\mathrm I\mathrm V$ 格密码 TODO
+## $\mathrm I\mathrm I.\mathrm I\mathrm V$ 格密码 
+
 
 
 # 哈希函数
@@ -654,3 +669,8 @@ ECC 全称为椭圆曲线加密，EllipseCurve Cryptography，是一种基于椭
 * 相关密钥攻击
 * 侧信道攻击
 * 比特攻击
+
+# 比赛
+* angstromctf (https://2021.angstromctf.com/)
+    * Cache Money
+    https://mystiz.hk/posts/2021-04-08-angstromctf-2021/
