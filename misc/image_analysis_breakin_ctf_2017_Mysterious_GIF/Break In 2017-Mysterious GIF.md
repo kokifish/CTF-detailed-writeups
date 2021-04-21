@@ -117,7 +117,7 @@ DECIMAL       HEXADECIMAL     DESCRIPTION
 
 - 然后可以在`_temp2.zip.extracted`文件夹中找到总共265个`partxx.enc`文件(每个文件都为256字节，可以猜测是被加密的)
 
-```python
+```c
 $ hexdump -C ./_temp2.zip.extracted/partab.enc # 256字节
 00000000  26 ae c1 50 a3 a1 5d 32  6c f4 52 cb ca 63 78 c4  |&..P..]2l.R..cx.|
 00000010  14 4f 1c 41 3a 26 cb 94  68 ff 67 1f 8c 84 d6 51  |.O.A:&..h.g....Q|

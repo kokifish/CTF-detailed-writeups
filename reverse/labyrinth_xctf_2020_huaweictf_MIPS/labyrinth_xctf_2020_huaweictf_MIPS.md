@@ -7,9 +7,14 @@
 > No description
 >
 > original writeup: https://www.xctf.org.cn/library/details/55599c9c17ea0e8ca0b094adbe075a03a7321599/
+>
+> IDA analysis file `.idb` provided. 
+>
+> Score estimation: below 200 points.
+>
+> Solution video (中文): *TBD*
 
 - 此题是一道使用MIPS语言编写的迷宫问题，用了三张迷宫，IDA中逆向后伪代码有`puts((int)"success! the flag is flag{md5(your input)}");`
-- 分析文件`.idb`已提供
 
 
 
@@ -390,9 +395,10 @@ int main() {
 ```python
 import hashlib
 m = hashlib.md5()
-m.update(b'sssssssdddddddsssssssssssddddddddddsddssddwddssssssdddssssdddss')
-print(m.hexdigest())
+m.update(b'sssssssdddddddsssssssssssddddddddddsddssddwddssssssdddssssdddss') # bytes  str
+print(m.hexdigest()) # 999ea6aa6c365ab43eec2a0f0e5968d5
 ```
 
 - flag: `999ea6aa6c365ab43eec2a0f0e5968d5`
+- `flag{999ea6aa6c365ab43eec2a0f0e5968d5}`
 
