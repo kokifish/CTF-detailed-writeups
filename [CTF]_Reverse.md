@@ -432,6 +432,7 @@ print(type(h_key), h_key) # <class 'str'> 39343437
 s = "ABCabc" # <class 'str'>
 arr = bytes(s, 'utf-8') # <class 'bytes'> # b'ABCabc' # for byte in arr: 65 66 67 97 98 99
 arr2 = bytes(s, 'ascii') # <class 'bytes'> # b'ABCabc' # for byte in arr: 65 66 67 97 98 99
+bytearray(str(s), "ascii") # str to bytes
 ```
 
 
