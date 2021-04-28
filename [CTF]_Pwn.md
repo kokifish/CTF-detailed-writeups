@@ -1,6 +1,6 @@
-- writer: github.com/hex-16   data: from 2020   contact: hexhex16@outlook.com  recommended editor: Typora
-- 未加说明时，默认系统为kali 20.04(64bit), python3.7或以上, 其余套件为2021.3前后的最新版
-- 部分内容与 Reverse.md 有重叠or交叉，会有注明。其中动态调试如何使用优先记录在 Reverse.md 
+- writer: github.com/hex-16   data: from 2020   contact: hexhex16@outlook.com  recommended viewer/editor: Typora
+- 未加说明时，默认系统为kali 20.04(64bit), python3.7或以上, 其余套件为2021前后的最新版
+- 部分内容与 Reverse.md 有重叠/交叉，会有注明。其中动态调试如何使用优先记录在 Reverse.md 
 
 # Pwn
 
@@ -10,6 +10,10 @@
 
 - pwn是一个骇客语法的俚语词，自"own"这个字引申出来的
 - 在计算机技术领域，pwn一般指攻破(to compromise, 危及, 损害)，或是控制(to control)
+
+
+
+
 
 
 
@@ -324,9 +328,13 @@ ROPgadget --binary ret2baby  --string "/bin/sh" # 获得 /bin/sh 字符串对应
 
 
 
-## Set Linux ASLR 
+## ASLR and Related Setting
 
+> 地址空间配置随机加载  Address space layout randomization  地址空间配置随机化  地址空间布局随机化
+>
 > Linux系统上控制ASLR启动与否
+
+- ASLR通过**随机放置进程关键数据区域的地址空间**来防止攻击者能可靠地跳转到内存的特定位置来利用函数。现代操作系统一般都加设这一机制，以防范恶意程序对已知地址进行Return-to-libc攻击
 
 修改`/proc/sys/kernel/randomize_va_space`来控制ASLR启动与否，具体选项：
 
@@ -335,6 +343,204 @@ ROPgadget --binary ret2baby  --string "/bin/sh" # 获得 /bin/sh 字符串对应
 - 2: 增强的 ASLR，在 1 的基础上，增加了堆基地址随机化
 
 可以使用`echo 0 > /proc/sys/kernel/randomize_va_space`关闭Linux系统的ASLR。kali20.04测试时需用`sudo bash -c "echo 0 > /proc/sys/kernel/randomize_va_space"`
+
+
+
+
+
+---
+
+# The Function Stack
+
+> 函数调用栈
+>
+> related registers: ESP, EBP, EIP...            
+>
+> https://www.tenouk.com/Bufferoverflowc/Bufferoverflow2a.html
+
+CPU在执行call指令时需要进行两步操作：
+
+1. 将当前的IP(也就是函数返回地址)入栈，即：`push IP`;
+2. 跳转，即： `jmp dword ptr 内存单元地址`。
+
+CPU在执行ret指令时只需要恢复IP寄存器即可，因此ret指令相当于`pop IP`。
+
+32bit系统：
+
+- ESP: 栈指针寄存器(extended stack pointer), ESP永远指向系统栈最上面一个栈帧的栈顶(低地址)。注意指向的是**栈顶元素的地址**，而**不是下一个空闲地址**。ESP寄存器是固定的，只有当函数的调用后，发生入栈操作而改变
+- EBP: 基址指针寄存器(extended base pointer), EBP永远指向系统栈最上面一个栈帧的底部(高地址)。通常情况下ESP是可变的，随着栈的生产而逐渐变小，用ESP来标记栈的底部
+
+intel系统中栈是向下生长的(栈越扩大其值越小,堆恰好相反)
+
+通过固定的地址与偏移量来寻找在栈参数与变量，EBP寄存器存放的就是固定的地址。但是这个值在函数调用过程中会变化，函数执行结束后需要还原，因此要在函数的出栈入栈中进行保存
+
+## Order 入栈顺序
+
+以**Windows/Intel**为例，通常当函数调用发生时，数据将以以下方式存储在栈中：
+
+1. **函数参数从右往左入栈**。The function parameters are pushed on the stack before the function is called. The parameters are pushed from right to left.
+2. **x86 call**指令将**返回地址**入栈，返回地址存储的是**当前EIP寄存器的值**。The function **return address** is placed on the stack by the x86 CALL instruction, which stores the current value of the EIP register.
+3. caller的**栈帧基址EBP**入栈。Then, the frame pointer that is the previous value of the EBP register is placed on the stack.
+4. 如果函数有try/catch或其他**异常处理结构**，编译器会将异常处理信息入栈。If a function includes try/catch or any other exception handling construct such as SEH (Structured Exception Handling - Microsoft implementation), the compiler will include exception handling information on the stack.
+5. **局部声明的变量**。Next, the locally declared variables.
+6. 将缓冲区分配给**临时数据**存储。Then the buffers are allocated for temporary data storage.
+7. 存储在callee会被使用的**寄存器**（对于**Linux/intel，该步在Step 4 后**，局部声明变量前）。Finally, the callee save registers such as ESI, EDI, and EBX are stored if they are used at any point during the functions execution. For Linux/Intel, this step comes after step no. 4. 
+
+**Linux/Intel 入栈顺序**：
+
+1. **实参N\~1**
+2. **返回地址**，当前EIP寄存器的值
+3. caller帧基指针**EBP**
+4. 异常处理信息
+5. callee中会用到的**寄存器**
+6. callee**局部变量1\~N**
+
+## Memory Layout 内存布局
+
+- 函数调用栈的典型内存布局（Linux/Intel, x86-32bit）如下所示。包含caller和callee，包含寄存器和临时变量的栈帧布局。注意这里的Called-saved Registers的位置是**Linux/Intel**的
+
+![](https://raw.githubusercontent.com/hex-16/pictures/master/CTF_pic/pwn_function_stack_caller_and_callee.jpg)
+
+- `m(%ebp)`表示以EBP为基地址、偏移量为m字节的内存空间(中的内容)
+- 该图基于两个假设：第一，函数返回值不是结构体或联合体，否则第一个参数将位于`12(%ebp)` 处；第二，每个参数都是4字节大小(栈的粒度为4字节)
+- 函数可以没有参数和局部变量，故图中“Argument(参数)”和“Local Variable(局部变量)”不是函数栈帧结构的必需部分
+
+
+
+- 结构体成员变量的入栈顺序与其在结构体中声明的顺序相反
+- **局部变量的布局依赖于编译器实现等因素。局部变量并不总在栈中，有时出于性能(速度)考虑会存放在寄存器中**。
+- 数组/结构体型的局部变量通常分配在栈内存中
+
+> 局部变量以何种方式布局并未规定。编译器计算函数局部变量所需要的空间总数，并确定这些变量存储在寄存器上还是分配在程序栈上(甚至被优化掉)——某些处理器并没有堆栈。局部变量的空间分配与主调函数和被调函数无关，仅仅从函数源代码上无法确定该函数的局部变量分布情况。
+>
+> 基于不同的编译器版本(gcc3.4中局部变量按照定义顺序依次入栈，gcc4及以上版本则不定)、优化级别、目标处理器架构、栈安全性等，相邻定义的两个变量在内存位置上可能相邻，也可能不相邻，前后关系也不固定。若要确保两个对象在内存上相邻且前后关系固定，可使用结构体或数组定义
+
+
+
+## Examples
+
+> https://www.tenouk.com/Bufferoverflowc/Bufferoverflow2a.html
+
+- 许多编译器使用帧指针（FP，Frame Pointer）来引用局部变量和参数，FP的值不随push, pop改变。在Intel cpu上，EBP用作FP
+
+```cpp
+#include <stdio.h>  // https://www.tenouk.com/Bufferoverflowc/Bufferoverflow2a.html  // 32bit
+int MyFunc(int parameter1, char parameter2){ // 取这两个参数时，相对EBP的偏移量为正
+	int local1 = 9;
+	char local2 = 'Z';
+    return 0;
+}
+int main(int argc, char *argv[]){
+	MyFunc(7, '8'); // 参数从右向左压栈，push '8'; push 7 // 然后将EIP入栈，此时EIP指向main函数的下一个要执行的指令，即call指令以后的
+	return 0;
+}
+```
+
+![](https://raw.githubusercontent.com/hex-16/pictures/master/CTF_pic/RE_function_call_function_stack_layout.png)
+
+## x64
+
+
+
+
+
+---
+
+# Calling Convention
+
+> 函数调用约定  Calling Convention  调用规范  调用协定  调用约定
+
+函数调用约定通常规定如下几方面内容：
+
+1. 函数参数的传递顺序和方式：最常见的参数传递方式是通过堆栈传递。主调函数将参数压入栈中，被调函数以相对于帧基指针的正偏移量来访问栈中的参数。对于有多个参数的函数，调用约定需规定主调函数将参数压栈的顺序(从左至右还是从右至左)。某些调用约定允许使用寄存器传参以提高性能
+2. 栈的维护方式：主调函数将参数压栈后调用被调函数体，返回时需将被压栈的参数全部弹出，以便将栈恢复到调用前的状态。清栈过程可由主调函数或被调函数负责完成。
+3. 名字修饰(Name-mangling)策略(函数名修饰 Decorated Name 规则：编译器在链接时为区分不同函数，对函数名作不同修饰。若函数之间的调用约定不匹配，可能会产生堆栈异常或链接错误等问题。因此，为了保证程序能正确执行，所有的函数调用均应遵守一致的调用约定
+
+
+
+## cdecl
+
+> C调用约定
+
+- **C/C++编译器默认的函数调用约定**。所有非C++成员函数和未使用stdcall或fastcall声明的函数都默认是cdecl方式
+- **参数从右到左入栈，caller负责清除栈中的参数，返回值在EAX**
+- 由于每次函数调用都要产生清除(还原)堆栈的代码，故使用cdecl方式编译的程序比使用stdcall方式编译的程序大(后者仅需在被调函数内产生一份清栈代码)
+- cdecl调用方式**支持可变参数**函数(e.g. `printf`)，且调用时即使实参和形参数目不符也不会导致堆栈错误
+- 对于**C**函数，cdecl方式的名字修饰约定是**在函数名前添加一个下划线**；对于C++函数，除非特别使用extern "C"，C++函数使用不同的名字修饰方式
+
+> ### 可变参数函数支持条件
+>
+> 1. 参数自右向左进栈
+> 2. 由主调函数负责清除栈中的参数(参数出栈)
+>
+> 参数按照从右向左的顺序压栈，则参数列表最左边(第一个)的参数最接近栈顶位置。所有参数距离帧基指针的偏移量都是常数，而不必关心已入栈的参数数目。只要不定的参数的数目能根据第一个已明确的参数确定，就可使用不定参数。例如`printf`函数，第一个参数即格式化字符串可作为后继参数指示符。通过它们就可得到后续参数的类型和个数，进而知道所有参数的尺寸。当传递的参数过多时，以帧基指针为基准，获取适当数目的参数，其他忽略即可。若函数参数自左向右进栈，则第一个参数距离栈帧指针的偏移量与已入栈的参数数目有关，需要计算所有参数占用的空间后才能精确定位。当实际传入的参数数目与函数期望接受的参数数目不同时，偏移量计算会出错
+>
+> caller将参数压栈，只有caller知道栈中的参数数目和尺寸，因此caller可安全地清栈。而callee永远也不能事先知道将要传入函数的参数信息，难以对栈顶指针进行调整
+>
+> C++为兼容C，仍然支持函数带有可变的参数。但在C++中更好的选择常常是函数多态
+
+## stdcall
+
+- Pascal程序缺省调用方式，WinAPI也多采用该调用约定
+- 主调函数参数从右向左入栈，除指针或引用类型参数外所有参数采用传值方式传递，由callee清除栈中的参数，返回值在`EAX`
+- `stdcall`调用约定仅适用于参数个数固定的函数，因为被调函数清栈时无法精确获知栈上有多少函数参数；而且如果调用时实参和形参数目不符会导致堆栈错误。对于C函数，`stdcall`名称修饰方式是在函数名字前添加下划线，在函数名字后添加`@`和函数参数的大小，如`_functionname@number`
+
+
+
+## fastcall
+
+- `stdcall`调用约定的变形，通常使用ECX和EDX寄存器传递前两个DWORD(四字节双字)类型或更少字节的函数参数，其余参数从右向左入栈
+- callee在返回前负责清除栈中的参数，返回值在`EAX`
+- 因为并不是所有的参数都有压栈操作，所以比`stdcall`, `cdecl`快些
+- 编译器使用两个`@`修饰函数名字，后跟十进制数表示的函数参数列表大小(字节数)，如@function_name@number。需注意`fastcall`函数调用约定在不同编译器上可能有不同的实现，比如16位编译器和32位编译器。另外，在使用内嵌汇编代码时，还应注意不能和编译器使用的寄存器有冲突
+
+
+
+## thiscall
+
+- C++类中的非静态函数必须接收一个指向主调对象的类指针(this指针)，并可能较频繁的使用该指针。主调函数的对象地址必须由调用者提供，并在调用对象非静态成员函数时将对象指针以参数形式传递给被调函数
+- 编译器默认使用`thiscall`调用约定以高效传递和存储C++类的非静态成员函数的`this`指针参数
+- `thiscall`调用约定函数参数按照从右向左的顺序入栈。若参数数目固定，则类实例的this指针通过ECX寄存器传递给被调函数，被调函数自身清理堆栈；若参数数目不定，则this指针在所有参数入栈后再入栈，主调函数清理堆栈。
+- `thiscall`不是C++关键字，故不能使用`thiscall`声明函数，它只能由编译器使用
+- 注意，该调用约定特点随编译器不同而不同，g++中`thiscall`与`cdecl`基本相同，只是隐式地将`this`指针当作非静态成员函数的第1个参数，主调函数在调用返回后负责清理栈上参数；而在VC中，this指针存放在`%ecx`寄存器中，参数从右至左压栈，非静态成员函数负责清理栈上参数
+
+## naked call
+
+- 对于使用naked call方式声明的函数，编译器不产生保存(prologue)和恢复(epilogue)寄存器的代码，且不能用return返回返回值(只能用内嵌汇编返回结果)，故称naked call
+- 该调用约定用于一些特殊场合，如声明处于非C/C++上下文中的函数，并由程序员自行编写初始化和清栈的内嵌汇编指令
+- naked call并非类型修饰符，故该调用约定必须与`__declspec`同时使用
+
+> `__declspec`是微软关键字，其他系统上可能没有
+
+| **调用方式**       | `stdcall(Win32)` | `cdecl` | `fastcall`                       | `thiscall(C++)`           | `naked call` |
+| ------------------ | ---------------- | ------- | -------------------------------- | ------------------------- | ------------ |
+| **参数压栈顺序**   | 右至左           | 右至左  | 右至左，Arg1在`ecx`，Arg2在`edx` | 右至左，`this`指针在`ecx` | 自定义       |
+| **参数位置**       | 栈               | 栈      | 栈 + 寄存器                      | 栈，寄存器`ecx`           | 自定义       |
+| **负责清栈的函数** | callee           | caller  | callee                           | callee                    | 自定义       |
+| **支持可变参数**   | 否               | 是      | 否                               | 否                        | 自定义       |
+| **函数名字格式**   | _name@number     | _name   | @name@number                     |                           | 自定义       |
+| **参数表开始标识** | "@@YG"           | "@@YA"  | "@@YI"                           |                           | 自定义       |
+
+
+
+- 不同编译器产生栈帧的方式不尽相同，主调函数不一定能正常完成清栈工作；而被调函数必然能自己完成正常清栈，因此，在跨(开发)平台调用中，通常使用stdcall调用约定(不少WinApi均采用该约定)
+
+
+
+```c
+// 采用C语言编译的库应考虑到使用该库的程序可能是C++程序(使用C++编译器)，通常应这样声明头文件
+#ifdef _cplusplus
+extern "C" { // 使用extern "C" 告知caller所在模块：callee是C语言编译的
+#endif
+    
+int func(int para);
+    
+#ifdef _cplusplus
+}
+#endif
+```
+
+- 这样C++编译器就会按照C语言修饰策略链接Func函数名，而不会出现找不到函数的链接错误
 
 
 
@@ -637,101 +843,15 @@ io.interactive() # 将代码交互转换为手工交互
 
 
 
+
+
 ##### 覆盖 TLS 中储存的 Canary 值
 
 
 
-​           
-
----
-
-## The Function Stack
-
-> 函数调用栈
->
-> related registers: ESP, EBP, EIP...            
->
-> https://www.tenouk.com/Bufferoverflowc/Bufferoverflow2a.html
-
-CPU在执行call指令时需要进行两步操作：
-
-1. 将当前的IP(也就是函数返回地址)入栈，即：`push IP`;
-2. 跳转，即： `jmp dword ptr 内存单元地址`。
-
-CPU在执行ret指令时只需要恢复IP寄存器即可，因此ret指令相当于`pop IP`。
-
-32bit系统：
-
-- ESP: 栈指针寄存器(extended stack pointer), ESP永远指向系统栈最上面一个栈帧的栈顶(低地址)。注意指向的是**栈顶元素的地址**，而**不是下一个空闲地址**。ESP寄存器是固定的，只有当函数的调用后，发生入栈操作而改变
-- EBP: 基址指针寄存器(extended base pointer), EBP永远指向系统栈最上面一个栈帧的底部(高地址)。通常情况下ESP是可变的，随着栈的生产而逐渐变小，用ESP来标记栈的底部
-
-intel系统中栈是向下生长的(栈越扩大其值越小,堆恰好相反)
-
-通过固定的地址与偏移量来寻找在栈参数与变量，EBP寄存器存放的就是固定的地址。但是这个值在函数调用过程中会变化，函数执行结束后需要还原，因此要在函数的出栈入栈中进行保存
-
-### 入栈顺序
-
-以**Windows/Intel**为例，通常当函数调用发生时，数据将以以下方式存储在栈中：
-
-1. **函数参数从右往左入栈**。The function parameters are pushed on the stack before the function is called. The parameters are pushed from right to left.
-2. x86 call指令将**返回地址**入栈，返回地址存储的是**当前EIP寄存器的值**。The function **return address** is placed on the stack by the x86 CALL instruction, which stores the current value of the EIP register.
-3. caller的**栈帧基址EBP**入栈。Then, the frame pointer that is the previous value of the EBP register is placed on the stack.
-4. 如果函数有try/catch或其他**异常处理结构**，编译器会将异常处理信息入栈。If a function includes try/catch or any other exception handling construct such as SEH (Structured Exception Handling - Microsoft implementation), the compiler will include exception handling information on the stack.
-5. **局部声明的变量**。Next, the locally declared variables.
-6. 将缓冲区分配给**临时数据**存储。Then the buffers are allocated for temporary data storage.
-7. 存储在callee会被使用的**寄存器**（对于Linux/intel，该步在Step 4 后，局部声明变量前）。Finally, the callee save registers such as ESI, EDI, and EBX are stored if they are used at any point during the functions execution. For Linux/Intel, this step comes after step no. 4. 
-
-**Linux/Intel 入栈顺序**：
-
-1. 实参N\~1
-2. 返回地址，当前EIP寄存器的值
-3. caller帧基指针EBP
-4. 异常处理信息
-5. callee中会用到的寄存器
-6. callee局部变量1\~N
-
-### Memory Layout 内存布局
-
-- 函数调用栈的典型内存布局（x86-32bit）如下所示。包含caller和callee，包含寄存器和临时变量的栈帧布局。注意这里的Called-saved Registers的位置是**Linux/Intel**的
-
-![](https://raw.githubusercontent.com/hex-16/pictures/master/CTF_pic/pwn_function_stack_caller_and_callee.jpg)
-
-- `m(%ebp)`表示以EBP为基地址、偏移量为m字节的内存空间(中的内容)
-- 该图基于两个假设：第一，函数返回值不是结构体或联合体，否则第一个参数将位于`12(%ebp)` 处；第二，每个参数都是4字节大小(栈的粒度为4字节)
-- 函数可以没有参数和局部变量，故图中“Argument(参数)”和“Local Variable(局部变量)”不是函数栈帧结构的必需部分
 
 
 
-- 结构体成员变量的入栈顺序与其在结构体中声明的顺序相反
-- **局部变量的布局依赖于编译器实现等因素。局部变量并不总在栈中，有时出于性能(速度)考虑会存放在寄存器中**。
-- 数组/结构体型的局部变量通常分配在栈内存中
-
-> 局部变量以何种方式布局并未规定。编译器计算函数局部变量所需要的空间总数，并确定这些变量存储在寄存器上还是分配在程序栈上(甚至被优化掉)——某些处理器并没有堆栈。局部变量的空间分配与主调函数和被调函数无关，仅仅从函数源代码上无法确定该函数的局部变量分布情况。
->
-> 基于不同的编译器版本(gcc3.4中局部变量按照定义顺序依次入栈，gcc4及以上版本则不定)、优化级别、目标处理器架构、栈安全性等，相邻定义的两个变量在内存位置上可能相邻，也可能不相邻，前后关系也不固定。若要确保两个对象在内存上相邻且前后关系固定，可使用结构体或数组定义
-
-
-
-### Examples
-
-> https://www.tenouk.com/Bufferoverflowc/Bufferoverflow2a.html
-
-- 许多编译器使用帧指针（FP，Frame Pointer）来引用局部变量和参数，FP的值不随push, pop改变。在Intel cpu上，EBP用作FP
-
-```cpp
-#include <stdio.h>  // https://www.tenouk.com/Bufferoverflowc/Bufferoverflow2a.html
-int MyFunc(int parameter1, char parameter2){ // 取这两个参数时，相对EBP的偏移量为正
-	int local1 = 9;
-	char local2 = 'Z';
-    return 0;
-}
-int main(int argc, char *argv[]){
-	MyFunc(7, '8'); // 参数从右向左压栈，push '8'; push 7 // 然后将EIP入栈，此时EIP指向main函数的下一个要执行的指令，即call指令以后的
-	return 0;
-}
-```
-
-![](https://raw.githubusercontent.com/hex-16/pictures/master/CTF_pic/RE_function_call_function_stack_layout.png)
 
 ## Stack Buffer Overflow
 
@@ -786,100 +906,6 @@ Stack Overflow Workflow:
 
 
 
-
-### 函数调用约定
-
-函数调用约定通常规定如下几方面内容：
-
-1. 函数参数的传递顺序和方式：最常见的参数传递方式是通过堆栈传递。主调函数将参数压入栈中，被调函数以相对于帧基指针的正偏移量来访问栈中的参数。对于有多个参数的函数，调用约定需规定主调函数将参数压栈的顺序(从左至右还是从右至左)。某些调用约定允许使用寄存器传参以提高性能
-2. 栈的维护方式：主调函数将参数压栈后调用被调函数体，返回时需将被压栈的参数全部弹出，以便将栈恢复到调用前的状态。清栈过程可由主调函数或被调函数负责完成。
-3. 名字修饰(Name-mangling)策略(函数名修饰 Decorated Name 规则：编译器在链接时为区分不同函数，对函数名作不同修饰。若函数之间的调用约定不匹配，可能会产生堆栈异常或链接错误等问题。因此，为了保证程序能正确执行，所有的函数调用均应遵守一致的调用约定
-
-
-
-#### cdecl
-
-> C调用约定
-
-- C/C++编译器默认的函数调用约定。所有非C++成员函数和未使用stdcall或fastcall声明的函数都默认是cdecl方式
-- 参数从右到左入栈，caller负责清除栈中的参数，返回值在EAX
-- 由于每次函数调用都要产生清除(还原)堆栈的代码，故使用cdecl方式编译的程序比使用stdcall方式编译的程序大(后者仅需在被调函数内产生一份清栈代码)
-- cdecl调用方式支持可变参数函数(e.g. `printf`)，且调用时即使实参和形参数目不符也不会导致堆栈错误
-- 对于C函数，cdecl方式的名字修饰约定是在函数名前添加一个下划线；对于C++函数，除非特别使用extern "C"，C++函数使用不同的名字修饰方式
-
-> ### 可变参数函数支持条件
->
-> 1. 参数自右向左进栈
-> 2. 由主调函数负责清除栈中的参数(参数出栈)
->
-> 参数按照从右向左的顺序压栈，则参数列表最左边(第一个)的参数最接近栈顶位置。所有参数距离帧基指针的偏移量都是常数，而不必关心已入栈的参数数目。只要不定的参数的数目能根据第一个已明确的参数确定，就可使用不定参数。例如`printf`函数，第一个参数即格式化字符串可作为后继参数指示符。通过它们就可得到后续参数的类型和个数，进而知道所有参数的尺寸。当传递的参数过多时，以帧基指针为基准，获取适当数目的参数，其他忽略即可。若函数参数自左向右进栈，则第一个参数距离栈帧指针的偏移量与已入栈的参数数目有关，需要计算所有参数占用的空间后才能精确定位。当实际传入的参数数目与函数期望接受的参数数目不同时，偏移量计算会出错
->
-> caller将参数压栈，只有caller知道栈中的参数数目和尺寸，因此caller可安全地清栈。而callee永远也不能事先知道将要传入函数的参数信息，难以对栈顶指针进行调整
->
-> C++为兼容C，仍然支持函数带有可变的参数。但在C++中更好的选择常常是函数多态
-
-#### stdcall
-
-- Pascal程序缺省调用方式，WinAPI也多采用该调用约定
-- 主调函数参数从右向左入栈，除指针或引用类型参数外所有参数采用传值方式传递，由callee清除栈中的参数，返回值在`EAX`
-- `stdcall`调用约定仅适用于参数个数固定的函数，因为被调函数清栈时无法精确获知栈上有多少函数参数；而且如果调用时实参和形参数目不符会导致堆栈错误。对于C函数，`stdcall`名称修饰方式是在函数名字前添加下划线，在函数名字后添加`@`和函数参数的大小，如`_functionname@number`
-
-
-
-#### fastcall
-
-- `stdcall`调用约定的变形，通常使用ECX和EDX寄存器传递前两个DWORD(四字节双字)类型或更少字节的函数参数，其余参数从右向左入栈
-- callee在返回前负责清除栈中的参数，返回值在`EAX`
-- 因为并不是所有的参数都有压栈操作，所以比`stdcall`, `cdecl`快些
-- 编译器使用两个`@`修饰函数名字，后跟十进制数表示的函数参数列表大小(字节数)，如@function_name@number。需注意`fastcall`函数调用约定在不同编译器上可能有不同的实现，比如16位编译器和32位编译器。另外，在使用内嵌汇编代码时，还应注意不能和编译器使用的寄存器有冲突
-
-
-
-#### thiscall
-
-- C++类中的非静态函数必须接收一个指向主调对象的类指针(this指针)，并可能较频繁的使用该指针。主调函数的对象地址必须由调用者提供，并在调用对象非静态成员函数时将对象指针以参数形式传递给被调函数
-- 编译器默认使用`thiscall`调用约定以高效传递和存储C++类的非静态成员函数的`this`指针参数
-- `thiscall`调用约定函数参数按照从右向左的顺序入栈。若参数数目固定，则类实例的this指针通过ECX寄存器传递给被调函数，被调函数自身清理堆栈；若参数数目不定，则this指针在所有参数入栈后再入栈，主调函数清理堆栈。
-- `thiscall`不是C++关键字，故不能使用`thiscall`声明函数，它只能由编译器使用
-- 注意，该调用约定特点随编译器不同而不同，g++中`thiscall`与`cdecl`基本相同，只是隐式地将`this`指针当作非静态成员函数的第1个参数，主调函数在调用返回后负责清理栈上参数；而在VC中，this指针存放在`%ecx`寄存器中，参数从右至左压栈，非静态成员函数负责清理栈上参数
-
-#### naked call
-
-- 对于使用naked call方式声明的函数，编译器不产生保存(prologue)和恢复(epilogue)寄存器的代码，且不能用return返回返回值(只能用内嵌汇编返回结果)，故称naked call
-- 该调用约定用于一些特殊场合，如声明处于非C/C++上下文中的函数，并由程序员自行编写初始化和清栈的内嵌汇编指令
-- naked call并非类型修饰符，故该调用约定必须与`__declspec`同时使用
-
-> `__declspec`是微软关键字，其他系统上可能没有
-
-| **调用方式**       | `stdcall(Win32)` | `cdecl` | `fastcall`                       | `thiscall(C++)`           | `naked call` |
-| ------------------ | ---------------- | ------- | -------------------------------- | ------------------------- | ------------ |
-| **参数压栈顺序**   | 右至左           | 右至左  | 右至左，Arg1在`ecx`，Arg2在`edx` | 右至左，`this`指针在`ecx` | 自定义       |
-| **参数位置**       | 栈               | 栈      | 栈 + 寄存器                      | 栈，寄存器`ecx`           | 自定义       |
-| **负责清栈的函数** | callee           | caller  | callee                           | callee                    | 自定义       |
-| **支持可变参数**   | 否               | 是      | 否                               | 否                        | 自定义       |
-| **函数名字格式**   | _name@number     | _name   | @name@number                     |                           | 自定义       |
-| **参数表开始标识** | "@@YG"           | "@@YA"  | "@@YI"                           |                           | 自定义       |
-
-
-
-- 不同编译器产生栈帧的方式不尽相同，主调函数不一定能正常完成清栈工作；而被调函数必然能自己完成正常清栈，因此，在跨(开发)平台调用中，通常使用stdcall调用约定(不少WinApi均采用该约定)
-
-
-
-```c
-// 采用C语言编译的库应考虑到使用该库的程序可能是C++程序(使用C++编译器)，通常应这样声明头文件
-#ifdef _cplusplus
-extern "C" { // 使用extern "C" 告知caller所在模块：callee是C语言编译的
-#endif
-    
-int func(int para);
-    
-#ifdef _cplusplus
-}
-#endif
-```
-
-- 这样C++编译器就会按照C语言修饰策略链接Func函数名，而不会出现找不到函数的链接错误
 
 
 

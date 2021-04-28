@@ -1110,6 +1110,130 @@ Callee functions通过栈指针获取所需参数。
 
 ### 5.4 栈的噪音
 
+> 噪音，脏数据
+
+- 函数退出后，原有栈里的局部变量不会自动清除，就成了栈的噪音、脏数据
+
+```cpp
+// 使用MSVC2010 non-optimizing 编译 // 
+void f1(){
+    int a=1, b=2, c=3; // 在栈上分配局部变量，f1调用结束后，栈上的内容不会被释放
+}
+void f2(){
+    int a, b, c; // 在栈上分配空间时，刚好和 f1() 的 a, b, c 重合 由于没有对这个空间重新赋值，所以因地址相同而获得之前的三个值
+    printf("%d, %d, %d\n", a, b, c); // 这里会输出 1, 2, 3 使用的是栈里残存的脏数据
+}
+int main(){
+    f1();f2(); // 先后调用 f1 f2 // 
+}
+```
+
+
+
+- main argv的申请和释放应该由系统来负责，是传入参数，算不上全局或者局部变量。所以这块内存就不在程序内部
+
+
+
+## 6. printf()函数与参数传递
+
+- MSVC 32bit，cdecl调用约定下，函数调用后有`ADD ESP, X`指令修正ESP寄存器中的栈指针，因为在函数调用前通常会有多个push指令使ESP减小。如果有连续调用多个函数，且调用函数的指令之间不夹杂其他指令，编译器可能把释放参数存储空间的`ADD ESP, X`指令进行合并，放在最后一次性释放所有空间。
+- MSVC用push将参数入栈，gcc用`sub esp, X, mov [esp+a], b`的方式直接对栈进行操作
+
+```assembly
+# x86 调用函数时的传参模式
+push 3rd arg
+push 2nd arg
+push 1st arg
+call function
+; modify stack pointer esp if needed
+```
+
+
+
+### Win x64
+
+- Win64使用RCX, RDX, R8, R9寄存器传递前4个参数，使用栈来传递其余参数
+
+```assembly
+; printf("a=%d; b=%d; c=%d; d=%d; e=%d; f=%d; g=%d; h=%d\n", 1,2,3,4,5,6,7,8); 在Win64下的调用传参过程
+mov DWORD PTR [rsp+64], 8
+......
+mov DWORD PTR [rsp+32], 4 # 5th arg
+mov r9d, 3 # 4th arg
+mov r8d, 2 # 3rd arg
+mov edx, 1 # 用的是 edx 而非完整的 rdx # 2nd arg
+lea rcx, OFFSET FLAT:$SG2923 ; $SG2923 DB 'a=%d; b=%d; c=%d; d=%d; e=%d; f=%d; g=%d; h=%d', 0aH, 00H # 1st arg
+call printf
+```
+
+- 64bit系统中，int只占用4Byte，但编译器给int分配了8B。即使数据的存储空间不足64bit，编译器还是会分配8B存储空间。为了方便系统对每个参数进行内存寻址，而且编译器都会进行地址对齐。所以64bit系统为所有类型的数据都保留8B空间，同理32bit系统为所有类型的数据保留4B空间
+
+### \*nix x64
+
+- \*nix x64系统有限使用RDI, RSI, RDX, RCX, R8, R9寄存器传递前6个参数，然后利用栈传递其余的参数
+- 在生成汇编代码时，gcc把字符串指针存储到 EDI 中，而非完整的 RDI 寄存器
+
+```assembly
+; printf("a=%d; b=%d; c=%d; d=%d; e=%d; f=%d; g=%d; h=%d\n", 1,2,3,4,5,6,7,8); 在 *nix 64 下的调用传参过程 ; x64 gcc
+sub esp, 40
+mov r9d, 5 # 6th arg
+mov r8d, 4 # 5th arg
+mov ecx, 3 # 4th arg
+mov edx, 2 # 3rd arg
+mov esi, 1 # 2nd arg
+mov edi, OFFSET FLAT:.LC0 # .LC0: .string "a=%d; b=%d; c=%d; d=%d; e=%d; f=%d; g=%d; h=%d\n" # 1st arg
+xor eax, eax ; number of vector registers passed
+mov DWORD PTR [rsp+16], 8 # 注意这里用的是DWORD，4B，所以实际上rsp的高4B没有被赋值，仍然为脏数据 # 9th arg
+mov DWORD PTR [rsp+8], 7 # 8th arg
+mov DWORD PTR [rsp], 6 # 7th arg
+call printf
+```
+
+
+
+```assembly
+; ARM 调用函数时的传参过程
+mov R0, 1st arg
+mov R1, 2nd arg
+mov R2, 3rd arg
+mov R3, 4th arg
+; pass 5th 6th... arg in stack if needed
+BL function
+; modify stack pointer if needed
+```
+
+```assembly
+; ARM64 调用函数时的传参过程
+mov X0, 1st arg
+mov X1, 2nd arg
+mov X2, 3rd arg
+mov X3, 4th arg
+mov X4, 5th arg
+mov X5, 6th arg
+mov X6, 7th arg
+mov X7, 8th arg
+; pass 9th 10th... arg in stack if needed
+BL CALL function
+; modify stack pointer if needed
+```
+
+```assembly
+; MIPS O32调用约定 调用函数时的传参过程
+LI $4, 1st arg ; AKA $A0
+LI $5, 2nd arg ; AKA $A1
+LI $6, 3rd arg ; AKA $A2
+LI $7, 4th arg ; AKA $A3
+; pass 9th 10th... arg in stack if needed
+LW temp_reg, address of function
+JALR temp_reg
+```
+
+- x86, x64, ARM, MIPS平台上程序向函数传参的方法不同，说明函数间传参方式与CPU关系不密切。CPU不在乎程序使用何种调用约定
+
+
+
+## 7. scanf()
+
 - TBD
 
 
@@ -1356,6 +1480,12 @@ int main( void ){ //  uses _fileno to obtain the file descriptor(fd) for some st
 
 - 对gdb进行强化的两个工具：peda，pwndbg。强化视觉效果
 
+```bash
+gcc a.c -g -o a # -g选项可以保存调试信息
+```
+
+
+
 
 
 ## gdb
@@ -1366,12 +1496,13 @@ int main( void ){ //  uses _fileno to obtain the file descriptor(fd) for some st
 
 Installation: `sudo apt-get install gdb`
 
-- 启动gdb
+- 启动gdb，设置语体
 
 ```bash
 gdb ./a # 将文件加载到gdb中 # 使用gdb调试文件a
 gdb ./a -silent # 不打印gdb前导信息(含免责条款)
 gdb attach PID # 调试某个正在运行的进程 进程ID为PID
+set disassembly-flavor intel # 令gdb采用intel语体
 ```
 
 - 下断点、运行程序
@@ -1390,10 +1521,11 @@ stepi # 每步执行
 
 set $eax=1 # 设置寄存器 eax 为 0
 
+finish # 继续执行余下指令直到(当前)函数结束为止
 q # 退出调试 
 ```
 
-- 查看、显示信息
+### 查看、显示信息
 
 ```bash
 p v0 # 打印变量v0的值
@@ -1403,7 +1535,7 @@ list 2 # 列出第二行的源文件
 list main # 列出函数main
 list # 不带参数 展示10行
 
-disas # 检查汇编 给出对应的代码的汇编
+disas # 检查汇编 给出当前对应的代码的汇编 其中箭头指向的是接下来将要运行的指令
 disassemble 0xf7e39980 # 查看该地址的汇编代码，如果是函数，到ret结束
 info reg # 查看寄存器信息
 info registers # 查看寄存器内容  # same as: i r
@@ -1411,6 +1543,11 @@ print $rsp # 查看寄存器内容
 info  proc # 查看进程信息
 
 x/200wx $eax # x: 查看内存中数值 200表示查看200个 wx以word字节查看 $eax代表eax寄存器中的值
+x/10w $esp # 显示栈里的10个数据
+x/5i 0x0804844a # 显示某个地址开始的5条指令
+x/s 0x080484f0 # 将某个地址开始的内容以字符串形式输出
+x/s $rdi # 将rdi寄存器指向的地址开始的内容以字符串形式输出
+x/10g $rsp # g: giant words 以64bit words格式显示各数据 显示$rsp开始的10个
 ```
 
 
