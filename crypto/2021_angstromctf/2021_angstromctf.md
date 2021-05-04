@@ -115,7 +115,90 @@ while True:
 
 这个加密不可逆，只是在修改数据，题目的目的是让我们复现这个修改数据的过程。修改过程只有与和异或运算，而且key是不变的。只需要与运算为0的位数是不变的，与运算全为1的位数与1异或即可。
 
-actf{no_bit_shuffling_is_trivial}
+```python
+from socket import *
+
+host = 'crypto.2021.chall.actf.co'
+# host = '127.0.0.1'
+port = 21602
+bufsize = 1024
+addr = (host, port)
+client = socket(AF_INET, SOCK_STREAM)
+client.connect(addr)
+
+msg = client.recv(bufsize)
+print(msg)
+client.send(b'1\n')
+msg = client.recv(bufsize)
+print(msg)
+client.send(b'ffffffffffffffffffffffffffffffff\n')
+msg = client.recv(bufsize)
+print(msg)
+fix = msg[:msg.find(b'\n')]
+fix = int(fix, 16)
+print(hex(fix))
+
+# msg = client.recv(bufsize)
+# print(msg)
+client.send(b'1\n')
+msg = client.recv(bufsize)
+print(msg)
+client.send(b'00000000000000000000000000000000\n')
+msg = client.recv(bufsize)
+tmp1 = msg[:msg.find(b'\n')]
+print(msg)
+chg = int(tmp1, 16) ^ fix
+print(hex(chg))
+
+BLOCK_SIZE = 16
+ROUNDS = 3
+
+
+def pad(m):
+    if len(m) % BLOCK_SIZE != 0:
+        return m + (bytes([0]) * (BLOCK_SIZE - (len(m) % BLOCK_SIZE)))
+        # return m + ''.join([chr(0) for i in range((BLOCK_SIZE - (len(m) % BLOCK_SIZE)))])
+    else:
+        return m
+
+
+def encypt(block):
+    # print 'block:', block
+    enc = int(block, 16)
+    # enc = int.from_bytes(block, 'big')
+    # enc = enc & chg ^ chg
+    enc = fix ^ (enc & chg ^ chg)
+    # print hex(enc)
+    return hex(enc)[2:].rjust(BLOCK_SIZE * 2, "0")
+    # return hex(enc)[2:]
+
+# msg = client.recv(bufsize)
+# print(msg)
+client.send(b'2\n')
+for _ in range(10):
+    msg = client.recv(bufsize)
+    print(msg)
+    EnMsg = msg[msg.find(b':')+2:-1]
+    # EnMsg = binascii.unhexlify(msg[msg.find(b':')+2:-1])
+    # print(msg[msg.find(b':')+2:-1])
+    # EnMsg = pad(EnMsg)
+    # print(len(EnMsg))
+    e = ''
+    for i in range(0, len(EnMsg), BLOCK_SIZE*2):
+        e += encypt(EnMsg[i:i+BLOCK_SIZE*2])
+    e = e.encode()
+    e = e.decode()
+    print(e.encode())
+    client.send(e.encode()+b'\n')
+    # time.sleep(0.5)
+
+
+msg = client.recv(bufsize)
+print(msg)
+
+```
+
+``actf{no_bit_shuffling_is_trivial}``
 
 ## Follow the Currents
 ```python
@@ -144,7 +227,49 @@ with open("enc","wb") as g:
 密码文件在``enc``文件中
 一个可复现的流密码，而且种子的长度只有65535，因此直接暴力模拟种子，然后运算找到结果。
 
-actf{low_entropy_keystream}
+```python
+# python3
+
+import os
+import zlib
+import binascii
+
+
+def keystream(kk):
+    # key = os.urandom(2)
+    # khi = hex(kk >> 8)[2:].rjust()
+    # klo = kk & 0xff
+    # key = (hex(khi)[2:]+hex(klo)[2:]).decode('hex')
+    key = binascii.unhexlify(hex(kk)[2:].rjust(4, '0'))
+    index = 0
+    while 1:
+        index += 1
+        if index >= len(key):
+            key += zlib.crc32(key).to_bytes(4, 'big')
+        yield key[index]
+
+
+with open("enc", 'rb') as f:
+    ciphertext = f.read()
+
+judge = False
+plaintext = 0
+for j in range(1, 65536):
+    # print(j)
+    cipher = []
+    k = keystream(j)
+    for i in ciphertext:
+        # cipher.append(hex(ord(i) ^ ord(next(k)))[2:].decode('hex'))
+        cipher.append(i ^ next(k))
+    cipher = b''.join([binascii.unhexlify(hex(c)[2:].rjust(2, "0")) for c in cipher])
+    if b'actf{' in cipher:
+        plaintext = cipher
+        judge = True
+print(plaintext)
+
+```
+
+``actf{low_entropy_keystream}``
 
 ## I'm so Random
 ```python
@@ -200,7 +325,50 @@ while True:
 题目中只给3个随机数，然后猜后续的2个随机数
 理论上应该是有正常的解决方法的，但是由于种子的范围过小，先获取3个随机数，然后暴力破解可得。
 
-actf{middle_square_method_more_like_middle_fail_method}
+```python
+# python3
+class Generator:
+    DIGITS = 8
+
+    def __init__(self, seed):
+        self.seed = seed
+        assert (len(str(self.seed)) == self.DIGITS)
+
+    def getNum(self):
+        self.seed = int(
+            str(self.seed ** 2).rjust(self.DIGITS * 2, "0")[self.DIGITS // 2:self.DIGITS + self.DIGITS // 2])
+        return self.seed
+
+
+r1 = 241794940771320
+r2 = 933136761714201
+r3 = 2418528371611984
+
+for i in range(10000000, 99999999):
+    if i % 100000==0:
+        print(i)
+    g1 = Generator(i)
+    a1 = g1.getNum()
+    if a1 == 0:
+        continue
+    if r1 % a1 == 0 and 10000000 <= r1 / a1 <= 99999999:
+        # print(r1 / a1)
+        g2 = Generator(int(r1 / a1))
+        a2 = g1.getNum()
+        b2 = g2.getNum()
+        if r2 == a2 * b2 :
+            a3 = g1.getNum()
+            b3 = g2.getNum()
+            if r3 == a3 * b3:
+                print(g1.getNum() * g2.getNum())
+                print(g1.getNum() * g2.getNum())
+                exit()
+        else:
+            continue
+
+```
+
+``actf{middle_square_method_more_like_middle_fail_method}``
 
 ## Circle of Trust
 ```python
@@ -258,7 +426,53 @@ print(enc.hex())
 
 使用matlab或者python即可，需要注意的是数据过长，直接输入的话精度会丢失，需要先转化成字符串，然后把字符串再转换位数字精度才不会丢失。
 
-actf{elliptical_curve_minus_the_curve}
+```matlab
+syms b1 b2 b3 k x iv;
+% syms u v;
+digits(70);
+
+eq1 = str2sym('b1+k == 45702021340126875800050711292004769456.2582161398');
+eq2 = str2sym('b2+k == 55221733168602409780894163074078708423.359152279');
+eq3 = str2sym('b3+k == 14782966793385517905459300160069667177.5906950984');
+eq4 = str2sym('-(x^2-b1^2)^0.5 + iv == 310206344424042763368205389299416142157.00357571144');
+eq5 = str2sym('(x^2-b2^2)^0.5 + iv == 347884965613808962474866448418347671739.70270575362');
+eq6 = str2sym('(x^2-b3^2)^0.5 + iv == 340240003941651543345074540559426291101.69490484699');
+eqns = [eq1,eq2,eq3,eq4,eq5,eq6];
+
+% S = solve(eqns,[b1 b2 b3 k x iv])
+S = vpasolve(eqns,[b1 b2 b3 k x iv])
+disp([S.b1 S.b2 S.b3 S.k S.x S.iv]);
+disp([S.k S.iv]);
+```
+
+```python
+from decimal import Decimal, getcontext
+from Crypto.Cipher import AES
+import binascii
+from fractions import Fraction
+from scipy.optimize import fsolve
+import secrets
+
+
+k = 37208231231867697178862544207654698732
+iv = 332394261916597077667241952352964236593
+
+cipher = b'838371cd89ad72662eea41f79cb481c9bb5d6fa33a6808ce954441a2990261decadf3c62221d4df514841e18c0b47a76'
+
+for i in range(-20, 20):
+    if i%100 == 0:
+        print(i)
+    key = int.to_bytes(k + i, 16, 'big')
+    for j in range(-20, 20):
+        ivt = int.to_bytes(iv+j, 16, 'big')
+        aes = AES.new(key, AES.MODE_CBC, iv=ivt)
+        dec = aes.decrypt(binascii.unhexlify(cipher))
+        if b'actf' in dec:
+            print(dec)
+
+```
+
+``actf{elliptical_curve_minus_the_curve}``
 
 ## Substitution
 ```python
@@ -291,7 +505,73 @@ while True:
 置换密码
 明文的线性置换，解线性方程组即可得到flag
 
-actf{polynomials_20a829322766642530cf69}
+```python
+from sympy import Matrix
+import socket
+import sympy
+
+
+def genMatrix(n):
+    A = []
+    for j in range(n+1):
+        if j == 0:
+            A.append([0 for _ in range(i)] + [1])
+        else:
+            tmp = []
+            tmp2 = 1
+            for k in range(n+1):
+                tmp.append(tmp2)
+                tmp2 = tmp2*j % 691
+            tmp.reverse()
+            A.append(tmp)
+    A.reverse()
+    return Matrix(A)
+
+
+host = 'crypto.2021.chall.actf.co'
+# host = '127.0.0.1'
+port = 21601
+bufsize = 1024
+addr = (host, port)
+client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+client.connect(addr)
+
+msg = client.recv(bufsize)
+print(msg)
+B = []
+for i in range(300):
+    # msg = client.recv(bufsize)  # '> '
+    # print(msg)
+
+    client.send(str(i).encode()+b'\n')
+
+    msg = client.recv(bufsize)  # '>> '
+    print(msg)
+    num = int(msg[3:-3])
+    # num = int(msg[3:-1])
+    B = [num] + B
+
+    A = genMatrix(i)
+    print(i)
+    # print(A)
+    try:
+        A_inv = A.inv_mod(691)
+        # print(A_inv)
+    except sympy.matrices.common.NonInvertibleMatrixError:
+        print('No invert')
+        continue
+    MB = Matrix(B)
+
+    flag = list(A_inv*MB)
+    flag = [_ % 691 for _ in flag]
+    if any(_ > 255 for _ in flag):
+        continue
+    else:
+        print('result: ',''.join([chr(j) for j in flag]))
+
+```
+
+```actf{polynomials_20a829322766642530cf69}```
 
 ## Oracle of Blair
 ```python
@@ -331,7 +611,56 @@ AES
 
 当flag的块数增加的时候也能用同样的方法恢复。
 
-actf{cbc_more_like_ecb_c}
+```python
+# python3 
+from Crypto.Cipher import AES
+from Crypto.Util.Padding import pad
+import os
+import socket
+import binascii
+
+host = 'crypto.2021.chall.actf.co'
+# host = '127.0.0.1'
+port = 21112
+bufsize = 1024
+addr = (host, port)
+client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+client.connect(addr)
+
+msg = client.recv(bufsize)
+print(msg)
+client.send(b'7b7d000000000000007b7d\n')  # 记得要填充
+msg = client.recv(bufsize)
+print(msg, msg[64:64+32])
+f2_ef1 = int(msg[64:64+32], 16)
+f1_ef2 = int(msg[96:96+32], 16)
+
+# msg = client.recv(bufsize)
+# print(msg)
+client.send(b'000000000000000000000000000000007b7d\n')
+msg = client.recv(bufsize)
+print(msg, msg[64:64+32])
+ef1_0 = int(msg[32:32+32], 16)
+
+guess = bytes.fromhex(hex(f2_ef1 ^ ef1_0)[2:].rjust(32, '0'))
+
+guess = guess[:-7]
+guess = pad(guess, 16)
+print(guess)
+# msg = client.recv(bufsize)
+# print(msg)
+client.send(b'00000000000000000000000000000000' + binascii.hexlify(guess) +b'\n')
+msg = client.recv(bufsize)
+print(msg, msg[32:32+32])
+ef2 = int(msg[32:32+32], 16)
+
+flag = bytes.fromhex(hex(f1_ef2 ^ ef2)[2:].rjust(32, '0'))
+print(flag)
+
+
+```
+
+``actf{cbc_more_like_ecb_c}``
 
 ## Thunderbolt
 题目给出了一个叫``chall``的elf文件，本质上就是题目中的一个可执行文件，相当于一个流密码。

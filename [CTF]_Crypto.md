@@ -204,7 +204,7 @@ class SecurePrng(object):
 
 还有许多对称加密方案，这里只列出常见的几种，每一种方法网上资料都比较多，这里就不一一列举。
 
-在分组密码设计时，一般回使用**混淆(S盒，乘法)与扩散(线性变换，置换，移位)**两大策略。
+在分组密码设计时，一般回使用**混淆(S盒，乘法)与扩散(线性变换，置换，移位)** 两大策略。
 
 ### 分组模式
 分组加密会将明文消息划分为固定大小的块，每块明文分别在密钥控制下加密为密文。当然并不是每个消息都是相应块大小的整数倍，所以我们可能需要进行填充。常见的分组模式：
@@ -376,6 +376,7 @@ $i$|$\alpha$
 **LLL定理：** Let L be a lattice spanned by $<u_1,...,u_w>$. When $<u_1,...,u_w>$ are given as input, then the LLL algorithm outputs a point $v\in L$ satisfying $$\|v\|\leq 2^{w/4}det(L)^{1/w}$$ LLL的运行时间是输入长度$w$的四次方。
 * **Coppersmith定理所使用的攻击方法一般都被写在了``Magma``的``SmallRoots``函数中，以及``SageMath``的``small_root``函数中。**
 * 详细实现过程参考：https://github.com/mimoo/RSA-and-LLL-attacks
+* 参考文献： Wong D. Survey: Lattice Reduction Attacks on RSA. 
 
 ##### 4.2 Hastad的广播攻击
 假设$e=3$，并且加密者使用了三个不同的模数$n_1,n_2,n_3$给三个不同的用户发送了加密后的消息$m$: $$c_1=m^3\ mod\ n_1 \newline 
@@ -505,7 +506,16 @@ Oracle返回奇偶性信息造成了信息的泄露，因此可以使用选择�
 ##### 5.5 RSA parity oracle variant
 如果 oracle 的参数会在一定时间、运行周期后改变，或者网络不稳定导致会话断开、重置，二分法就不再适用了，为了减少错误，应当考虑逐位恢复。
 
-TODO：未完善
+这里的攻击是基于**RSA parity Oracle** 方案，即对一个给定的密文解密后会检查明文的奇偶性，然后返回相应的值。这里所存在的问题是每次加密和解密所使用的密钥会不一样，5.3节中所介绍的二分法的原理是在相同的密钥的情况下通过选择明文攻击不断发送消息，从而得出明文。
+
+而在不同的密钥的情况下，我们需要逐比特进行恢复。原理如下：
+* 首先明文为$m$，密文为$c_i$，公钥为$e_i,N_i$，私钥为$d_i$，其中$i$表示第$i$次在Oracle中的数据，其中密文和公钥是可以获取的。与此同时，我们还可以从Oracle的手中获得明文的最后一个bit，即我们可以把$c_i$重新发给Oracle，然后Oracle会返回$y = c_i^{d_i}\ mod\ 2$。
+* **攻击：** 要恢复明文的第$j$比特，则把$c_i(2^{-je_i\ mod\ N_i})$发送给Oracle，则Oracle将会返回$$y_j \equiv a_j + a_{j-1} \times 2^{j-1} \times 2^{-j} + ... + a_0 \times 2^0 \times 2^{-j}$$ 根据前面恢复出的明文$m$的前$j$比特:$a_0,a_1,...,a_{j-1}$容易计算得出明文$m$的第$j$比特$a_j$。
+
+**注意：** 这里的攻击同样适用于5.3节说讲到的RSA parity Oracle 攻击。
+
+具体方案同样见：https://ctf-wiki.org/crypto/asymmetric/rsa/rsa_chosen_plain_cipher/
+* ***具体Python3代码见``crypto/code/RSA_parity_oracle_variant.py``***
 
 #### 六、侧信道攻击
 侧信道攻击：攻击者能获取密码设备中的侧信道信息(例如能量消耗、运算时间、电磁辐射等等)从而获取密码信息。
@@ -626,7 +636,7 @@ ECC 全称为椭圆曲线加密，EllipseCurve Cryptography，是一种基于椭
 
 **椭圆曲线的阶：** 如果椭圆曲线上一点$P$，存在最小的正整数$n$使得数乘$nP = O_{\infty}$，则将$n$成为点$P$的阶。若$n$不存在，则$P$是无限阶的。
 
-#### ECC中的ElGammal方案，简称ECIES
+#### ECC中的ElGammal方案
 * 假设用户B要把消息加密后传输给用户A
 
 * 密钥生成：用户A选择椭圆曲线$E$，令$P$是椭圆曲线$E$上的点，点$P$的阶为$n$，并把点$P$作为基点。随机选取一个正整数$m,m < n$有$Q = mP$。则$E,P,Q,n$是**公钥**，$m$是私钥。
@@ -648,15 +658,282 @@ ECC 全称为椭圆曲线加密，EllipseCurve Cryptography，是一种基于椭
 
 ## $\mathrm I\mathrm I.\mathrm I\mathrm V$ 格密码 
 
+### 格的基本定义
 
+![格的定义](crypto/images/Lattice.png)
+
+### 格上的困难问题
+* **最短向量问题 (Shortest Vector Problem，SVP)**：给定格 $L$ 及其基向量 $B$ ，找到格 $L$ 中的非零向量 $v$ 使得对于格中的任意其它非零向量 $u$，有$||v||\leq||u||$。
+
+* **$\gamma$-近最短向量问题(SPV-$\gamma$)**：给定格 $L$ 及其基向量 $B$ ，找到格 $L$ 中的非零向量 $v$ 使得对于格中的任意其它非零向量 $u$，有$||v||\leq\gamma||u||$。
+
+* **连续最小长度问题 (Successive Minima Problem, SMP)**：给定一个秩为 $n$ 的格 $L$，找到格 $L$ 中 $n$ 个线性无关向量$s_i$，满足$\lambda_i(L)=||s_i||,\ 1\leq i\leq n$。
+
+* **最短线性无关向量问题 (Shortest Independent Vector Problem, SIVP)**：给定一个秩为 $n$ 的格 $L$，找到格 $L$ 中 $n$ 个线性无关向量$s_i$，满足$||s_i||\leq\lambda_n(L),\ 1\leq i\leq n$。
+
+* **最近向量问题 (Closest Vector Problem，CVP)**：给定格 $L$ 和目标向量$t\in R^m$，找到一个格中的非零向量 $v$，使得对于格中 $\forall u$，满足$||v-t||\leq||u-t||$。即在格$L$上找到一个离$t$最近的向量。
+
+### 格基规约算法(Lenstra–Lenstra–Lovasz, LLL)
+* 参考论文: https://cims.nyu.edu/~regev/teaching/lattices_fall_2004/ln/lll.pdf
+
+LLL算法本质上是将A lattice basis $B$转换为 LLL-reduced basis $\tilde{B}$，其中$\tilde{B}$是一个正交基组成的矩阵，去解决SPV-$\gamma$问题。**“转换”** 就是要做Gram-Schmidt正交化，但要满足两个条件
+1. For every $i < j$, we have $|\mu_{i,j}|\leq\frac{1}{2}$. (Such a basis is said to be "size reduced.") **目的是保证Gram-Schmidt正交化不会太小**
+2. For every $1\leq i < n$, we have $\frac{3}{4}||\tilde{b}_i ||^2 \leq ||\mu_{i,i+1} \tilde{b}_i + \tilde{b}_{i+1}||^2$.  (This is the "Lovasz condition.") **目的是保证缩减不要太快**
+
+这里的$\mu$表示的是，$B=\tilde{B}U$中矩阵$U$的某些元素。其中$U$是一个单位上三角矩阵，对角线全为1，然后对角线往上的元素第$i$行第$j$列的元素记为$\mu_{i,j}$。
+
+主要性质（解决SPV-$\gamma$）：
+![格LLL算法](crypto/images/LLL.PNG)
+
+### Babai's nearest plane algorithm
+* 此算法用来求CVP问题的近似解，算法复杂度归结于LLL算法。
+* 参考文献
+    * https://cims.nyu.edu/~regev/teaching/lattices_fall_2004/ln/cvp.pdf
+    * https://www.isg.rhul.ac.uk/~sdg/igor-slides.pdf
+
+该算法输入一组格$L$(秩为$n$) 的基$B$ 和一个目标向量$t$，输出 CVP 问题的近似解，近似因子$\gamma =2^{\frac{n}{2}}$。具体算法如下，本质上是LLL算法：
+![Babai's nearest plane algorithm](crypto/images/BabaisNearestPlaneAlgorithm.PNG)
+这里的$b_j$表示的是经过LLL算法变换之后个格基的第$j$个向量。
+
+#### Babai’s Rounding Technique
+该算法是``Babai's nearest plane algorithm``的一个变种。
+
+#### Hidden number problem
+* 该问题可以规约到CVP问题并使用Babai's nearest plane algorithm解决。
+
+**HNP:** Recover $\alpha \in F_p$ such that for many known random $t\in F_p$ we are given $MSP_{l,p}(\alpha t)$ for some $l > 0$. 
+**MSB:** $MSP_{l,p}(x)$ denotes any integer $u$ such that $$|\lfloor x \rfloor_p-u |\leq \frac{p}{2^{l+1}}$$ $MSP_{l,p}(x) \approx l$ most significant bits of $x$.
+**B&V, 1996:** a polynomial time algorithm to solve HNP with $l \approx log^{1/2}p = (log(p))^{1/2}$.
+
+又参考文献 https://www.isg.rhul.ac.uk/~sdg/igor-slides.pdf 可知当$l \approx log^{\frac{1}{2}}p$时，可以讲此问题规约到一个CVP问题。
+
+* 算法流程：
+* 输入：给出素数$p$整数$l$且$l$满足$l\approx log^{\frac{1}{2}}p$，$n$个$t\in F_p$，对应的$n$个数$u_i = MSP_{l,p}(\alpha t_i)$。
+* 输出：满足条件的数$\alpha$。
+* 首先构造矩阵$$
+\left[\begin{matrix}
+p & 0 & \cdots & 0 & 0\\
+0 & p & \cdots & 0 & 0\\
+\vdots & \vdots & \ddots & \vdots & \vdots\\
+0 & 0 & \cdots & p & 0\\
+t_1 & t_2 & \cdots & t_n & \frac{1}{2^{l+1}}
+\end{matrix}\right]
+$$ 注意：这里每一行代表一个向量，因此使用LLL算法求线性组合的时候，最后一个向量只有一个系数，记为$\alpha$。设其它线性组合的系数为$z_i$，那么LLL算法所求的向量就入下方向量$\pmb{v}$所示。
+* 然后使用``Babai's nearest plane algorithm``找出距离向量$\pmb{u} = (u_1, u_2, ..., u_n, 0)$最近的一组向量$\pmb{v}$。具体过程如下：
+    * 首先对矩阵进行LLL算法得到一组格基$$(\pmb{b_1,b_2,...,b_{n+1}})  $$
+    * 算法第二步有$\pmb{u}$需要减去向量$$\sum_{i=1}^{n+1}c_i\pmb{b_i} = \newline  (\sum_{i=1}^{n+1}c_i(b_{i,1}p+m_{n+1,i}t_i), ... ,  \sum_{i=1}^{n+1}c_im_{n+1,i}\frac{1}{2^{l+1}}) \newline = (z_1p+\alpha t_1, ..., z_np+\alpha t_n, \alpha\frac{1}{2^{l+1}}) \newline \equiv (\alpha t_1, \alpha t_2, ..., \frac{\alpha}{2^{l+1}}) \ mod\ p$$ 其中$m_{n+1,i}$表示LLL算法的转换矩阵的最后一行的第$i$个元素。
+    因此可以求出在格上离距离向量$\pmb{u}$最短的向量$\pmb{v} = (\alpha t_1, \alpha t_2, ..., \frac{\alpha}{2^{l+1}})$，此时$\alpha$就可以求出。
+
+#### BCTF 2018 - guess_number
+比赛是一个典型的**Hidden number problem**，可以把这道题目的求解堪称是Hidden number problem的一个典型的解法。
+
+* 题目代码``crypto/code/Hidden_Number_Problem/server.py``
+* 解题代码``crypto/code/Hidden_Number_Problem/Hidden_Number_Problem.sage``
 
 # 哈希函数
 
+哈希函数（Hash Function）把消息或数据压缩成摘要，使得数据量变小。即把任意长度的消息hash成固定长度的序列。
+
+定义：一个Hash族是满足下列条件的四元组$(\mathcal{X,Y,K,H})$：
+1. $\mathcal X$是所有可能的消息的集合。
+2. $\mathcal Y$是由所有可能的消息摘要或认证标签构成的有限集。
+3. $\mathcal K$是密钥空间，是所有可能的密钥构成的有限集。
+4. 对于每个$K\in \mathcal K$，存在一个Hash函数$h_K\in \mathcal H, h_K:\mathcal X \rightarrow \mathcal Y$。
+
+* Hash 函数的安全性
+    * 抗原像(Preimage)攻击:已知$H(y)$，找出$x$，使得$H(x)=H(y)$
+    * 抗第二原象攻击(抗弱碰撞性):对于任意消息 $x$，找到满足另一消息 $y$，满足$H(x)=H(y)$，在计算上不可行。
+    * 抗强碰撞性:找到任意一对满足$H(x)=H(y)$的消息 $x$ 和 $y$ 在计算上不可行。
+    * 伪随机性
+
+* Hash 函数用途
+    * 保证消息完整性
+    * 冗余校验
+    * 口令
+    * 入侵检测
+    * 身份认证
+    * 数字签名
+    * 消息认证码MAC(message authentication codes)
+    * ...
+
+## MD5
+* 输入：任意长度消息，512bit分组。
+* 输出：128bit的Hash值。
+
+此外，有时候我们获得到的 md5 是 16 位的，其实那 16 位是 32 位 md5 的长度，是从 32 位 md5 值来的。是将 32 位 md5 去掉前八位，去掉后八位得到的。
+
+一般来说，我们可以通过函数的初始化来判断是不是 MD5 函数。一般来说，如果一个函数有如下四个初始化的变量，可以猜测该函数为 MD5 函数，因为这是 MD5 函数的初始化 IV。
+
+``0x67452301，0xEFCDAB89，0x98BADCFE，0x10325476``
+
+* **破解:**
+    * http://www.cmd5.com/
+    * http://www.ttmd5.com/
+    * http://pmd5.com/
+    * https://www.win.tue.nl/hashclash/fastcoll_v1.0.0.5.exe.zip (生成指定前缀的 md5 碰撞)
+
+
+## SHA1
+* 输入：任意长的消息，分为 512 比特长的分组。首先在消息右侧补比特 1，然后再补若干个比特 0，直到消息的比特长度满足对 512 取模后余数是 448，使其与 448 模 512 同余。
+* 输出：160 比特的消息摘要。
+
+一般来说，我们可以通过函数的初始化来判断是不是 SHA1 函数。一般来说，如果一个函数有如下五个初始化的变量，可以猜测该函数为 SHA1 函数，因为这是 SHA1 函数的初始化 IV。
+``0x67452301 0xEFCDAB89 0x98BADCFE 0x10325476 0xC3D2E1F0``
+* **破解:**
+    * The First Collision for Full SHA-1[C]// Annual International Cryptology Conference. Springer, Cham, 2017.
+    * SHA1 已经不再安全了，因为之前谷歌公布了求得两个 sha1 值一样的 pdf，具体请参考 https://shattered.io/
+    * https://alf.nu/SHA1
+
+## Fowler–Noll–Vo hash function (FNV)
+参考：https://en.wikipedia.org/wiki/Fowler%E2%80%93Noll%E2%80%93Vo_hash_function
+
+此Hash函数首先把输入分块，然后初始化一个``FNV_offset_basis``和``FNV_prime``，最初始的hash值等于``FNV_offset_basis``。然后对于每个输入的块，把当前hash值乘以``FNV_prime``然后与输入的块进行异或。所有块处理完后就是最终的hash值。
+
+* 这种Hash函数是一个非密码安全的Hash。一般用于快速hash，计算校验和，不用做密码。局限点如下：
+    1. **计算速度**：计算速度上正向计算和逆向计算的速度接近。
+    2. **粘稠**：因为只涉及乘法和异或运算，因此对于0较多的输入非常的敏感。
+    3. **扩散**：因为只有异或运算，此hash函数的扩散性质可通过XOR-folding减轻。
+
+#### 2018 网鼎杯 hashcoll
+这道题目并不是标准的FNV哈希，而是有一点小的变动。该问题可以分析得到是：**给出
+$n$个数，求解它们的整线性组合使得线性组合所得到的结果为0**。一种求解的方法是使用格中的LLL算法进行求解。
+
+* **算法原理：**
+* 输入：给定$n$个(实/有理)数$a_1,a_2,...,a_n$
+* 输出：求出$n$个数$z_1, z_2, ..., z_n$使得$\sum_{i=1}^nz_ia_i$等于0或尽可能等于0。   
+* 过程：构造出矩阵$$
+B = \left[\begin{matrix}
+1 & 0 & \cdots & 0 & Ka_1 \\
+0 & 1 & \cdots & 0 & Ka_2 \\
+\vdots & \vdots & \ddots & \vdots & \vdots \\
+0 & 0 & \cdots & 1 & Ka_n
+\end{matrix}\right]^T
+$$ 然后使用LLL算法对矩阵$B$进行规约，得到转换矩阵$T'$。因此 有$B^TT' = \tilde{B}$。
+**注：若$B$是m行n列，则$T'$是m行n列，则$\tilde{B}$是n行n列的矩阵。在解决次问题的过程中，变换矩阵$T'$的最后$m-n$列是没有用的。**
+    * 转换矩阵$T'$的第一行表示的就是所求的$z_1, z_2, ..., z_n$。记$\tilde{B}$的第一个向量为$v_1$。由![格LLL算法](crypto/images/LLL.PNG)这个性质可知，**LLL基的第一个向量$v_1$有着最短的向量长度**，即 $$||v_1||\leq 2^{\frac{n-1}{4}}(1+\sum^n_{i=1}\alpha_i^2)^{\frac{1}{2(n+1)}}$$ 记后一项为比较小的常数$c$。则 $$||v_1||\leq c \times 2^{\frac{n-1}{4}}$$
+    * 这是一个比较小的数，然后我们知道向量$v_i$是原向量的线性组合，因此$v_i$的第$n+1$个元素为 
+    $$v_i[n+1] = K\sum_{i=1}^nz_ia_i$$ 因此只要常数$K$足够大，那么后面的求和就必须足够小，因此当$a_i$全为整数的时候，该求和一定为0。(若$a_i$为实数，那么该求和可能就不为0，但是会比较接近0) 这就说明了算法的正确性。 
+* 实验：在使用Sagemath进行编程实现的时候，矩阵是使用二重列表的形式表示。若记$B$为需要进行LLL变换的矩阵，那么每一个格上的向量使用一个列表进行表示。然后直接执行
+``L = B.LLL()``
+得到**LLL算法下新的格基**，这个新的格基的大小和$B$一致。算法的要求是转换矩阵的线性组合的系数。由于矩阵$B$在前$n\times n$的元素是个单位矩阵，因此系数矩阵与新的格矩阵在左上方$n\times n$的元素上相等。我们可以直接使用新的格基的第一行的前$n$个元素作为系数矩阵的系数来使用。
+
+* ***具体Sagemath9.2代码见``crypto/code/LLL_n_positive_integral_combination.sage``*** 这里不是给出题解，而是给出如何使用LLL算法求解**给出
+$n$个数，求解它们的整线性组合使得线性组合所得到的结果为0**这个问题。
+
+## Hash 函数的攻击
+* 暴力攻击：不依赖于任何算法细节，仅与 Hash 值长度有关；
+* 生日攻击 (Birthday Attack)：没有利用 Hash 函数的结构和任何代数弱性质，只依赖于消息摘要的长度，即 Hash 值的长度。
+* 中间相遇攻击 (Meet-In-The-Middle)：是生日攻击的一种变形，不比较 Hash 值，而是比较中间变量。这种攻击主要适用于攻击具有分组链结构的 Hash 方案。
+* 密码分析：依赖于具体算法的设计缺点。
+
+### 暴力攻击
+HashCat 工具 : https://hashcat.net/hashcat/
+(没有尝试使用)
+
+### 哈希长度拓展攻击（hash length extension attacks）
+* 应用场景：MD5 和 SHA-1 等基于 Merkle–Damgård 构造的算法均对此类攻击显示出脆弱性。MD5, SHA1, SHA256, SHA512都可以。该攻击适用于在消息与密钥的长度已知的情形下，所有采取了 $H(key || message)$ 此类构造的散列函数。
+
+* 攻击原理：最核心在于此等式成立$$h_K(x||x')=compress(h_K(x)||x')$$ 其中$h_K$需要每个输入消息的长度是$t$的倍数，然后$x'$是任意长度为$t$的倍数的比特串。
+
+* **工具 hashpump**：  https://github.com/bwall/HashPump
+
+### hash 算法设计有误
+一些自定义的 hash 算法可能是可逆的。通过分析出其逆函数，然后实现得到结果。
+
+* **TIPS**：可以使用256个线性无关的256bit的hash值生成任意256bit的hash值。
+
 # 数字签名
+数字签名（digital signature）主要用于对数字消息（digital message）进行签名，以防消息的冒名伪造或篡改，亦可以用于通信双方的身份鉴别。其基本原理如下：
+![数字签名](crypto/images/Digital_Signature.PNG)
+
+* 数字签名的特性
+    * 不可伪造
+    * 唯一
+    * 可信(要有第三方参与)
+    * 不可否认(不是所有签名都有这种特性？)
+
+## RSA数字签名
+原理类似于 RSA 加密，只是这里使用私钥进行加密，将加密后的结果作为签名。
+
+**具体方案：** 给出$n=p,q$，有$ed\equiv1\ (mod\ \phi(n))$，其中$n,e$为公钥，$p,q,d$为私钥，则：$$sig_K(x)= y = x^e\ mod\ n$$ $$ver_K(x,y) = true \newline \Leftrightarrow x \equiv y^d\ mod\ n$$
+
+* 破解方案与RSA破解类似
+
+## ElGamal数字签名
+**具体方案：** 设$p$是一个使得在$Z_p$上的离散对数问题是难处理的素数，设$\alpha\in Z_p^*$是一个本原元(生成元)。设$\mathcal P = Z_p, \mathcal A = Z_P^*\times Z_{p-1}$，定义$$\mathcal K = \{(p,\alpha, a, \beta):\beta \equiv \alpha^a\ (mod\ p)\}$$ 其中$p,\alpha,\beta$是公钥，$a$是私钥。
+
+队$K=(p,\alpha, a, \beta) \in \mathcal K$和一个(秘密)随机数$k\in Z_{p-1}^*$，则：$$sig_K(x,k)=(\gamma,\delta)$$ 其中 $$\gamma = \alpha^k\ mod\ p \newline \delta = (x-a\gamma)k^{-1}\ mod\ (p-1)$$ 对于$x,\gamma\in Z_p^*$和$\delta\in Z_{p-1}$，有 $$ver_K(x,(\gamma,\delta)) = true \newline \Leftrightarrow \beta^{\gamma}\gamma^{\delta}\equiv \alpha^{x}\ (mod\ p)$$
+
+### 常见Elgamal攻击
+#### 1.完全破译攻击
+* $p$太小或$p$无大素因子
+此时的攻击方法于Elgamal加密方案的破解方法一致，即使用大步小步法或者Pohlig-Hellman算法。
+
+* 随机数$k$复用
+如果签名者复用了随机数 k，那么攻击者就可以轻而易举地计算出私钥。
+
+容易得$$\gamma = \alpha^k\ mod\ p \newline \delta_1 = (m_1-a\gamma)k^{-1}\ mod\ (p-1) \newline \delta_2 = (m_2-a\gamma)k^{-1}\ mod\ (p-1)$$ 进而有 $$\delta_1k \equiv m_1 - a\gamma\ mod\ (p-1) \newline \delta_2k \equiv m_2 - a\gamma\ mod\ (p-1)$$ 两式相减得 $$k(\delta_1-\delta_2)\equiv m_1-m_2\ mod\ (p-1)$$ 容易计算出随机数$k$，如果$gcd(\delta_1-\delta_2, p-1) \neq 1$，存在多个解，逐个去试即可。因此有私钥$$a = (m-k\delta)\gamma^{-1}\ mod\ (p-1)$$
+
+#### 2. 通用伪造签名
+如果消息$m$没有取哈希，或者消息$m$没有指定消息格式的情况下攻击成立。攻击者只能构造同构签名验证的信息，但无法伪造指定格式的消息。当消息$m$进行hash操作可避免此攻击。
+
+**攻击流程：**
+1. 选择整数$i,j$满足$gcd(j,p-1)=1$。
+2. 计算签名：$$\gamma = \alpha^i \beta^j\ mod\ p \newline \delta = -\gamma j^{-1}\ mod\ (p-1)$$
+3. 构造消息：$$x=-\gamma ij^{-1}\ mod\ (p-1)$$
+
+验证：$$\beta^{\gamma}\gamma^{\delta} \equiv \alpha^{i\delta}\beta^{\gamma+j\delta} \equiv \alpha^{i\delta}\beta^{\gamma-j\gamma j^{-1}} \equiv \alpha^{-ij^{-1}\gamma} \equiv \alpha^x\ mod\ p$$
+
+#### 3. 已知签名伪造
+* 攻击者已知$\gamma,\delta$以及消息$x$。（已知消息攻击的存在性伪造）同样可以对消息$m$进行hash操作避免此攻击。
+
+**攻击流程：**
+1. 选择整数$h,i,j, 0\leq h,i,j \leq p-2$，且$gcd(h\gamma-j\delta, p-1)=1$。
+2. 计算签名：$$\lambda = \gamma^h\alpha^i\beta^j\ mod\ p \newline \mu=\delta\lambda(h\gamma-j\delta)^{-1}\ mod\ (p-1)$$
+3. 构造新消息：$$x'=\lambda(hx+i\delta)(h\gamma-j\delta)^{-1}\ mod\ (p-1)$$
+
+验证： $$\beta^{\lambda}\lambda^{\mu}\equiv\alpha^{x'}\ mod\ p$$
+
+#### 4. 选择签名伪造
+* 如果可以做到选择消息攻击，即选择消息$m_1,m_2,...$进行签名。然后对一个消息$m'$，我们可以在不使用黑盒的前提下构造出$m'$的签名。
+
+**攻击思想：** 因为要验证$$\beta^{\gamma}\gamma^{\delta}\equiv \alpha^{x}\ (mod\ p)$$ 只要选择一个消息$m$满足$m\equiv m'\ mod\ (p-1)$，选择$m$的签名$\gamma_m,\delta_m$，则有$$\alpha^{m'} \equiv \alpha^m \equiv \beta^{\gamma_m}\gamma_m^{\delta_m} $$
+
+## DSA
+DSA 最早在1991年8月被提出，1994年12月1日被采纳数字签名标准。DSA是ElGamal签名方案的一个变种。
+
+**具体方案：** 选择一个长度为$L$比特的素数$p$，在$Z_p$上的离散对数问题是难处理的，其中$L \equiv 0\ mod\ 64$且$512 \leq L \leq 1024$(可以更大)。选择$q$是一个$N$比特的素数，而且满足$q|p-1$。设$\alpha\in Z_p^*$是1模$p$的$q$次根，即$\alpha^q \equiv 1\ mod\ p$。设$\mathcal P = \{0,1\}^*,\mathcal A=Z_q^*\times Z_q^*$，并定义$$\mathcal K=\{(p,q,\alpha,a,\beta):\beta \equiv \alpha^a(mod\ p)\}$$ 其中$0\leq a \leq q-1$。$p,q,\alpha,\beta$是公钥，$a$为私钥。对于$K=(p,q,a,\alpha, \beta) \in \mathcal K$和一个秘密随机数$k, 1\leq K\leq q-1$，选择一个哈希函数$H(x)$，则有
+$$sig_K(x,k)=(\gamma, \delta)$$ 其中$$\gamma = (\alpha^k\ mod\ p)\ mod\ q 
+\newline
+\delta = (H(x) + a\gamma)k^{-1}\ mod\ q$$
+且有$\gamma \neq 0$且$\delta \neq 0$。 
+对于$x\in\{0,1\}^*$和$\gamma, \delta \in Z_q^*$，计算出： 
+$$e_1 = H(x)\delta^{-1}\ mod\ q
+\newline
+e_2 = \gamma \delta^{-1}\ mod\ q$$ 验证：$$ver_K(x,(\gamma, \delta)) = true  \Leftrightarrow \newline (\alpha^{e_1}\beta^{e_2}\ mod\ p)\ mod\ q = \gamma$$
+
+### 常见DSA攻击
+#### 1. 已知随机数$k$
+根据$\delta = (SHA-1(x) + a\gamma)k^{-1}\ mod\ q$，有私钥$a = \gamma^{-1}(k\delta - H(x))\ mod\ q$
+
+#### 2. 随机数$k$复用
+如果两次签名的过程中共享了随机数$k$，则有：
+$$
+\gamma_1 = \gamma_2 = \gamma
+\newline
+\delta_1 = (H(x_1) + a\gamma)k^{-1}\ mod\ q
+\newline
+\delta_2 = (H(x_2) + a\gamma)k^{-1}\ mod\ q
+$$ 因此有 $$
+\delta_1 k \equiv H(x_1) + a\gamma
+\newline
+\delta_2 k \equiv H(x_2) + a\gamma
+$$ 两式相减得 $$k(\delta_1 - \delta_2) \equiv H(x_1)-H(x_2)\ mod\ q$$ 从而解出随机数$k$。然后使用第一个攻击方法恢复出私钥$a$。
+
 
 # 常见Crypto攻击思想
 
-常见攻击方法 ¶
+常见攻击方法
 根据不同的攻击模式，可能会有不同的攻击方法，目前常见的攻击方法主要有
 
 * 暴力攻击（通用）
@@ -670,7 +947,61 @@ ECC 全称为椭圆曲线加密，EllipseCurve Cryptography，是一种基于椭
 * 侧信道攻击
 * 比特攻击
 
+# 证书格式
+数字证书是指在互联网通讯中标志通讯各方身份信息的一个数字认证，人们可以在网上用它来识别对方的身份。
+
+数字证书有着其相应的各式，常见的openssl软件会一般都能够处理证书。**详细过程见RSA第零章**。
+
+常见的证书各式如下：
+* PEM： PEM 以 -----BEGIN 开头，以 -----END 结尾，中间包含 ASN.1 格式的数据。用 Python 3 和 PyCryptodome 库可以与 PEM 文件交互并提取相关数据。例如我们想提取出模数 ``n``:
+```python
+# python3
+from Crypto.PublicKey import RSA
+
+with open("certificate.pem","r") as f:
+    key = RSA.import_key(f.read())
+    print(key.n)
+```
+PEM密钥的例子：
+```
+-----BEGIN PUBLIC KEY-----
+MFwwDQYJKoZIhvcNAQEBBQADSwAwSAJBAIw/U51Fghh6WumZQjg9l3a6AjFZ+xm2
+x2+9ja+8n8Yg95Hbxsp9vCpwlIol1A5wMo6p/hNlxzAE3/cY08eKzDMCAwEAAQ==
+-----END PUBLIC KEY-----
+```
+```
+-----BEGIN RSA PRIVATE KEY-----
+MIIBOQIBAAJBAIw/U51Fghh6WumZQjg9l3a6AjFZ+xm2x2+9ja+8n8Yg95Hbxsp9
+vCpwlIol1A5wMo6p/hNlxzAE3/cY08eKzDMCAwEAAQJAJearQxJYwSK31O9dDPPg
+Le7AzvOBP4a8yP7R/o8cIp+3XdCXzuUreFzTWTXIg76tohg8cQb77HT/jVo2rLXa
+AQIhAOrtFkJ0So2NZIp4xBPLqFozaSJNti8Yx8w1IOWoS2szAiEAmNQCPrBaB6p4
+heIDYgaTYpJa4gbw3tLe82AAKzFLGwECIE/ZA37Uzd4s16ZlA6gCyZbW8H3zUd/S
+GV6kFClauT+XAiBZuddbkNQ6vfYmvIw56Bxt+flLzMFsQSfOgaV3tmgfAQIgKW7C
+LI1+rBn3TvmyLMZ7+3TEtVeTVRgabLWyOUjmv7w=
+-----END RSA PRIVATE KEY-----
+```
+
+* DER：DER 是 ASN.1 类型的二进制编码。后缀 ``.cer`` 或 ``.crt`` 的证书通常包含 DER 格式的数据。我们可以用 ``openssl`` 将 PEM(``.pem``) 文件转化为 DER(``.der``) 文件：
+```
+openssl x509 -inform DER -in certificate.der > certificate.pem
+```
+* 其他格式转换 
+```
+openssl x509 -outform der -in certificate.pem -out certificate.der
+openssl x509 -inform der -in certificate.cer -out certificate.pem
+```
+
 # 比赛
 * angstromctf (https://2021.angstromctf.com/)
     * Cache Money
     https://mystiz.hk/posts/2021-04-08-angstromctf-2021/
+
+
+# 练习题
+
+## Hash相关
+* 2017 34c3 Software_update
+    * https://sectt.github.io/writeups/34C3CTF/crypto_182_software_update/Readme
+    * https://github.com/OOTS/34c3ctf/blob/master/software_update/solution/exploit.py
+* 2019 36c3 SaV-ls-l-aaS
+    * https://ctftime.org/writeup/17966
