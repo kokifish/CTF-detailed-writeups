@@ -1,12 +1,17 @@
 # UIUCTF 2017 GoodLuck
 
+> UIUCTF 2017
+>
 > challenge name: GoodLuck
 >
-> file: goodluck, flag.txt 原题是远程的flag.txt，这里使用一个本地的代替
+> file: `goodluck, flag.txt` 原题是远程的flag.txt，这里使用一个本地的代替
 >
-> original writeup: https://github.com/ctf-wiki/ctf-challenges/tree/master/pwn/fmtstr/2017-UIUCTF-pwn200-GoodLuck
+> files link: https://github.com/ctf-wiki/ctf-challenges/tree/master/pwn/fmtstr/2017-UIUCTF-pwn200-GoodLuck
 >
-> 
+> writeup writer: hexhex16@outlook.com
+>
+> refer writeup: https://github.com/ctf-wiki/ctf-challenges/tree/master/pwn/fmtstr/2017-UIUCTF-pwn200-GoodLuck
+>
 
 - 64bit format string
 - 目的是获取远端的flag.txt的内容，由于条件限制，这里复现时使用的是本地文件

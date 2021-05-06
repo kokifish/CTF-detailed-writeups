@@ -6,7 +6,11 @@
 >
 > file: pwn3, libc.so       貌似libc.so并无太大影响，估计在做题时并未给出
 >
-> original writeup: https://www.anquanke.com/post/id/83835  很详细，值得一看
+> files link: https://github.com/ctf-wiki/ctf-challenges/tree/master/pwn/fmtstr/2016-CCTF-pwn3
+>
+> writeup writer: hexhex16@outlook.com
+>
+> refer writeup: https://www.anquanke.com/post/id/83835  很详细，值得一看
 >
 > `pwn3.idb` provided
 

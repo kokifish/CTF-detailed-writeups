@@ -383,9 +383,6 @@ Full RELRO:
 2. lazy resolution 是被禁止的，所有导入的符号都在 startup time 被解析
 3. bonus: the entire GOT is also (re)mapped as read-only or the .got.plt section is completely initialized with the final addresses of the target functions (Merge .got and .got.plt to one section .got). Moreover, since lazy resolution is not enabled, the GOT[1] and GOT[2] entries are not initialized. GOT[0] is a the address of the module’s DYNAMIC section. GOT[1] is the virtual load address of the link_map, GOT[2] is the address for the runtime resolver function。
 
-版权声明：本文为CSDN博主「sp00f」的原创文章，遵循CC 4.0 BY-SA版权协议，转载请附上原文出处链接及本声明。
-原文链接：https://blog.csdn.net/ylcangel/article/details/102625948
-
 ---
 
 # The Function Stack
@@ -1804,6 +1801,16 @@ b'0xffe137fc\n(\xa0\x04\x08)\xa0\x04\x08*\xa0\x04\x08+\xa0\x04\x08              
 
 1. 目前的 C 程序中，libc 中的函数是通过 GOT 表来跳转的
 2. 在没有开启 RELRO 保护时，每个 libc 的函数对应的 GOT 表项可以被修改的
+
+cases:
+
+- `hijack_got_fmt_str_CCTF_2016_pwn3`: 利用`printf(s)`这样的漏洞，获取`puts`真实地址，得到libc版本和`system`地址，覆盖`puts@got`为`system`
+
+
+
+### hijack retaddr
+
+- 利用格式化字符串漏洞劫持程序的返回地址到想要执行的地址
 
 
 

@@ -6,6 +6,8 @@
 >
 > file: `ret2basic`
 >
+> writeup writer: hexhex16@outlook.com
+>
 > refer writeup: https://coldfusionx.github.io/posts/ret2basic/    用到了gef which is GDB enhanced features，过程中的操作与我的解法有所不同，同时总结了32bit 64bit系统的区别，就算会做这题了也值得一看
 >
 > https://ctftime.org/event/1281/tasks/ 其他人的writeup可以在这找，也可以去github直接搜，根据看的几份writeup来看，大部分不会用IDA分析，而我用IDA可能是做reverse题带来的坏猫病
