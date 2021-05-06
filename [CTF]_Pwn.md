@@ -13,6 +13,8 @@
 
 
 
+- vulnerability: 脆弱性，计算机安全隐患，易损点，弱点。
+
 
 
 
@@ -346,7 +348,43 @@ ROPgadget --binary ret2baby  --string "/bin/sh" # 获得 /bin/sh 字符串对应
 
 
 
+## RELRO
 
+> Relocation Read-Only
+>
+> https://blog.csdn.net/ylcangel/article/details/102625948
+
+- a security measure which makes some binary sections read-only
+
+有三种状态：
+
+1. 不开启RELRO
+2. 部分RELRO
+3. 完全RELRO
+
+```bash
+gcc -o test test.c # 默认情况下，是Partial RELRO
+gcc -z norelro -o test test.c # 关闭，即No RELRO
+gcc -z lazy -o test test.c # 部分开启，即Partial RELRO
+gcc -z now -o test test.c # 全部开启，即Full RELRO
+```
+
+
+
+Partial RELRO: 现在gcc 默认编译就是 partial relro
+
+1. some sections(.init_array .fini_array .jcr .dynamic .got) are marked as read-only after they have been initialized by the dynamic loader
+2. non-PLT GOT is read-only (.got)
+3. GOT is still writeable (.got.plt)
+
+Full RELRO: 
+
+1. 拥有 Partial RELRO 的所有特性
+2. lazy resolution 是被禁止的，所有导入的符号都在 startup time 被解析
+3. bonus: the entire GOT is also (re)mapped as read-only or the .got.plt section is completely initialized with the final addresses of the target functions (Merge .got and .got.plt to one section .got). Moreover, since lazy resolution is not enabled, the GOT[1] and GOT[2] entries are not initialized. GOT[0] is a the address of the module’s DYNAMIC section. GOT[1] is the virtual load address of the link_map, GOT[2] is the address for the runtime resolver function。
+
+版权声明：本文为CSDN博主「sp00f」的原创文章，遵循CC 4.0 BY-SA版权协议，转载请附上原文出处链接及本声明。
+原文链接：https://blog.csdn.net/ylcangel/article/details/102625948
 
 ---
 
@@ -558,14 +596,14 @@ int func(int para);
 >
 > https://www.freebuf.com/articles/system/135685.html Linux中的GOT和PLT到底是个啥？
 
-GOT: Global Offset Table, 全局偏移表。存放函数地址的数据表
+GOT: Global Offset Table, 全局偏移表。存放**函数地址的数据表**
 
 PLT: Procedure Linkage Table, 程序链接表。**额外代码段**表
 
 动态链接所需要的：
 
-- 需要存放外部函数的数据段
-- 获取数据段存放函数地址的一小段额外代码
+- 需要存放外部函数的数据段（GOT）
+- 获取数据段存放函数地址的一小段额外代码（PLT）
 
 ![](https://raw.githubusercontent.com/hex-16/pictures/master/CTF_pic/pwn_PLT_GOT_very_simple_illustration.jpg)
 
@@ -597,11 +635,11 @@ PLT: Procedure Linkage Table, 程序链接表。**额外代码段**表
 - 在GCC中使用以下参数设置 Canary
 
 ```bash
--fstack-protector 启用保护，不过只为局部变量中含有数组的函数插入保护
--fstack-protector-all 启用保护，为所有函数插入保护
+-fstack-protector # 启用保护，不过只为局部变量中含有数组的函数插入保护
+-fstack-protector-all # 启用保护，为所有函数插入保护
 -fstack-protector-strong
--fstack-protector-explicit 只对有明确 stack_protect attribute 的函数开启保护
--fno-stack-protector 禁用保护
+-fstack-protector-explicit # 只对有明确 stack_protect attribute 的函数开启保护
+-fno-stack-protector # 禁用保护
 ```
 
 - 开启 Canary 保护的 stack 结构大概如下：
@@ -1755,6 +1793,21 @@ b'0xffe137fc\n(\xa0\x04\x08)\xa0\x04\x08*\xa0\x04\x08+\xa0\x04\x08              
 ```
 
 > 也可以利用 `%n` 分别对每个地址进行写入，也可以得到对应的答案，但是由于我们写入的变量都只会影响由其开始的四个字节，所以最后一个变量写完之后，我们可能会修改之后的三个字节，如果这三个字节比较重要的话，程序就有可能因此崩溃。而采用`%hhn` 则不会有这样的问题，因为这样只会修改相应地址的一个字节
+
+
+
+### hijack GOT
+
+> 劫持got表
+
+由于下述两个原因，可以修改某个libc函数的got表项内容为另一个libc函数的地址，以此控制程序。e.g. 修改printf的got表项为system函数的地址，
+
+1. 目前的 C 程序中，libc 中的函数是通过 GOT 表来跳转的
+2. 在没有开启 RELRO 保护时，每个 libc 的函数对应的 GOT 表项可以被修改的
+
+
+
+
 
 
 

