@@ -1170,8 +1170,8 @@ call printf
 
 ### \*nix x64
 
-- \*nix x64系统有限使用RDI, RSI, RDX, RCX, R8, R9寄存器传递前6个参数，然后利用栈传递其余的参数
-- 在生成汇编代码时，gcc把字符串指针存储到 EDI 中，而非完整的 RDI 寄存器
+- \*nix x64系统先使用RDI, RSI, RDX, RCX, R8, R9寄存器传递前6个参数，然后利用栈传递其余的参数
+- 在生成汇编代码时，gcc把**字符串指针**(fmt str pointer)存储到 **EDI** 中，而非完整的 RDI 寄存器
 
 ```assembly
 ; printf("a=%d; b=%d; c=%d; d=%d; e=%d; f=%d; g=%d; h=%d\n", 1,2,3,4,5,6,7,8); 在 *nix 64 下的调用传参过程 ; x64 gcc

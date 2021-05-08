@@ -244,6 +244,7 @@ asm('nop') # b'\xe3 \xf0\x00'
 ```python
 # set logging level
 context.log_level = 'debug'
+log.success("ret_addr:" + hex(ret_addr)) # success logging 
 ```
 
 #### Assembly and Disassembly
@@ -355,6 +356,8 @@ ROPgadget --binary ret2baby  --string "/bin/sh" # 获得 /bin/sh 字符串对应
 > https://blog.csdn.net/ylcangel/article/details/102625948
 
 - a security measure which makes some binary sections read-only
+- 默认情况下应用程序的导入函数只有在调用时才去执行加载（所谓的懒加载，非内联或显示通过dlxxx指定直接加载），如果让这样的数据区域属性变成只读将大大增加安全性
+- RELRO是一种用于加强对 binary 数据段的保护的技术，大概实现由linker指定binary的一块经过dynamic linker处理过relocation之后的区域为只读，设置符号重定向表格为只读或在程序启动时就解析并绑定所有动态符号，从而减少对GOT攻击
 
 有三种状态：
 
@@ -475,9 +478,10 @@ int main(int argc, char *argv[]){
 
 ## x64
 
+> 相信内容见reverse.md中的 *6. printf()函数与参数传递*
 
-
-
+- \*nix x64系统先使用RDI, RSI, RDX, RCX, R8, R9寄存器传递前6个参数，然后利用栈传递其余的参数
+- Win64使用RCX, RDX, R8, R9寄存器传递前4个参数，使用栈来传递其余参数
 
 ---
 
