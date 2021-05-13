@@ -206,6 +206,75 @@ class SecurePrng(object):
 
 在分组密码设计时，一般回使用**混淆(S盒，乘法)与扩散(线性变换，置换，移位)** 两大策略。
 
+### AES (Advanced Encryption Standard)
+AES is a block cipher encryption standard approved by NIST in 2002 and developed by Vincent Rijmen and Joan Daemen.
+**Block-size:** 128 bits
+**Key-size:** 128, 192 and 256 bits with 10, 12 and 14 rounds respectively
+
+主要流程：![AES流程](crypto/images/AES.PNG)
+
+* 预计算：轮密钥生成，S盒的计算
+* 每一轮主要包含四个运算，分别是（这里说的与图的不太一致，但是运算是一致的）
+    1. 轮密钥加（AddRoundKey）
+    2. 字节替换（SubBytes / S盒）
+    3. 行移位（ShiftRows）
+    4. 列混合（MixColumns）
+* 最后一轮运算的时候不需要进行列混合
+* 最后一轮运算结束后，还需要进行一次轮密钥加运算
+
+
+> 常见python实现(这种实现AES是一个黑盒，只能用作加密和解密，无法深入进行分析)：
+``` python 
+# python3
+from Crypto.Cipher import AES
+import os
+key = b'1234567890123456' #秘钥
+text = b'1234567890123456' #需要加密的内容
+iv = os.urandom(16)   # 初始向量
+model = AES.MODE_CBC #定义模式
+aes = AES.new(key, AES.MODE_CBC, iv=iv) #创建一个aes对象
+
+en_text = aes.encrypt(text) #加密明文
+print(en_text)
+
+aes2 = AES.new(key, AES.MODE_CBC, iv=iv)
+de_text = aes2.decrypt(en_text) #解密明文
+print(de_text)
+```
+
+> 常见sagemath实现(这里的实现涉及到aes的每一步，这里每一步的运算是一个黑盒，如果题目中有自己定义的S盒，行移位，列混合运算，就需要更具体的分析)。Sagemath的AES的实现主要用到了``RijndaelGF``这个类。
+
+> Rijndael-GF是AES密码的代数实现，它寻求提供整个AES密码及其单个组件的完全广义代数表示。
+```python
+# sagemath 9.2
+from sage.crypto.mq.rijndael_gf import RijndaelGF
+aes = RijndaelGF(4, 4)
+# Rijndael-GF block cipher with block length 4, key length 4, and 10 rounds.
+
+K='2b7e151628aed2a6abf7158809cf4f3c'
+key_state = aes._hex_to_GF(K)
+roundKeys = aes.expand_key(key_state)
+
+b = '00112233445566778899aabbccddeeff'
+
+# subBytes
+state = aes._hex_to_GF(b)
+output = aes.sub_bytes(state, algorithm='encrypt')
+print(aes._GF_to_hex(output))
+
+#shiftRows
+output = aes.shift_rows(state, algorithm='encrypt')
+print(aes._GF_to_hex(output))
+
+#MixColumns
+output = aes.mix_columns(state, algorithm='encrypt')
+print(aes._GF_to_hex(output))
+
+#AddRoundKeys
+output = aes.add_round_key(state, roundKeys[3])
+print(aes._GF_to_hex(output))
+```
+
 ### 分组模式
 分组加密会将明文消息划分为固定大小的块，每块明文分别在密钥控制下加密为密文。当然并不是每个消息都是相应块大小的整数倍，所以我们可能需要进行填充。常见的分组模式：
 - ECB：密码本模式（Electronic codebook）

@@ -116,6 +116,9 @@ e.g. 源文本： `The`
 
 二维码(UR Code)
 
+* 条形码与二维码在线识别
+https://online-barcode-reader.inliteresearch.com/
+
 # Forensic Steganography
 
 > 隐写取证
@@ -123,7 +126,10 @@ e.g. 源文本： `The`
 任何要求检查一个静态数据文件从而获取隐藏信息的都可以被认为是隐写取证题（除非单纯地是密码学的知识），一些低分的隐写取证又常常与古典密码学结合在一起，而高分的题目则通常用与一些较为复杂的现代密码学知识结合在一起
 
 
+> Common tools
 
+* binwalk工具对设备的固件文件系统进行提取
+    * 有时候会有多个文件组合起来，使用binwalk可以把这些文件分离出来，ctf比赛取证与隐写经常会用到。
 
 
 ## Cases
@@ -138,21 +144,50 @@ e.g. 源文本： `The`
 
 - 元数据（Metadata），又称中介数据、中继数据，为描述数据的数据（Data about data），主要是描述数据属性（property）的信息，用来支持如指示存储位置、历史数据、资源查找、文件记录等功能。
 
+- 常用图像隐写套路
+https://blog.csdn.net/u012486730/article/details/82016706
 
+- PNG图片
+文件格式：
+1. http://www.libpng.org/pub/png/spec/1.2/PNG-Contents.html
+2. https://www.fileformat.info/format/png/egff.htm
+    - 常见隐写：图像宽度；图像数据块IDAT（衣服图片可能有多个块进行信息隐藏）；LSB信息隐藏
 
+- JPEG图片格式
+1. https://www.cnblogs.com/senior-engineer/p/9548347.html
+2. https://www.fileformat.info/format/jpeg/egff.htm
+    - 隐写软件：Stegdetect；JPHS；SilentEye
 
+- GIF图片格式
+https://www.fileformat.info/format/gif/egff.htm
+    - gif图片隐写方案：**空间轴**(由于 GIF 的动态特性，由一帧帧的图片构成，所以每一帧的图片，多帧图片间的结合，都成了隐藏信息的一种载体)； **时间轴**(GIF 文件每一帧间的时间间隔也可以作为信息隐藏的载体)
+
+- 常见ctf图像隐写工具
+    - Stegsolve 
+    - F5-steganography
+
+- 文件格式查询网站
+https://www.fileformat.info/format/cloud.htm
 
 ## Cases
 
 - breakin-ctf-2017_misc_Mysterious-GIF：gif文件中分离出zip，zip中分离出多个小zip，解压得到partxx.enc，在gif的元数据comment中找到私钥，对.enc文件进行RSA解密，连接成一个图片文件
 
-
+- information_hiding_2021chunqiubei_fungame_snowww 把jpg文件中隐藏的信息先提取，然后发现是原图加上水印程序，我们需要写出逆向的水印函数就可以把水印恢复出来，水印就是flag。
 
 
 
 # Traffic Packet Analysis
 
+通常比赛中会提供一个包含流量数据的 PCAP 文件，有时候也会需要选手们先进行修复或重构传输文件后，再进行分析。
 
+* 流量包修复工具：
+    * https://f00l.de/hacking/pcapfix.php   **PcapFix Online**
+    * https://github.com/Rup0rt/pcapfix/tree/devel  **PcapFix**
+
+* 常用流量包分析工具
+    * tshark （tshark 作为 wireshark 的命令行版, 高效快捷是它的优点, 配合其余命令行工具 (awk,grep) 等灵活使用, 可以快速定位, 提取数据从而省去了繁杂的脚本编写）
+    * PcapPlusPlus (后面有介绍)
 
 ## USB Traffic Analysis
 
@@ -395,8 +430,42 @@ int main(int argc, char* argv[]) {
 
 > 压缩包分析
 
+## ZIP压缩包
+CTF中ZIP压缩包的考察一般都是把压缩包进行加密，然后尝试把ZIP的加密给破解。
 
+> 主要攻击
 
+* 爆破
+    * Windows下的神器 **ARCHPR** http://www.downcc.com/soft/130539.html
+    * Linux 下的命令行工具 **fcrackzip** https://github.com/hyc/fcrackzip
+    * **Advanced Zip Password Recovery** http://down.40huo.cn/misc/AZPR_4.0.zip
+* CRC32
+    * 表示的是冗余校验码，长为32bit，在png和zip文件中常见。然而在zip文件中的crc32使用的是明文做的校验码，因此当zip文件的（明文非常短，密码非常长）的时候可以直接爆破求解zip的明文。
+* 已知明文攻击
+    * 要求：一个加密的压缩文件；已知压缩工具及加密算法；**已知压缩包里某个文件的部分连续内容 (至少 12 字节)**
+    * 攻击步骤：首先获得已知明文的信息，其次确定压缩算法，然后使用下述工具进行明文攻击。
+    * 工具：
+        * Windows： **ARCHPR** http://www.downcc.com/soft/130539.html
+        * Linux：**PKCrack** http://www.unix-ag.uni-kl.de/~conrad/krypto/pkcrack.html
+* 伪加密
+    * 原理：在上文 ZIP 格式中的核心目录区中，有个通用位标记 (General purpose bit flag) 的 2 字节，不同比特位有着不同的含义。有些zip文件没有加密但是把这个标记设置成加密，这就是伪加密。
+    * 破解
+        * 16 进制下修改通用位标记
+        * ``binwalk -e`` 无视伪加密
+        * 在 Mac OS 及部分 Linux(如 Kali ) 系统中，可以直接打开伪加密的 ZIP 压缩包
+        * 检测伪加密的小工具 ``ZipCenOp.jar``
+        * 有时候用 ``WinRar`` 的修复功能（此方法有时有奇效，不仅针对伪加密）
+
+## RAR压缩包
+RAR 文件主要由标记块，压缩文件头块，文件头块，结尾块组成。详细格式见：https://forensicswiki.xyz/wiki/index.php?title=RAR
+
+> 主要攻击
+
+* 爆破
+    * Linux 下的 **RarCrack** http://rarcrack.sourceforge.net/
+    * **Advanced Rar Password Recovery** http://down.40huo.cn/misc/AdvancedRARPassword.zip
+* 伪加密
+    * 在RAR文件的``File Header``中，第三个字段为``HEAD_FLAGS``，有2字节，这两个字节中的第三个bit表示的是是否加密。有时候RAR文件没有加密但会把此bit设置为加密，这就是伪加密。破解伪加密只要把字段去除即可。
 
 
 
@@ -405,21 +474,44 @@ int main(int argc, char* argv[]) {
 
 > 音频隐写
 
-与音频相关的 CTF 题目主要使用了隐写的策略，主要分为 MP3 隐写，LSB 隐写，波形隐写，频谱隐写等等
+与音频相关的 CTF 题目主要使用了隐写的策略，主要分为：
+* MP3 隐写 （工具： Mp3Stego http://www.petitcolas.net/steganography/mp3stego/）
+* LSB 隐写 （工具： Silenteye）
+* 波形隐写 （工具：**AutoStitch**(较简单) 或 Adobe Audition）
+* 频谱隐写
+* 等等
 
-
-
+参考：
+1. https://www.sqlsec.com/2018/01/ctfwav.html
+2. https://ctf-wiki.org/misc/audio/introduction/
 
 
 
 
 # Disk Memory Analysis
 
-> 磁盘内存分析
+> 磁盘内存分析 (取证)
 
+常用工具 
+* EasyRecovery 
+    * 支持从各种存储介质恢复删除、格式化或者丢失的文件，支持的媒体介质包括：硬盘驱动器、光驱、闪存、以及其它多媒体移动设备。无论文件是被命令行方式删除，还是被应用程序或者文件系统删除，EasyRecovery都能实现恢复，甚至能重建丢失的RAID。
+* FTK（司法智能分析软件）电子物证分析软件，执行自动、完整、彻底的计算机电子取证检查
+    * 官网 https://accessdata.com/
+    * 可以去下破解版
+* Elcomsoft Forensic Disk Decryptor 
+    * http://down.40huo.cn/misc/efdd_setup_en.msi
+    * http://down.40huo.cn/misc/Elcomsoft.Forensic.Disk.Decryptor.CracKed.By.Hmily.LCG.rar
+* Volatility (内存取证)
+* NTFS 流文件 **Alternate Stream View** http://down.40huo.cn/misc/alternatestreamview.zip
 
+> 常见磁盘格式
+Windows: FAT12 -> FAT16 -> FAT32 -> NTFS
+Linux: EXT2 -> EXT3 -> EXT4
+删除文件：目录表中文件名第一字节 e5。
 
+> VMDK文件
 
+VMDK 文件本质上是物理硬盘的虚拟版，也会存在跟物理硬盘的分区和扇区中类似的填充区域，我们可以利用这些填充区域来把我们需要隐藏的数据隐藏到里面去，这样可以避免隐藏的文件增加了 VMDK 文件的大小（如直接附加到文件后端），也可以避免由于 VMDK 文件大小的改变所带来的可能导致的虚拟机错误。而且 VMDK 文件一般比较大，适合用于隐藏大文件。
 
 # Other
 
