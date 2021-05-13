@@ -374,7 +374,7 @@ sudo make install
 
 
 ```cpp
-// author: hyhuang1024@outlook.com
+// author: hexhex16@outlook.com
 // 小的pcap文件生成方式： editcap -i 60 ./data/202010041400.pcap small.pcap
 #include <pcap.h>
 #include "IPv4Layer.h"
