@@ -1,6 +1,6 @@
 # CISCN reverse baby.bc
 
-> CISCN 2021 初赛 第十四届全国大学生信息安全竞赛 创新实践能力赛 线上初赛 reverse\
+> CISCN 2021 初赛 第十四届全国大学生信息安全竞赛 创新实践能力赛 线上初赛 reverse
 >
 > https://cup.360.cn/competition/home/index
 >
@@ -9,10 +9,17 @@
 > file: baby.bc
 >
 > writeup writer: hexhex16@outlook.com
+>
+> 
 
-提供的 baby.bc 文件为LLVM bitcode文件，需要先编译为可执行文件，然后在IDA中分析，分析中可以得知程序需要输入一个长为25，每个元素为0-5的字符串，
+提供的 baby.bc 文件为LLVM bitcode文件，需要先编译为可执行文件，然后在IDA中分析，分析中可以得知程序需要输入一个长为25，每个元素为0-5的字符串，然后依据给定的三个数组，需要满足一定条件，求一个数独Sudoku问题，最后flag为CISCN{MD5(input)}
+
+# Compile
+
+> for kali 20.04: `sudo apt install llvm`
 
 - LLVM中，IR有三种表示：
+
 1. 可读的IR，类似于汇编代码，但其实它介于高等语言和汇编之间，这种表示就是给人看的，磁盘文件后缀为.ll
 2. 不可读的二进制IR，被称作位码（bitcode），磁盘文件后缀为.bc
 3. 一种内存格式，只保存在内存中，所以谈不上文件格式和文件后缀，这种格式是LLVM之所以编译快的一个原因，它不像gcc，每个阶段结束会生成一些中间过程文件，它编译的中间数据都是这第三种表示的IR
@@ -20,10 +27,6 @@
 三种格式是完全等价的，我们可以在Clang/LLVM工具的参数中指定生成这些文件（默认不生成，对于非编译器开发人员来说，也没必要生成）
 
 可以通过llvm-as和llvm-dis来在前两种文件之间做转换
-
-# Compile
-
-> for kali 20.04: `sudo apt install llvm`
 
 先编译为可执行文件:
 
