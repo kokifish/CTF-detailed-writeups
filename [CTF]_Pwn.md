@@ -173,6 +173,7 @@ c.recv() # b'hello'
 ```python
 # Interacting with processes # 与进程交互
 sh = process('/bin/sh') # pwnlib.tubes.process
+gdb.attach(sh)
 sh.sendline(b'sleep 3; echo hello world;') # 会自动添加\r\n
 sh.recvline(timeout=1) # b'' # 因为上面执行的命令首先为sleep 3，这里超时后未接收到字符串
 sh.recvline(timeout=5) # b'hello world\n'

@@ -8,9 +8,10 @@
 >
 > file: baby.bc
 >
+> No description
+>
 > writeup writer: hexhex16@outlook.com
 >
-> 
 
 提供的 baby.bc 文件为LLVM bitcode文件，需要先编译为可执行文件，然后在IDA中分析，分析中可以得知程序需要输入一个长为25，每个元素为0-5的字符串，然后依据给定的三个数组，需要满足一定条件，求一个数独Sudoku问题，最后flag为CISCN{MD5(input)}
 
