@@ -59,3 +59,42 @@ e = invert(d, phi_n)
 t = wienerAttack(e, n)
 print "d=", d
 print 't=', t
+
+
+
+############################ Sagemath 9.2
+#### Sage Version
+
+from Crypto.Util.number import getPrime
+
+def get_pq(a, b, c):  # 由p+q和pq的值通过维达定理来求解p和q
+    par = isqrt(b * b - 4 * a * c)  # 由上述可得，开根号一定是整数，因为有解
+    x1, x2 = (-b + par) // (2 * a), (-b - par) // (2 * a)
+    return x1, x2
+
+
+p = getPrime(int(1024))
+q = getPrime(int(1024))
+n = p * q
+d = getPrime(int(300))
+phi_n = (p - 1) * (q - 1)
+e = inverse_mod(d, phi_n)
+
+for yx in continued_fraction(e/n).convergents():
+    k = yx.numerator()
+    d = yx.denominator()
+    if k == 0:  # 可能会出现连分数的第一个为0的情况，排除
+        continue
+    if (e * d - 1) % k != 0:  # ed=1 (mod φ(n)) 因此如果找到了d的话，(ed-1)会整除φ(n),也就是存在k使得(e*d-1)//k=φ(n)
+        continue
+
+    phi = (e * d - 1) // k  # 这个结果就是 φ(n)
+    px, qy = get_pq(1, n - phi + 1, n)
+    if px * qy == n:
+        p, q = abs(int(px)), abs(int(qy))  # 可能会得到两个负数，负负得正未尝不会出现
+        t = inverse_mod(e, (p - 1) * (q - 1))  # 求ed=1 (mod  φ(n))的结果，也就是e关于 φ(n)的乘法逆元d
+        break
+
+
+print("d=", d)
+print('t=', t)

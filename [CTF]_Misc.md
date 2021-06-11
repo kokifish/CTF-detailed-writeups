@@ -119,6 +119,12 @@ e.g. 源文本： `The`
 * 条形码与二维码在线识别
 https://online-barcode-reader.inliteresearch.com/
 
+### 各种奇奇怪怪的编码，编程语言，算法
+https://www.dangermouse.net/esoteric/
+
+* npiet语言：使用图像进行编程  ``2021红帽杯初赛colorful code``
+
+
 # Forensic Steganography
 
 > 隐写取证
