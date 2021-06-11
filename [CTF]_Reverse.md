@@ -1519,8 +1519,6 @@ n # 单步运行
 
 stepi # 每步执行
 
-set $eax=1 # 设置寄存器 eax 为 0
-
 finish # 继续执行余下指令直到(当前)函数结束为止
 q # 退出调试 
 ```
@@ -1537,6 +1535,7 @@ list # 不带参数 展示10行
 
 disas # 检查汇编 给出当前对应的代码的汇编 其中箭头指向的是接下来将要运行的指令
 disassemble 0xf7e39980 # 查看该地址的汇编代码，如果是函数，到ret结束
+info file # 可以查看入口点 各段地址范围
 info reg # 查看寄存器信息
 info registers # 查看寄存器内容  # same as: i r
 info break # i b # 查看断点编号 # 还可以看到断点命中几次
@@ -1544,11 +1543,23 @@ print $rsp # 查看寄存器内容
 info  proc # 查看进程信息
 
 x/200wx $eax # x: 查看内存中数值 200表示查看200个 wx以word字节查看 $eax代表eax寄存器中的值
+x/50b 0x0000000000405050 # 查看内存中的值，以1byte(b)查看50个
 x/10w $esp # 显示栈里的10个数据
 x/5i 0x0804844a # 显示某个地址开始的5条指令
 x/s 0x080484f0 # 将某个地址开始的内容以字符串形式输出
 x/s $rdi # 将rdi寄存器指向的地址开始的内容以字符串形式输出
 x/10g $rsp # g: giant words 以64bit words格式显示各数据 显示$rsp开始的10个
+```
+
+```
+x(hex) 按十六进制格式显示变量。
+d(decimal) 按十进制格式显示变量。
+u(unsigned decimal) 按十进制格式显示无符号整型。
+o(octal) 按八进制格式显示变量。
+t(binary) 按二进制格式显示变量。
+a(address) 按十六进制格式显示变量。
+c(char) 按字符格式显示变量。
+f(float) 按浮点数格式显示变量
 ```
 
 
@@ -1557,6 +1568,13 @@ x/10g $rsp # g: giant words 以64bit words格式显示各数据 显示$rsp开始
 # 查看完内存后 可能需要将内存中显示的16进制数转换为字符串
 key = "393434377b"
 flag = key.decode('hex') # hex to str
+```
+
+### set/modify
+
+```bash
+set $eax=1 # 设置寄存器 eax 为 0
+set {int}0x83040 = 4 # 将内存位置0x83040表示为整数，将值4存储到该存储位置
 ```
 
 
