@@ -46,6 +46,36 @@ checksec --file=filename  # 新版
 
 
 
+## one\_gadget
+
+> https://github.com/david942j/one_gadget
+
+- Installation: 
+
+```bash
+sudo apt install ruby
+gem install one_gadget
+one_gadget libc-2.27.so
+one_gadget libc-2.27.so --near exit,mkdir # Reorder gadgets according to the distance of given functions.
+one_gadget /lib/x86_64-linux-gnu/libc.so.6 --near 'write.*' --raw # Regular expression is acceptable.
+one_gadget /lib/x86_64-linux-gnu/libc.so.6 --near spec/data/test_near_file.elf --raw # Pass an ELF file as the argument, OneGadget will take all GOT functions for processing.
+```
+
+
+
+```python
+import subprocess
+def one_gadget(filename):
+	return [int(i) for i in subprocess.check_output(['one_gadget', '--raw', filename]).decode().split(' ')]
+
+one_gadget('/lib/x86_64-linux-gnu/libc.so.6')
+#=> [324293, 324386, 1090444]
+```
+
+
+
+
+
 ## gef
 
 > gef github:   https://github.com/hugsy/gef 
@@ -338,15 +368,27 @@ ROPgadget --binary ret2baby  --string "/bin/sh" # 获得 /bin/sh 字符串对应
 
 
 
-## ASLR and Related Setting
+## ASLR
 
 > 地址空间配置随机加载  Address space layout randomization  地址空间配置随机化  地址空间布局随机化
 >
-> OS层级的保护
+> OS层级的保护。一种防范内存损坏漏洞被利用的计算机安全技术
 >
 > Linux系统上控制ASLR启动与否
 
-- ASLR通过**随机放置进程关键数据区域的地址空间**来防止攻击者能可靠地跳转到内存的特定位置来利用函数。现代操作系统一般都加设这一机制，以防范恶意程序对已知地址进行Return-to-libc攻击
+- ASLR通过**随机放置进程关键数据区域的地址空间**来防止攻击者能可靠地跳转到内存的特定位置来利用函数。现代操作系统一般都加设这一机制，以防范恶意程序对已知地址进行**Return-to-libc**攻击
+- ASLR 的有效性依赖于整个地址空间布局是否对于攻击者保持未知。只有编译时作为 位置无关可执行文件(Position Independent Executable)（PIE）的可执行程序才能得到 ASLR 技术的最大保护，因为只有这样，可执行文件的所有代码节区才会被加载在随机地址。PIE 机器码不管绝对地址是多少都可以正确执行。
+
+
+
+ASLR绕过方法：
+
+- 利用地址泄露
+- 访问与特定地址关联的数据
+- 针对 ASLR 实现的缺陷来猜测地址，常见于系统熵过低或 ASLR 实现不完善。
+- 利用侧信道攻击
+
+
 
 修改`/proc/sys/kernel/randomize_va_space`来控制ASLR启动与否，具体选项：
 
@@ -354,8 +396,65 @@ ROPgadget --binary ret2baby  --string "/bin/sh" # 获得 /bin/sh 字符串对应
 - 1: 普通的 ASLR。栈基地址、mmap 基地址、.so 加载基地址都将被随机化，但是堆基地址没有随机化
 - 2: 增强的 ASLR，在 1 的基础上，增加了堆基地址随机化
 
-可以使用`echo 0 > /proc/sys/kernel/randomize_va_space`关闭Linux系统的ASLR。kali20.04测试时需用`sudo bash -c "echo 0 > /proc/sys/kernel/randomize_va_space"`
 
+
+
+
+
+
+### Settings
+
+查看ASLR是否开启
+
+```bash
+$ cat /proc/sys/kernel/randomize_va_space
+2
+$ sysctl -a --pattern randomize
+kernel.randomize_va_space = 2
+```
+
+关闭ASLR
+
+```bash
+echo 0 > /proc/sys/kernel/randomize_va_space # 关闭Linux系统的ASLR
+sudo bash -c "echo 0 > /proc/sys/kernel/randomize_va_space" # kali20.04测试时需用
+sudo sysctl -w kernel.randomize_va_space=0    <== disable
+```
+
+
+关闭ASLR时，两次ldd的输出值一样。`ldd` 命令会加载共享对象并显示它们在内存中的地址。但是开启ASLR后，每次ldd的输出都不通
+
+```bash
+kernel.randomize_va_space = 0 # 关闭了ASLR
+$ ldd /bin/bash
+        linux-vdso.so.1 (0x00007ffff7fd1000) # same addresses
+        libtinfo.so.6 => /lib/x86_64-linux-gnu/libtinfo.so.6 (0x00007ffff7c69000)
+        libdl.so.2 => /lib/x86_64-linux-gnu/libdl.so.2 (0x00007ffff7c63000)
+        libc.so.6 => /lib/x86_64-linux-gnu/libc.so.6 (0x00007ffff7a79000)
+        /lib64/ld-linux-x86-64.so.2 (0x00007ffff7fd3000)
+$ ldd /bin/bash
+        linux-vdso.so.1 (0x00007ffff7fd1000) # same addresses
+        libtinfo.so.6 => /lib/x86_64-linux-gnu/libtinfo.so.6 (0x00007ffff7c69000)
+        libdl.so.2 => /lib/x86_64-linux-gnu/libdl.so.2 (0x00007ffff7c63000)
+        libc.so.6 => /lib/x86_64-linux-gnu/libc.so.6 (0x00007ffff7a79000)
+        /lib64/ld-linux-x86-64.so.2 (0x00007ffff7fd3000)
+```
+
+```bash
+kernel.randomize_va_space = 2 # 开启增强的ASLR
+$ ldd /bin/bash
+        linux-vdso.so.1 (0x00007fff47d0e000) # first set of addresses
+        libtinfo.so.6 => /lib/x86_64-linux-gnu/libtinfo.so.6 (0x00007f1cb7ce0000)
+        libdl.so.2 => /lib/x86_64-linux-gnu/libdl.so.2 (0x00007f1cb7cda000)
+        libc.so.6 => /lib/x86_64-linux-gnu/libc.so.6 (0x00007f1cb7af0000)
+        /lib64/ld-linux-x86-64.so.2 (0x00007f1cb8045000)
+$ ldd /bin/bash
+        linux-vdso.so.1 (0x00007ffe1cbd7000) # second set of addresses
+        libtinfo.so.6 => /lib/x86_64-linux-gnu/libtinfo.so.6 (0x00007fed59742000)
+        libdl.so.2 => /lib/x86_64-linux-gnu/libdl.so.2 (0x00007fed5973c000)
+        libc.so.6 => /lib/x86_64-linux-gnu/libc.so.6 (0x00007fed59552000)
+        /lib64/ld-linux-x86-64.so.2 (0x00007fed59aa7000)
+```
 
 
 
@@ -392,12 +491,12 @@ ROPgadget --binary ret2baby  --string "/bin/sh" # 获得 /bin/sh 字符串对应
 - 开启 Canary 保护的 stack 结构大概如下：
 
 ```assembly
-        High
+        High                              ; +8 for 64bit
         Address |                 |
                 +-----------------+
                 | args            |
                 +-----------------+
-                | return address  |
+      rbp+8 =>  | return address  |
                 +-----------------+
         rbp =>  | old ebp         |
                 +-----------------+
@@ -691,15 +790,15 @@ Full RELRO:
 
 CPU在执行call指令时需要进行两步操作：
 
-1. 将当前的IP(也就是函数返回地址)入栈，即：`push IP`;
+1. 将当前的IP(也就是函数返回地址)入栈，即：`push IP`; 对ESP/RSP/SP寄存器减去4/8 然后将操作数写到上述寄存器里的指针所指向的内存中。
 2. 跳转，即： `jmp dword ptr 内存单元地址`。
 
-CPU在执行ret指令时只需要恢复IP寄存器即可，因此ret指令相当于`pop IP`。
+`ret`指令相当于`pop IP`, CPU在执行`ret`指令时只需要恢复IP。从栈指针ESP/RSP/SP指向的内存中读取数据，(通常)写到其他寄存器里，然后将栈指针加上4/8
 
 32bit系统：
 
-- ESP: 栈指针寄存器(extended stack pointer), ESP永远指向系统栈最上面一个栈帧的栈顶(低地址)。注意指向的是**栈顶元素的地址**，而**不是下一个空闲地址**。ESP寄存器是固定的，只有当函数的调用后，发生入栈操作而改变
-- EBP: 基址指针寄存器(extended base pointer), EBP永远指向系统栈最上面一个栈帧的底部(高地址)。通常情况下ESP是可变的，随着栈的生产而逐渐变小，用ESP来标记栈的底部
+- ESP: 栈指针寄存器(extended stack pointer), ESP永远指向系统栈最上面一个栈帧的栈顶(低地址)。注意指向的是**栈顶元素的地址**，而**不是下一个空闲地址**。ESP寄存器是固定的，只有当函数的调用后，发生入栈操作而改变。通常情况下ESP是可变的，随着栈的生产而逐渐变小，用EBP来标记栈的底部
+- EBP: 基址指针寄存器(extended base pointer), EBP永远指向系统栈最上面一个栈帧的底部(高地址)。
 
 intel系统中栈是向下生长的(栈越扩大其值越小,堆恰好相反)
 

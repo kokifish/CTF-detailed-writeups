@@ -590,7 +590,7 @@ apktool.jar d -r andra.apk -o andra # 与上面一样
 
 
 
-# Assembly Instruction Quick Find
+# Assembly Instruction Cheat Sheet
 
 > http://c.biancheng.net/view/3560.html
 >
@@ -598,19 +598,52 @@ apktool.jar d -r andra.apk -o andra # 与上面一样
 >
 > 这里仅记录较重要 / 少见 / IDA开启Auto comments后仍可能不清楚功能 的汇编指令
 
+| Instructions         | Comments                                                     |
+| -------------------- | ------------------------------------------------------------ |
+| `test al, 00001001b` | 测试0, 3bit是否置1，全都置0时，`ZF=1`，否则`ZF=0`            |
+| `test eax, eax`      | 如果`eax`为0，`ZF=1`; 否则`ZF=0`                             |
+| `lea dst, src`       | Load Effective Address 取有效地址 将src的4bit偏移地址到寄存器dst |
+| `sub A, B`           | A = A - B. A >= B, CF=0; A < B, CF=1.                        |
+|                      |                                                              |
+|                      |                                                              |
+|                      |                                                              |
+|                      |                                                              |
+|                      |                                                              |
+|                      |                                                              |
+|                      |                                                              |
+|                      |                                                              |
+|                      |                                                              |
+|                      |                                                              |
+|                      |                                                              |
+|                      |                                                              |
+|                      |                                                              |
+
+> 在汇编减法中，CF=INVERT(carry out of the MSB)，对于减法：
+>
+> result=A+B¯+1=A+(M−1−B)+1=A−B+M.  其中M = MAX + 1 (e.g. 若A为int32，MAX = 32767，M = 32768)
+>
+> 1. A - B + M >= M，A >= B，即被减数大于等于减数。此时CF = INVERT(1) = 0
+> 2. A - B + M < M，即被减数小于减数。此时CF = INVERT(0) = 1
+>
+> CF = 0对应被减数大于等于减数（无借位）;CF = 1对应被减数小于减数（有借位）。这说明，对于ADD，CF表示进位；而对于SUB，CF表示借位。对于NEG指令，Any nonzero operand causes the Carry flag to be set。而对于汇编乘法中的CF位，The Carry flag indicates whether or not the upper half of the product contains significant digits.
+>
+
+## Jump, Call, Ret
+
 | Instructions              | Comments                                                     |
 | ------------------------- | ------------------------------------------------------------ |
-| `test al, 00001001b`      | 测试0, 3bit是否置1，全都置0时，`ZF=1`，否则`ZF=0`            |
-| `test eax, eax`           | 如果`eax`为0，`ZF=1`; 否则`ZF=0`                             |
-| `lea dst, src`            | Load Effective Address 取有效地址 将src的4bit偏移地址到寄存器dst |
-| `jnz label`               | `if( ZF!=0 )` 跳转                                           |
+| `call tag`                | push IP;  jmp near ptr tag                                   |
+| `call dword ptr mem_addr` | push CS; push IP; jmp dword ptr mem_addr                     |
+| `jnb label`               | jump when not below, if CF == 0 jump                         |
+| `jnz label`               | `if( ZF!=0 )` jump                                           |
+| `ret`                     | `pop IP`，用栈中的数据，修改IP的内容，从而实现近转移         |
 | `leave`                   | High Level Procedure Exit, in 32bit: `mov esp, ebp; pop ebp`, 将`ebp`的值赋值给`esp`，从栈中恢复`ebp`的值 |
-| `call tag`                | `push IP;  jmp near ptr tag`                                 |
-| `call dword ptr mem_addr` | `push CS; push IP; jmp dword ptr mem_addr`                   |
-| `ret`                     | 相等于执行`pop IP`，指令用栈中的数据，修改IP的内容，从而实现近转移 |
 |                           |                                                              |
 |                           |                                                              |
 |                           |                                                              |
+|                           |                                                              |
+
+
 
 > `int 3` https://blog.csdn.net/trochiluses/article/details/20209593
 
@@ -1511,12 +1544,16 @@ set disassembly-flavor intel # 令gdb采用intel语体
 b decrypt # 将断点设置在decrypt处
 b 10 # 在第10行设置断点
 b * 0x804865c # 在该地址设置断点
-r # 运行(会在断点处停止)
+r # run # 重新开始执行
 run # 运行被调试的程序
-c # 继续运行
+c # continue # 继续执行到断点，没断点就一直执行下去
 continue # 继续运行
-n # 单步运行
 
+n # 单步步过 step over # 源码层面的一步
+ni # step over 汇编层面的一步
+
+s # 单步步入 step into # 源码层的一步
+si # step into 汇编层的一步
 stepi # 每步执行
 
 finish # 继续执行余下指令直到(当前)函数结束为止
@@ -1539,8 +1576,13 @@ info file # 可以查看入口点 各段地址范围
 info reg # 查看寄存器信息
 info registers # 查看寄存器内容  # same as: i r
 info break # i b # 查看断点编号 # 还可以看到断点命中几次
-print $rsp # 查看寄存器内容
+
+
 info  proc # 查看进程信息
+
+print $rsp # 查看寄存器内容 # p = print
+p /x *(int*)($rbp-0x4) # 寄存器减去偏移量
+x /w $ rbp-0x4 # 与上一行等价 p /x *(int*)($rbp-0x4) 
 
 x/200wx $eax # x: 查看内存中数值 200表示查看200个 wx以word字节查看 $eax代表eax寄存器中的值
 x/50b 0x0000000000405050 # 查看内存中的值，以1byte(b)查看50个
@@ -1838,7 +1880,7 @@ hexdump 0xffffd3cc # 像 IDA 那样显示 0xffffd3cc 地址后的64bytes，带�
 
 
 
-# Machine Code 机器码
+# Machine Code Lookup Table
 
 > 常见机器码速查，用于应对花指令
 
@@ -1852,9 +1894,9 @@ EB # JMP immed8
 
 
 
-# 反调试技术
+# Anti-Debug
 
-
+> 反调试技术
 
 
 
