@@ -11,9 +11,8 @@
 > writeup writer: hexhex16@outlook.com
 >
 > refer writeup: https://github.com/ctf-wiki/ctf-challenges/tree/master/pwn/fmtstr/2017-UIUCTF-pwn200-GoodLuck
->
 
-- 64bit format string
+- 64bit format string 格式化字符串漏洞，64bit版本，漏洞利用点很明显，没有其他难点，故payload也很短，适合作为64bit fmt str的简单示例
 - 目的是获取远端的flag.txt的内容，由于条件限制，这里复现时使用的是本地文件
 
 

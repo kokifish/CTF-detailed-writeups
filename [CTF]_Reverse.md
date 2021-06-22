@@ -601,10 +601,10 @@ apktool.jar d -r andra.apk -o andra # 与上面一样
 | Instructions         | Comments                                                     |
 | -------------------- | ------------------------------------------------------------ |
 | `test al, 00001001b` | 测试0, 3bit是否置1，全都置0时，`ZF=1`，否则`ZF=0`            |
-| `test eax, eax`      | 如果`eax`为0，`ZF=1`; 否则`ZF=0`                             |
+| `test eax, eax`      | ZF=0 if eax==0;                                              |
 | `lea dst, src`       | Load Effective Address 取有效地址 将src的4bit偏移地址到寄存器dst |
 | `sub A, B`           | A = A - B. A >= B, CF=0; A < B, CF=1.                        |
-|                      |                                                              |
+| `cmp dst, src`       | dst<src: ZF=0, CF=1; dst>src: ZF=0, CF=0; dst==src: ZF=1, CF=0; 相等时ZF=1 |
 |                      |                                                              |
 |                      |                                                              |
 |                      |                                                              |
@@ -626,9 +626,10 @@ apktool.jar d -r andra.apk -o andra # 与上面一样
 > 2. A - B + M < M，即被减数小于减数。此时CF = INVERT(0) = 1
 >
 > CF = 0对应被减数大于等于减数（无借位）;CF = 1对应被减数小于减数（有借位）。这说明，对于ADD，CF表示进位；而对于SUB，CF表示借位。对于NEG指令，Any nonzero operand causes the Carry flag to be set。而对于汇编乘法中的CF位，The Carry flag indicates whether or not the upper half of the product contains significant digits.
->
 
 ## Jump, Call, Ret
+
+> https://www.tutorialspoint.com/assembly_programming/assembly_conditions.htm  Assembly - Conditions
 
 | Instructions              | Comments                                                     |
 | ------------------------- | ------------------------------------------------------------ |
@@ -637,11 +638,34 @@ apktool.jar d -r andra.apk -o andra # 与上面一样
 | `jnb label`               | jump when not below, if CF == 0 jump                         |
 | `jnz label`               | `if( ZF!=0 )` jump                                           |
 | `ret`                     | `pop IP`，用栈中的数据，修改IP的内容，从而实现近转移         |
-| `leave`                   | High Level Procedure Exit, in 32bit: `mov esp, ebp; pop ebp`, 将`ebp`的值赋值给`esp`，从栈中恢复`ebp`的值 |
+| `leave`                   | High Level Procedure Exit, in 32bit: `mov esp, ebp; pop ebp`. 将`ebp`的值赋值给`esp`，从栈中恢复`ebp`的值 |
 |                           |                                                              |
 |                           |                                                              |
 |                           |                                                              |
 |                           |                                                              |
+
+
+- Following are the conditional jump instructions used on signed data used for **arithmetic** operations
+
+| Instruction | Comments                            |
+| ----------- | ----------------------------------- |
+| JE/JZ       | Jump Equal / Zero. if ZF==1         |
+| JNE/JNZ     | Jump not Equal / Not Zero. if ZF==0 |
+| JG/JNLE     | Jump Greater or Jump Not Less/Equal |
+| JGE/JNL     | Jump Greater/Equal or Jump Not Less |
+| JL/JNGE     | Jump Less or Jump Not Greater/Equal |
+| JLE/JNG     | Jump Less/Equal or Jump Not Greater |
+
+- Following are the conditional jump instructions used on unsigned data used for **logical** operations
+
+| Instruction | Comments                            |
+| ----------- | ----------------------------------- |
+| JE/JZ       | Jump Equal / Zero. if ZF==1         |
+| JNE/JNZ     | Jump not Equal / Not Zero. if ZF==0 |
+| JA/JNBE     | Jump Above or Jump Not Below/Equal  |
+| JAE/JNB     | Jump Above/Equal or Jump Not Below  |
+| JB/JNAE     | Jump Below or Jump Not Above/Equal  |
+| JBE/JNA     | Jump Below/Equal or Jump Not Above  |
 
 
 
