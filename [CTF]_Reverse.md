@@ -688,7 +688,7 @@ apktool.jar d -r andra.apk -o andra # 与上面一样
 
 
 
-# Machine Code Cheat Sheet
+# Opcode Cheat Sheet
 
 > 常见机器码速查，用于应对花指令
 
