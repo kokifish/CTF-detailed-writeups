@@ -1,29 +1,15 @@
 - writer: github.com/hex-16   data: from 2020   contact: hexhex16@outlook.com
 > **Tips** : Highly recommend open with markdown editor **Typora**, and enable all *syntax support* and sidebar *Outline*.
 
-# Reverse Engineering Introduction
-
-- 软件代码逆向主要指对软件的结构，流程，算法，代码等进行逆向拆解和分析
-- Software Reverse Engineering: 主要应用于软件维护，软件破解，漏洞挖掘，恶意代码分析
-
-要求
-
-- 熟悉如操作系统，汇编语言，加解密等相关知识
-- 具有丰富的多种高级语言的编程经验
-- 熟悉多种编译器的编译原理
-- 较强的程序理解和逆向分析能力
-
-
-
-## To-Do List
+# To-Do List
 
 - [ ] 疑似用python生成的exe文件 可以直接运行 文件较大的 急需补充背景知识(shadowCTF secure protocol)
+- [ ] angr  https://blog.csdn.net/xiangshangbashaonian/article/details/82825488 https://blog.csdn.net/qq_35713009/article/details/89766154 https://blog.csdn.net/u013648063/article/details/108685416
+- [ ] Ghidra 开源免费逆向工具
 
 
 
-
-
-## Warning List
+# Warning List
 
 > 记录做题史中犯过的低级错误
 
@@ -53,11 +39,13 @@
 
 
 
-## Reverse Workflow
+# Reverse Workflow
 
-1. 使用`exeinfope/PEiD/strings/file/binwalk/IDA`等静态分析工具收集信息，并根据这些静态信息进行google/github搜索
+> CTF Reverse Workflow, Challenge Resolving
+
+1. [opt] 使用`exeinfope/PEiD/strings/file/binwalk/IDA`等静态分析工具收集信息，并根据这些静态信息进行google/github搜索
 2. 研究程序的保护方法，如代码混淆，保护壳及反调试等技术，并设法破除或绕过保护
-3. 反汇编目标软件(IDA)，快速定位到关键代码进行分析
+3. 反汇编目标软件(IDA)，快速定位到关键代码进行分析。(如果直接step-3)
 4. 结合动态调试(OllyDbg, gdb, etc)，验证自己的初期猜想，在分析的过程中理清程序功能
 5. 针对程序功能，写出对应脚本，求解出 flag
 
@@ -65,8 +53,27 @@
 
 动态分析 
 
-- 动态分析的目的在于定位关键代码后，在程序运行的过程中，借由输出信息（寄存器，内存变化，程序输出）等来验证自己的推断或是理解程序功能
+- 目的: 定位关键代码后，在程序运行的过程中，借由输出信息（寄存器，内存变化，程序输出）验证推断、理解程序功能。比如验证花指令
 - 主要方法：调试，符号执行，污点分析
+
+
+
+
+
+# Reverse Engineering Introduction
+
+- 软件代码逆向主要指对软件的结构，流程，算法，代码等进行逆向拆解和分析
+- Software Reverse Engineering: 主要应用于软件维护，软件破解，漏洞挖掘，恶意代码分析
+
+要求
+
+- 熟悉如操作系统，汇编语言，加解密等相关知识
+- 具有丰富的多种高级语言的编程经验
+- 熟悉多种编译器的编译原理
+- 较强的程序理解和逆向分析能力
+
+
+
 
 
 
@@ -163,7 +170,11 @@ void decrypt (uint32_t* v, uint32_t* k) {
 
 ### RC4
 
-在[密码学](https://zh.wikipedia.org/wiki/密碼學)中，**RC4**（来自 Rivest Cipher 4 的缩写）是一种[流加密](https://zh.wikipedia.org/wiki/流加密)算法，[密钥](https://zh.wikipedia.org/wiki/密钥)长度可变。它加解密使用相同的密钥，因此也属于[对称加密算法](https://zh.wikipedia.org/wiki/对称加密)。RC4 是[有线等效加密](https://zh.wikipedia.org/wiki/有線等效加密)（WEP）中采用的加密算法，也曾经是 [TLS](https://zh.wikipedia.org/wiki/传输层安全协议) 可采用的算法之一。
+> **RC4** (Rivest Cipher 4)
+
+- [流加密](https://zh.wikipedia.org/wiki/流加密)算法，[密钥](https://zh.wikipedia.org/wiki/密钥)长度可变
+- 加解密使用相同的密钥，也属于[对称加密算法](https://zh.wikipedia.org/wiki/对称加密)
+- RC4 是[有线等效加密](https://zh.wikipedia.org/wiki/有線等效加密)（WEP）中采用的加密算法，也曾经是 [TLS](https://zh.wikipedia.org/wiki/传输层安全协议) 可采用的算法之一。
 
 ```cpp
 void rc4_init(unsigned char *s, unsigned char *key, unsigned long Len) { //初始化函数
@@ -233,12 +244,14 @@ void rc4_crypt(unsigned char *s, unsigned char *Data, unsigned long Len) { //加
 
 ### MD5
 
-**MD5 消息摘要算法**（英语：MD5 Message-Digest Algorithm），一种被广泛使用的[密码散列函数](https://zh.wikipedia.org/wiki/密碼雜湊函數)，可以产生出一个 128 位（16 [字节](https://zh.wikipedia.org/wiki/字节)）的散列值（hash value），用于确保信息传输完整一致。MD5 由美国密码学家[罗纳德 · 李维斯特](https://zh.wikipedia.org/wiki/罗纳德·李维斯特)（Ronald Linn Rivest）设计，于 1992 年公开，用以取代 [MD4](https://zh.wikipedia.org/wiki/MD4) 算法。这套算法的程序在 RFC 1321中被加以规范。
+>  **MD5 消息摘要算法** MD5 Message-Digest Algorithm，MD5 由美国密码学家[罗纳德 · 李维斯特](https://zh.wikipedia.org/wiki/罗纳德·李维斯特)（Ronald Linn Rivest）设计，于 1992 年公开，用以取代 [MD4](https://zh.wikipedia.org/wiki/MD4) 算法。这套算法的程序在 RFC 1321中被加以规范。
+
+- 一种被广泛使用的[密码散列函数](https://zh.wikipedia.org/wiki/密碼雜湊函數)，可以产生出一个 128 位（16 [字节](https://zh.wikipedia.org/wiki/字节)）的散列值 hash value，用于确保信息传输完整一致。
 
 伪代码表示为：
 
 ```assembly
-/Note: All variables are unsigned 32 bits and wrap modulo 2^32 when calculating
+# Note: All variables are unsigned 32 bits and wrap modulo 2^32 when calculating # MD5 hash算法伪代码
 var int[64] r, k
 
 //r specifies the per-round shift amounts
@@ -305,10 +318,10 @@ var int digest := h0 append h1 append h2 append h3 //(expressed as little-endian
 其鲜明的特征是：
 
 ```python
-    h0 = 0x67452301;
-    h1 = 0xefcdab89;
-    h2 = 0x98badcfe;
-    h3 = 0x10325476;
+h0 = 0x67452301;
+h1 = 0xefcdab89;
+h2 = 0x98badcfe;
+h3 = 0x10325476;
 ```
 
 #### md5: python
@@ -496,8 +509,8 @@ while(v20 > 0):
 - 命令行工具：jad
 - 带GUI的逆向工具：jadx(https://github.com/skylot/jadx)
 
-```java
-带参数运行.jar文件: java -jar Guess-the-Number.jar 309137378
+```bash
+java -jar Guess-the-Number.jar 309137378 # 带参数运行.jar文件
 ```
 
 
@@ -546,7 +559,7 @@ ELF (Executable and Linkable Format)文件，也就是在 Linux 中的目标文�
 
 
 
-### 程序加载
+### Loader
 
 程序加载过程其实就是系统创建或者或者扩充进程镜的过程。它只是按照一定的规则把文件的段拷贝到虚拟内存段中。进程只有在执行的过程中使用了对应的逻辑页面时，才会申请相应的物理页面。通常来说，一个进程中有很多页是没有被引用的。因此，延迟物理读写可以提高系统的性能。为了达到这样的效率，可执行文件以及共享目标文件所拥有的段的文件偏移以及虚拟地址必须是合适的，也就是说他们必须是页大小的整数倍。
 
@@ -590,7 +603,7 @@ apktool.jar d -r andra.apk -o andra # 与上面一样
 
 
 
-# Assembly Instruction Cheat Sheet
+# Assembly Lookup Table
 
 > http://c.biancheng.net/view/3560.html
 >
@@ -673,9 +686,715 @@ apktool.jar d -r andra.apk -o andra # 与上面一样
 
 
 
+
+
+# Machine Code Cheat Sheet
+
+> 常见机器码速查，用于应对花指令
+
+```assembly
+90 nop
+9A CALL # CALL immed32
+E8 call # CALL immed16
+E9 # JMP immed16
+EB # JMP immed8
+```
+
+
+
+
+
+
+
+# Function Cheat Sheet
+
+> 一些典型/常见函数的解析，有助于阅读逆向出来的代码
+
+## FILENO, stdin, stdout, stderr
+
+- This function returns the file descriptor number associated with a specified stream.
+
+```cpp
+#define _POSIX_SOURCE
+#include <stdio.h>
+int fileno(const FILE *stream);
+```
+
+- `stream`: The stream for which the associated file descriptor will be returned.
+- `unistd.h`定义了如下宏，映射到标准流的fd
+- `STDIN_FILENO`: Standard input, `stdin` (value 0).
+- `STDOUT_FILENO`: Standard output, `stdout` (value 1).
+- `STDERR_FILENO`: Standard error, `stderr` (value 2).
+
+```cpp
+#define _POSIX_SOURCE
+#include <errno.h>
+#include <stdio.h>
+main() {
+  FILE *stream;
+  char my_file[]="my.file";
+  printf("fileno(stdin) = %d\n", fileno(stdin)); // fileno(stdin) = 0
+  if ((stream = fopen(my_file, "w")) == NULL)
+    perror("fopen() error");
+  else {
+    printf("fileno() of the file is %d\n", fileno(stream)); // fileno() of the file is 3
+    fclose(stream);   remove(my_file);
+  }
+}
+```
+
+
+
+- `_fileno`: Gets the file descriptor associated with a stream.
+
+```cpp
+int _fileno(
+   FILE *stream
+);
+#include <stdio.h>
+int main( void ){ //  uses _fileno to obtain the file descriptor(fd) for some standard C streams
+   printf( "fd of stdin %d\n", _fileno( stdin ) ); // fd of stdin 0
+   printf( "fd of stdin %d\n", _fileno( stdout ) ); // fd of stdin 1
+   printf( "fd of stdin %d\n", _fileno( stderr ) ); // fd of stdin 2
+}
+```
+
+
+
+
+
 ---
 
-# **Reverse Engineering for Beginners**
+# **IDA Pro** Cheat Sheet
+
+> 静态分析
+>
+> 入门笔记 含快捷键 窗口介绍  https://www.zybuluo.com/oro-oro/note/137244
+
+- 查看版本号与逆编译器版本 Help => About program => `Version 7.5.201028 Windows x64 (32-bit address size)` => Addons => 32 bit: `e.g. x86 ARM PowerPC MIPS Decompiler`
+- Option:
+  - General:
+    - Disassembly:
+      - Auto comments: 可以显示汇编指令的含义e.g.  `li  $a3, 0x10019C80 # Load Immediate`
+
+
+
+
+
+## Shortcut Lookup Table
+
+| Short Cut | Functionality                                                |
+| --------- | ------------------------------------------------------------ |
+| space     | 切换显示方式                                                 |
+| C         | 转换为代码                                                   |
+| D         | 转换为数据                                                   |
+| R         | 转换为char                                                   |
+| Alt + M   | Mark position 也可以在地址处右键(可在汇编/伪c窗口使用，对文件位置mark，在Jump菜单) |
+| Ctrl + M  | Jump to marked position也可以在地址处右键(与上一个一起用，方便分析复杂指令) |
+| N         | 为标签重命名(包含寄存器等)                                   |
+| ?         | 计算器                                                       |
+| G         | 跳转到地址(然后会出来Jump to address对话框)                  |
+| ;         | 添加注释(Pseudocode窗口下按 / 添加注释)                      |
+| Ctrl+X    | 查看当前函数、标签、变量的参考(显示栈)                       |
+| X         | 查看当前函数、标签、变量的参考                               |
+| Alt + I   | 搜索常量constant                                             |
+| Ctrl + I  | 再次搜索常量constant                                         |
+| Alt + B   | 搜索byte序列                                                 |
+| Ctrl + B  | 再次搜索byte序列                                             |
+| Alt + T   | 搜索文本(包括指令中的文本)                                   |
+| Ctrl + T  | 再次搜索文本                                                 |
+| P         | 创建函数(Edit=>Functions)                                    |
+| Alt + P   | 编辑当前函数                                                 |
+| Enter     | 跳转到函数、变量等对象                                       |
+| Esc       | 返回                                                         |
+
+
+
+
+
+## IDA View
+
+- 程序基本信息：在Text view下，拉到最前面。可看到的信息：大/小端序，架构，文件名...
+
+| Short Cut | Functionality                                              |
+| --------- | ---------------------------------------------------------- |
+| F5        | 反汇编为伪代码Pseudocode                                   |
+| space     | 在Text view和Graph view显示模式之间切换                    |
+| a         | 转换显示形式为char (如在.rodata段将一些整型转换成char显示) |
+| x         | Jump to xref to operand... 将打开                          |
+| shift+E   | 光标选中后，提取对应位置的数据。Edit => Export data        |
+|           |                                                            |
+|           |                                                            |
+|           |                                                            |
+|           |                                                            |
+
+
+
+## Pseudocode
+
+> 伪代码窗口 在IDA View窗口中按F5可以打开该窗口
+
+- Pseudocode窗口下右键函数名，可以点击`Jump to xref`查看调用了这个函数的地方
+- 在立即数处右键，可以选择改成不同的数据表现形式
+- 在变量/类型声明处右键 => Set lvar type (Y) : 改变变量的解析形式(类型)，有时可以更加直观的分析代码。之后可以再右键 => Reset pointer type: 改回原本IDA解析的变量类型
+
+```cpp
+while ( v4 != 1LL && v4 != -1LL ); // LL for long long // v4 is __int64
+v7 = 28537194573619560LL; // 右键，可以选择改成Char Enum Hex等
+v7 = 'ebmarah'; // 改成Char之后
+```
+
+
+
+## Strings Window
+
+- shift+F12 打开 **Strings Window** 查看关键字符串，双击某个string后可以跳到IDA View，查看对应汇编代码
+- 双击后面的提示信息`; DATA XREF:`可以跳转到用到了该string的函数
+
+```assembly
+.rodata:0000000000400965 ; char aYouEnteredTheC[]
+.rodata:0000000000400965 aYouEnteredTheC db 'You entered the correct password!',0Ah
+.rodata:0000000000400965                                         ; DATA XREF: sub_4007F0+8↑o
+```
+
+
+
+
+
+
+
+## Remote Debug
+
+> 远程调试 这里一般指Win上的IDA分析虚拟机/局域网内的Linux上的程序 也可指本机上的程序
+
+
+
+Remote Linux: (test in Kali 2020.4 64bit)
+
+1. **Copy** `linux_server64` in `IDAroot\dbgsrv\` to Linux server.
+2. `chmod a+x ./linux_server64`
+3. Run: `./linux_server64`
+
+Then, on local windows:
+
+1. Under the IDA menu bar，debugger change to: **Remote Linux debugger**
+2. IDA menu bar: Debugger => **Process option**
+   - fill the full path or relative path of ELF file in the `Application` and `Input file` fields
+   - `Directory`: the directory path, or empty if using relative path above
+   - `Hostname` field: IP address of the remote machine
+   - `parameters`: run the program with some parameters
+3. [opt] Setup support for x86 on Linux x64(when your ELF is 32bit and Linux is 64bit):
+   - `sudo dpkg --add-architecture i386`
+   - `sudo apt-get update`
+   - `sudo apt-get install libc6:i386 libncurses5:i386 libstdc++6:i386`
+4. Run! Set breakpoint in pseudocode. F9 start/continue; F7 step into; F8 step over.
+
+
+
+
+
+## IDA Python
+
+> 主要记录如何使用python与IDA交互
+
+在IDA中使用python的两种方式
+
+1. At the bottom of the IDA window, below Output window: Python
+2. File => Script command
+
+```python
+print(get_bytes(0x6010E0, 10)) # 输出 0x6010E0 地址及其后的 10 Byte
+```
+
+```python
+from ida_bytes import patch_byte, get_byte
+s = 0x600b00 # judge函数的地址
+for i in range(182): # 182为judege函数的总长度
+    patch_byte(s+i, get_byte(s+i) ^ 0xc)
+```
+
+
+
+
+
+# Ghidra
+
+> 由美国国家安全局开发的免费和开源的逆向工程工具，可在Windows\macOS\Linux进行源代码分析
+
+- TBD
+
+
+
+
+
+
+
+
+
+
+
+---
+
+#  Dynamic Analysis
+
+> 动态分析 实践部分 gdb,gef, pwndbg, Ollydbg
+
+- 对gdb进行强化的两个工具：peda，pwndbg。强化视觉效果
+
+```bash
+gcc a.c -g -o a # -g选项可以保存调试信息
+```
+
+
+
+
+
+## gdb
+
+> Linux下使用最多的一款调试器Debugger，也有Windows移植版
+>
+> 逆向工程权威指南(下册) p940 有**GDB指令速查表**
+
+Installation: `sudo apt-get install gdb`
+
+- 启动gdb，设置语体
+
+```bash
+gdb ./a # 将文件加载到gdb中 # 使用gdb调试文件a
+gdb ./a -silent # 不打印gdb前导信息(含免责条款)
+gdb attach PID # 调试某个正在运行的进程 进程ID为PID
+set disassembly-flavor intel # 令gdb采用intel语体
+```
+
+- 下断点、运行程序
+
+```bash
+b decrypt # 将断点设置在decrypt处
+b 10 # 在第10行设置断点
+b * 0x804865c # 在该地址设置断点
+r # run # 重新开始执行
+run # 运行被调试的程序
+c # continue # 继续执行到断点，没断点就一直执行下去
+continue # 继续运行
+
+n # 单步步过 step over # 源码层面的一步
+ni # step over 汇编层面的一步
+
+s # 单步步入 step into # 源码层的一步
+si # step into 汇编层的一步
+stepi # 每步执行
+
+finish # 继续执行余下指令直到(当前)函数结束为止
+q # 退出调试 
+```
+
+### print/info/x
+
+```bash
+p v0 # 打印变量v0的值
+p $1 # 依据编号 打印编号为1的变量的值 # 编号由gdb赋予
+p system # 获取 system 函数的地址 # 该方法可以获取任意libc函数的地址
+list 2 # 列出第二行的源文件
+list main # 列出函数main
+list # 不带参数 展示10行
+
+disas # 检查汇编 给出当前对应的代码的汇编 其中箭头指向的是接下来将要运行的指令
+disassemble 0xf7e39980 # 查看该地址的汇编代码，如果是函数，到ret结束
+info file # 可以查看入口点 各段地址范围
+info reg # 查看寄存器信息
+info registers # 查看寄存器内容  # same as: i r
+info break # i b # 查看断点编号 # 还可以看到断点命中几次
+
+
+info  proc # 查看进程信息
+
+print $rsp # 查看寄存器内容 # p = print
+p /x *(int*)($rbp-0x4) # 寄存器减去偏移量
+x /w $ rbp-0x4 # 与上一行等价 p /x *(int*)($rbp-0x4) 
+
+x/200wx $eax # x: 查看内存中数值 200表示查看200个 wx以word字节查看 $eax代表eax寄存器中的值
+x/50b 0x0000000000405050 # 查看内存中的值，以1byte(b)查看50个
+x/10w $esp # 显示栈里的10个数据
+x/5i 0x0804844a # 显示某个地址开始的5条指令
+x/s 0x080484f0 # 将某个地址开始的内容以字符串形式输出
+x/s $rdi # 将rdi寄存器指向的地址开始的内容以字符串形式输出
+x/10g $rsp # g: giant words 以64bit words格式显示各数据 显示$rsp开始的10个
+```
+
+```
+x(hex) 按十六进制格式显示变量。
+d(decimal) 按十进制格式显示变量。
+u(unsigned decimal) 按十进制格式显示无符号整型。
+o(octal) 按八进制格式显示变量。
+t(binary) 按二进制格式显示变量。
+a(address) 按十六进制格式显示变量。
+c(char) 按字符格式显示变量。
+f(float) 按浮点数格式显示变量
+```
+
+
+
+```python
+# 查看完内存后 可能需要将内存中显示的16进制数转换为字符串
+key = "393434377b"
+flag = key.decode('hex') # hex to str
+```
+
+### set/modify
+
+```bash
+set $eax=1 # 设置寄存器 eax 为 0
+set {int}0x83040 = 4 # 将内存位置0x83040表示为整数，将值4存储到该存储位置
+```
+
+
+
+### gdb: Input Invisible Character
+
+> gdb调试时输入不可见字符
+
+- 使用类似如下的python脚本，将输入写入文件`input`中：
+
+```python
+s = b"\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f\x00\n\n\n\nabcdABCD"
+with open("input", "wb") as f:
+    f.write(s)
+```
+
+- 存入`input`的内容：
+
+```assembly
+$ hexdump input
+0000000 0201 0403 0605 0807 0a09 0c0b 0e0d 000f
+0000010 0a0a 0a0a 6261 6463 4241 4443
+```
+
+- 在GDB 开始调试时，使用run时添加`< input`
+
+```assembly
+r < input
+```
+
+- 将不可见字符保存成文件`input`的demo
+
+```python
+#!/usr/bin/env python  # gdb调试时输入不可见字符 demo 
+from pwn import *
+from LibcSearcher import LibcSearcher 
+context.log_level = "DEBUG"
+sh = process("./ret2libc3")
+
+ret2libc3 = ELF("./ret2libc3")
+puts_plt = ret2libc3.plt["puts"] 
+libc_start_main_got = ret2libc3.got["__libc_start_main"] 
+main = ret2libc3.symbols["main"] 
+
+print("leak libc_start_main_got addr and ret to main", str(hex(puts_plt)), str(hex(main)), str(hex(libc_start_main_got)))
+# puts_plt, main, libc_start_main_got: 0x08048460 0x08048618 0x0804a024
+payload = flat(['A' * (108+4), puts_plt, main, libc_start_main_got])
+print("payload: ", payload.hex(), type(payload)) # <class 'bytes'>
+# ...... 41414141 60840408 18860408 24a00408 
+with open("input", "wb") as f:
+    f.write(payload) 
+```
+
+
+
+## gef
+
+```assembly
+hexdump qword
+hexdump dword
+hexdump word
+hexdump byte # display the ASCII character values if the byte is printable (similarly to the hexdump -C command on Linux)
+gef➤  hexdump byte 0xffd58258 132
+0xffd58258     bc 82 d5 ff 25 30 31 32 64 25 36 24 6e 00 d5 ff    ....%012d%6$n...
+0xffd58268     02 00 00 00 66 8d f2 f7 34 80 04 08 00 00 00 00    ....f...4.......
+0xffd58278     00 90 f3 f7 00 00 00 00 00 00 00 00 00 00 00 00    ................
+0xffd58288     34 80 04 08 28 da ee f7 00 c0 ee f7 80 00 f2 f7    4...(...........
+0xffd58298     00 00 00 00 1e ec d3 f7 fc c3 ee f7 ff ff ff ff    ................
+0xffd582a8     00 00 00 00 8b 85 04 08 01 00 00 00 84 83 d5 ff    ................
+0xffd582b8     8c 83 d5 ff 15 03 00 00 80 00 f2 f7 e0 82 d5 ff    ................
+0xffd582c8     00 00 00 00 46 5e d2 f7 00 c0 ee f7 00 c0 ee f7    ....F^..........
+0xffd582d8     00 00 00 00    ....
+```
+
+
+
+## pwndbg
+
+> https://github.com/pwndbg/pwndbg
+>
+>https://blog.csdn.net/Breeze_CAT/article/details/103789233  指令参考
+
+Installation: 
+
+1. `git clone https://github.com/pwndbg/pwndbg`
+2. `cd pwndbg`
+3. `chmod 777 ./setup.sh`
+4. `./setup.sh`
+
+- 安装完成后，使用`gdb`指令后，命令行左侧显示的是`pwndbg`
+
+
+
+### cmd quick find
+
+- 指的是执行`gdb`后，可以使用的指令。(`gdb exefile -q`, `-q` for quiet)
+
+```bash
+pwndbg # 显示可用命令
+b *0x080486AE # 在这个地址处下断点
+r # 运行
+help # 帮助 # 会显示不同类别的帮助信息 但是没有详细的指令帮助信息
+help breakpoints # 显示 breakpoints 类目下的指令
+backtrace # 显示函数调用栈
+```
+
+- 执行指令
+
+```bash
+s # 单步步入 step into # 源码层的一步
+si # step into 汇编层的一步
+n # 单步步过 step over # 源码层面的一步
+ni # step over 汇编层面的一步
+c # continue # 继续执行到断点，没断点就一直执行下去
+r # run # 重新开始执行
+```
+
+- 断点指令
+
+```bash
+# 普通断点指令b(break)
+b *0x080486AE # 在这个地址处下断点
+b func # 给函数 func 下断点，目标文件需保留符号 # b file_name:func
+b file_name:15 # 给 file_name 的15行下断点，需有源码 # b 15
+b +0x10 # 在程序当前停住的位置下 0x10 处下断点
+
+# 查看 删除 禁用断点
+info break # i b # 查看断点编号 # 还可以看到断点命中几次
+delete 1 # 删除 1 号断点
+disable 1 # 禁用 1 号断点
+enable 1 # 启用 1 号断点
+
+# 内存断点指令watch
+watch 0x123456 # 0x123456地址的数据改变的时候会断
+watch a # 变量 a 改变时命中断点
+info watchpoints # 显示watch断点信息
+
+# 捕获断点catch
+catch syscall # syscall 系统调用时断
+tcatch syscall # syscall 系统调用时断 但只断一次
+info break # i b # 查看catch的断点
+```
+
+- 打印指令
+
+```bash
+# 查看内存指令x   # x /nuf 0x123456
+
+# 打印指令p(print)
+p *(0x123456) # 查看0x123456地址的值 # 与x指令的区别： x指令查看地址的值不用星号
+
+# 打印汇编指令disass(disassemble)
+disass 0x123456 # 显示0x123456前后的汇编指令
+
+# 打印源代码指令list
+```
+
+
+
+
+
+```bash
+stack # 查看栈
+retaddr # 打印包含返回地址的栈地址
+canary # 直接看canary的值
+plt # 查看plt表
+got # 查看got表
+hexdump # 像 IDA 那样显示数据，带字符串
+hexdump 0xffffd3cc # 像 IDA 那样显示 0xffffd3cc 地址后的64bytes，带字符串
+```
+
+
+
+
+
+## OllyDbg
+
+> Shareware/Freeware	http://www.ollydbg.de/  v2.01 (27-Sep-2013), v1.10 是v1.x的最终版，v2彻底重写
+>
+> windows的 32bit  x86 汇编级分析调试器, Ring3
+>
+> 吾爱破解论坛上有包含很多插件的v1.1汉化版
+
+- 标题栏 module a: 表示当前在a.exe代码内
+- 菜单栏File下方一栏左边: 显示当前状态，paused一般是到了断点
+- 反汇编窗口（左上）：显示反汇编代码。标题栏上的地址、HEX 数据、反汇编、注释可以通过在窗口中右击出现的菜单 界面选项->隐藏标题 或 显示标题 来进行切换是否显示。用鼠标左键点击注释标签可以切换注释显示的方式
+- 信息窗口（在反汇编窗口下方）：显示选中的第一条指令及跳转目标地址、字串等
+- 寄存器窗口（右上）：显示当前所选线程的 CPU 寄存器内容。点击标签 寄存器 (FPU) 可以切换显示方式
+- 数据窗口（左下）：内存/文件的内容。右键菜单可切换显示方式
+- 堆栈窗口（右下）：显示当前线程的堆栈
+
+
+
+- View =>
+  - Executable modules: 查看可执行模块。右键用户程序 => View names 查看某个模块用到的函数。在函数处右键可以Find references to import(enter)，出现新窗口显示引用到该函数的地址与指令，双击跳转到对应汇编指令处
+- Option => 
+  - Appearance => Directories: 修改udd, plugins 路径。UDD 目录的作用是保存调试工作
+  - Debugging options: 修改调试选项，包括异常、字符串等
+
+
+
+- 配置：od将所有配置放在安装目录的ollydbg.ini中
+- 插件：将下载的插件(e.g. dll)复制到`plugin`文件夹，od启动时会自动识别。但不可超过32个否则会出错
+
+
+
+主界面右键 => Search for => All referenced text strings: 会显示被引用的所有文本文件
+
+
+
+
+
+### shortcut / cmd
+
+| shortcut  | functionality                                                |
+| --------- | ------------------------------------------------------------ |
+| F2        | 设置/删除断点(光标处)                                        |
+| F8        | 单步步过。执行一条指令，call等子过程不进入                   |
+| F7        | 单步步入。遇到call等子过程会进入，进入后停在子过程第一条指令 |
+| F4        | 运行到光标处                                                 |
+| F9        | 运行至断点处                                                 |
+| Ctrl + F9 | 执行到ret指令处暂停。常用于从系统领空返回用户程序领空        |
+| Alt + F9  | 执行到用户代码。可用于从系统领空快速返回到调试程序的领空     |
+|           |                                                              |
+|           |                                                              |
+
+
+
+### Cases
+
+```python
+# 从od的汇编指令窗口复制过来的，修改过的地方的原始指令及修改原因将在注释中说明
+00F7108C    .  FF15 1460F700 call dword ptr ds:[<&KERNEL32.IsDebuggerPr>; [IsDebuggerPresent
+00F71092    .  85C0          test eax,eax # 前面在测试是否有debugger 
+00F71094       90            nop # je short 00F710B9 # 这里会导致flag处理函数被跳过
+00F71095       90            nop # 因为指令长度不同 前面改为nop后 这里会自动填充一个nop
+00F71096    >  41            inc ecx
+00F71097    .  41            inc ecx
+00F71098    .  41            inc ecx
+00F71099    .  41            inc ecx
+00F7109A       90            nop # int 3 # 中断3 软件中断
+00F7109B    .  8B55 F4       mov edx,dword ptr ss:[ebp-0xC]
+00F7109E    .  E8 5DFFFFFF   call csaw2013.00F71000 ; 对flag处理的调用 # 因前面的修改，现在可以执行到这
+00F710A3       90            nop # jmp short 00F710EF # 这条指令会导致跳过第1个MessageBoxA
+00F710A4       90            nop # 自动填充 nop
+00F710A5    .  6A 02         push 0x2 ; /Style = MB_ABORTRETRYIGNORE|MB_APPLMODAL
+00F710A7    .  68 2078F700   push csaw2013.00F77820                     ; |Flag
+00F710AC    .  FF75 F4       push dword ptr ss:[ebp-0xC]                ; |Text = ""
+00F710AF    .  6A 00         push 0x0                                   ; |hOwner = NULL
+00F710B1    .  FF15 E460F700 call dword ptr ds:[<&USER32.MessageBoxA>]  ; \MessageBoxA第一次使用
+00F710B7       90            nop # jmp short 00F710CD # 这条指令会导致跳过第2个MessageBoxA
+00F710B8       90            nop # 自动填充 nop
+00F710B9    >  6A 02         push 0x2               ; /Style = MB_ABORTRETRYIGNORE|MB_APPLMODAL
+00F710BB    .  68 2078F700   push csaw2013.00F77820                     ; |Flag
+00F710C0    .  8B45 F4       mov eax,dword ptr ss:[ebp-0xC]             ; |
+00F710C3    .  40            inc eax                                    ; |
+00F710C4    .  50            push eax                                   ; |Text = 00000005 ???
+00F710C5    .  6A 00         push 0x0                                   ; |hOwner = NULL
+00F710C7    .  FF15 E460F700 call dword ptr ds:[<&USER32.MessageBoxA>]  ; \MessageBoxA
+```
+
+
+
+
+
+
+
+# Anti-Debug
+
+> 反调试技术
+
+
+
+## SMC(Self Modifying Code)
+
+- SMC技术,就是一种将可执行文件中的代码或数据进行加密，防止别人使用逆向工程工具（e.g. 反汇编工具）对程序进行静态分析的方法，只有程序运行时才对代码和数据进行解密，从而正常运行程序和访问数据
+- 计算机病毒通常也会采用SMC技术动态修改内存中的可执行代码来达到变形或对代码加密的目的，从而躲过杀毒软件的查杀或者迷惑反病毒工作者对代码进行分析。现在，很多加密软件（或者称为“壳”程序）为了防止Cracker（破解者）跟踪自己的代码，也采用了动态代码修改技术对自身代码进行保护
+
+SMC应对方式：
+
+1. 找到程序中的SMC解密过程，IDA分析并手动解密被SMC加密过的代码/数据
+2. 动态调试，在SMC解密结束后的地方下断点
+
+
+
+```cpp
+// IDA  逆向出来的一个片段 包含简单smc解密过程
+  for ( i = 0; i <= 181; ++i ) // simple smc decrypt
+    judge[i] ^= 0xCu; // 使用异或解密
+  printf("Please input flag:");
+  __isoc99_scanf("%20s", s);
+  v5 = strlen(s);
+  if ( v5 == 14 && (*(unsigned int (__fastcall **)(char *))judge)(s) ) // call function judge(after decrypted)
+    puts("Right!");
+```
+
+- 在IDA中打开后，因为上述解密代码需要在程序运行后才会执行，所以IDA打开的judge函数还处于被加密过的状态（即乱码状态）
+- 因为已经可以看到smc解密过程了，可以根据smc解密过程，对程序文件做patch，使用脚本在未运行时解密
+- 以下为上述smc解密过程的python脚本，可以解密judge函数。注意只能运行一次
+
+```python
+from ida_bytes import patch_byte, get_byte
+s = 0x600b00 # judge函数的地址
+for i in range(182): # 182为judege函数的总长度
+    patch_byte(s+i, get_byte(s+i) ^ 0xc)
+```
+
+> IDA python ida_bytes:  https://www.hex-rays.com/products/ida/support/idapython_docs/ida_bytes-module.html
+
+- 脚本运行结束后，U取消原本定义，C生成汇编代码，P生成函数。至此judge函数可以正常逆向了
+
+
+
+## Flower Code 花指令
+
+> 可能会涉及修改机器码，参考**Machine Code**章节
+
+1. 不影响程序本身的运行
+2. 阻碍静态分析工具正确分析
+
+- 企图隐藏掉不想被逆向工程的代码块/功能的一种方法, 在真实代码中插入一些垃圾代码的同时保证原有程序的正确执行, 而程序无法很好地反编译, 难以理解程序内容, 达到反调试的效果
+
+> 比如使用`jz ... jnz ... call`(`call`机器码`E8`). call 永不执行，而后面一些指令的机器码被当成`call`的一部分而被掩藏
+
+
+
+花指令情形列举：
+
+- IDA中显示类似`jump short xxx+2`，该地址`xxx`很可能就是一个混淆用的机器码，将被跳过的字节改为`90`(`nop`)来消除影响
+- 
+
+
+
+
+
+### Cases
+
+- 使用了多种花指令   `mathematic_sage_starctf_2021_wherekey`:  https://github.com/hex-16/CTF-detailed-writeups/tree/main/reverse/mathematic_sage_starctf_2021_wherekey 
+
+
+
+
+
+
+
+
+
+---
+
+# Book: **Reverse Engineering for Beginners**
 
 > 主要内容摘自 **逆向工程权威指南** [乌克兰]Dennis Yurichev 著, Archer安天安全研究与应急处理中心 译
 
@@ -686,6 +1405,7 @@ int f(){ // 第二章 最简函数
     return 123;
 }
 ```
+
 ```assembly
 ; 开启优化功能后，GCC产生的x86汇编指令(MSVC编译的程序也一样)：
 f:
@@ -907,6 +1627,7 @@ MIPS指令分为3类:
 > 本节内容：逆向工程权威指南下册 附录C MIPS C.2 指令
 
 1. **R-Type**: Register/寄存器类指令。此类指令操作**3**个寄存器
+
 ```assembly
 指令目标寄存器    源寄存器1    源寄存器2
 ; 当前两个操作数相同时，IDA可能会以以下形式显示。这种显示风格与x86汇编语言的Intel语体十分相似
@@ -915,6 +1636,7 @@ MIPS指令分为3类:
 |    opcode     |     rs    |    rt     |    rd     |   shamt   |     funct     |
 |    操作码     | 源操作数1  | 源操作数2  | 目标寄存器  |   偏移量   |     函数码     |
 ```
+
 2. **I-Type**: **Immediate/立即数类指令**。涉及2个寄存器和1个立即数
 
 ```c
@@ -1292,703 +2014,3 @@ JALR temp_reg
 ## 7. scanf()
 
 - TBD
-
-
-
-
-
----
-
-# **IDA Pro**
-
-> 静态分析
->
-> 入门笔记 含快捷键 窗口介绍  https://www.zybuluo.com/oro-oro/note/137244
-
-- 查看版本号与逆编译器版本 Help => About program => `Version 7.5.201028 Windows x64 (32-bit address size)` => Addons => 32 bit: `e.g. x86 ARM PowerPC MIPS Decompiler`
-- Option:
-  - General:
-    - Disassembly:
-      - Auto comments: 可以显示汇编指令的含义e.g.  `li  $a3, 0x10019C80 # Load Immediate`
-
-
-
-
-
-## Shortcut Quick Find
-
-| Short Cut | Functionality                                                |
-| --------- | ------------------------------------------------------------ |
-| space     | 切换显示方式                                                 |
-| C         | 转换为代码                                                   |
-| D         | 转换为数据                                                   |
-| R         | 转换为char                                                   |
-| Alt + M   | Mark position 也可以在地址处右键(可在汇编/伪c窗口使用，对文件位置mark，在Jump菜单) |
-| Ctrl + M  | Jump to marked position也可以在地址处右键(与上一个一起用，方便分析复杂指令) |
-| N         | 为标签重命名(包含寄存器等)                                   |
-| ?         | 计算器                                                       |
-| G         | 跳转到地址(然后会出来Jump to address对话框)                  |
-| ;         | 添加注释(Pseudocode窗口下按 / 添加注释)                      |
-| Ctrl+X    | 查看当前函数、标签、变量的参考(显示栈)                       |
-| X         | 查看当前函数、标签、变量的参考                               |
-| Alt + I   | 搜索常量constant                                             |
-| Ctrl + I  | 再次搜索常量constant                                         |
-| Alt + B   | 搜索byte序列                                                 |
-| Ctrl + B  | 再次搜索byte序列                                             |
-| Alt + T   | 搜索文本(包括指令中的文本)                                   |
-| Ctrl + T  | 再次搜索文本                                                 |
-| P         | 创建函数(Edit=>Functions)                                    |
-| Alt + P   | 编辑当前函数                                                 |
-| Enter     | 跳转到函数、变量等对象                                       |
-| Esc       | 返回                                                         |
-
-
-
-
-
-## IDA View
-
-- 程序基本信息：在Text view下，拉到最前面。可看到的信息：大/小端序，架构，文件名...
-
-| Short Cut | Functionality                                              |
-| --------- | ---------------------------------------------------------- |
-| F5        | 反汇编为伪代码Pseudocode                                   |
-| space     | 在Text view和Graph view显示模式之间切换                    |
-| a         | 转换显示形式为char (如在.rodata段将一些整型转换成char显示) |
-| x         | Jump to xref to operand... 将打开                          |
-| shift+E   | 光标选中后，提取对应位置的数据。Edit => Export data        |
-|           |                                                            |
-|           |                                                            |
-|           |                                                            |
-|           |                                                            |
-
-
-
-## Pseudocode
-
-> 伪代码窗口 在IDA View窗口中按F5可以打开该窗口
-
-- Pseudocode窗口下右键函数名，可以点击`Jump to xref`查看调用了这个函数的地方
-- 在立即数处右键，可以选择改成不同的数据表现形式
-- 在变量/类型声明处右键 => Set lvar type (Y) : 改变变量的解析形式(类型)，有时可以更加直观的分析代码。之后可以再右键 => Reset pointer type: 改回原本IDA解析的变量类型
-
-```cpp
-while ( v4 != 1LL && v4 != -1LL ); // LL for long long // v4 is __int64
-v7 = 28537194573619560LL; // 右键，可以选择改成Char Enum Hex等
-v7 = 'ebmarah'; // 改成Char之后
-```
-
-
-
-## Strings Window
-
-- shift+F12 打开 **Strings Window** 查看关键字符串，双击某个string后可以跳到IDA View，查看对应汇编代码
-- 双击后面的提示信息`; DATA XREF:`可以跳转到用到了该string的函数
-
-```assembly
-.rodata:0000000000400965 ; char aYouEnteredTheC[]
-.rodata:0000000000400965 aYouEnteredTheC db 'You entered the correct password!',0Ah
-.rodata:0000000000400965                                         ; DATA XREF: sub_4007F0+8↑o
-```
-
-
-
-
-
-
-
-## Remote Debug
-
-> 远程调试 这里一般指Win上的IDA分析虚拟机/局域网内的Linux上的程序 也可指本机上的程序
-
-
-
-Remote Linux: (test in Kali 2020.4 64bit)
-
-1. **Copy** `linux_server64` in `IDAroot\dbgsrv\` to Linux server.
-2. `chmod a+x ./linux_server64`
-3. Run: `./linux_server64`
-
-Then, on local windows:
-
-1. Under the IDA menu bar，debugger change to: **Remote Linux debugger**
-2. IDA menu bar: Debugger => **Process option**
-   - fill the full path or relative path of ELF file in the `Application` and `Input file` fields
-   - `Directory`: the directory path, or empty if using relative path above
-   - `Hostname` field: IP address of the remote machine
-   - `parameters`: run the program with some parameters
-3. [opt] Setup support for x86 on Linux x64(when your ELF is 32bit and Linux is 64bit):
-   - `sudo dpkg --add-architecture i386`
-   - `sudo apt-get update`
-   - `sudo apt-get install libc6:i386 libncurses5:i386 libstdc++6:i386`
-4. Run! Set breakpoint in pseudocode. F9 start/continue; F7 step into; F8 step over.
-
-
-
-
-
-## Python
-
-> 主要记录如何使用python与IDA交互
-
-在IDA中使用python的两种方式
-
-1. At the bottom of the IDA window, below Output window: Python
-2. File => Script command
-
-```python
-print(get_bytes(0x6010E0, 10)) # 输出 0x6010E0 地址及其后的 10 Byte
-```
-
-
-
-
-
-# Function Reference
-
-> 一些典型/常见函数的解析，有助于阅读逆向出来的代码
-
-
-
-
-
-## File / IO Related
-
-
-
-### FILENO
-
-- This function returns the file descriptor number associated with a specified stream.
-
-```cpp
-#define _POSIX_SOURCE
-#include <stdio.h>
-int fileno(const FILE *stream);
-```
-
-- `stream`: The stream for which the associated file descriptor will be returned.
-- `unistd.h`定义了如下宏，映射到标准流的fd
-- `STDIN_FILENO`: Standard input, `stdin` (value 0).
-- `STDOUT_FILENO`: Standard output, `stdout` (value 1).
-- `STDERR_FILENO`: Standard error, `stderr` (value 2).
-
-```cpp
-#define _POSIX_SOURCE
-#include <errno.h>
-#include <stdio.h>
-main() {
-  FILE *stream;
-  char my_file[]="my.file";
-  printf("fileno(stdin) = %d\n", fileno(stdin)); // fileno(stdin) = 0
-  if ((stream = fopen(my_file, "w")) == NULL)
-    perror("fopen() error");
-  else {
-    printf("fileno() of the file is %d\n", fileno(stream)); // fileno() of the file is 3
-    fclose(stream);   remove(my_file);
-  }
-}
-```
-
-
-
-- `_fileno`: Gets the file descriptor associated with a stream.
-
-```cpp
-int _fileno(
-   FILE *stream
-);
-#include <stdio.h>
-int main( void ){ //  uses _fileno to obtain the file descriptor(fd) for some standard C streams
-   printf( "fd of stdin %d\n", _fileno( stdin ) ); // fd of stdin 0
-   printf( "fd of stdin %d\n", _fileno( stdout ) ); // fd of stdin 1
-   printf( "fd of stdin %d\n", _fileno( stderr ) ); // fd of stdin 2
-}
-```
-
-
-
-
-
-
-
-
-
-# Ghidra
-
-> 由美国国家安全局开发的免费和开源的逆向工程工具，可在Windows\macOS\Linux进行源代码分析
-
-- TBD
-
-
-
-
-
-
-
-
-
-
-
----
-
-#  Dynamic Analysis
-
-> 动态分析 实践部分
-
-- 对gdb进行强化的两个工具：peda，pwndbg。强化视觉效果
-
-```bash
-gcc a.c -g -o a # -g选项可以保存调试信息
-```
-
-
-
-
-
-## gdb
-
-> Linux下使用最多的一款调试器Debugger，也有Windows移植版
->
-> 逆向工程权威指南(下册) p940 有**GDB指令速查表**
-
-Installation: `sudo apt-get install gdb`
-
-- 启动gdb，设置语体
-
-```bash
-gdb ./a # 将文件加载到gdb中 # 使用gdb调试文件a
-gdb ./a -silent # 不打印gdb前导信息(含免责条款)
-gdb attach PID # 调试某个正在运行的进程 进程ID为PID
-set disassembly-flavor intel # 令gdb采用intel语体
-```
-
-- 下断点、运行程序
-
-```bash
-b decrypt # 将断点设置在decrypt处
-b 10 # 在第10行设置断点
-b * 0x804865c # 在该地址设置断点
-r # run # 重新开始执行
-run # 运行被调试的程序
-c # continue # 继续执行到断点，没断点就一直执行下去
-continue # 继续运行
-
-n # 单步步过 step over # 源码层面的一步
-ni # step over 汇编层面的一步
-
-s # 单步步入 step into # 源码层的一步
-si # step into 汇编层的一步
-stepi # 每步执行
-
-finish # 继续执行余下指令直到(当前)函数结束为止
-q # 退出调试 
-```
-
-### 查看、显示信息
-
-```bash
-p v0 # 打印变量v0的值
-p $1 # 依据编号 打印编号为1的变量的值 # 编号由gdb赋予
-p system # 获取 system 函数的地址 # 该方法可以获取任意libc函数的地址
-list 2 # 列出第二行的源文件
-list main # 列出函数main
-list # 不带参数 展示10行
-
-disas # 检查汇编 给出当前对应的代码的汇编 其中箭头指向的是接下来将要运行的指令
-disassemble 0xf7e39980 # 查看该地址的汇编代码，如果是函数，到ret结束
-info file # 可以查看入口点 各段地址范围
-info reg # 查看寄存器信息
-info registers # 查看寄存器内容  # same as: i r
-info break # i b # 查看断点编号 # 还可以看到断点命中几次
-
-
-info  proc # 查看进程信息
-
-print $rsp # 查看寄存器内容 # p = print
-p /x *(int*)($rbp-0x4) # 寄存器减去偏移量
-x /w $ rbp-0x4 # 与上一行等价 p /x *(int*)($rbp-0x4) 
-
-x/200wx $eax # x: 查看内存中数值 200表示查看200个 wx以word字节查看 $eax代表eax寄存器中的值
-x/50b 0x0000000000405050 # 查看内存中的值，以1byte(b)查看50个
-x/10w $esp # 显示栈里的10个数据
-x/5i 0x0804844a # 显示某个地址开始的5条指令
-x/s 0x080484f0 # 将某个地址开始的内容以字符串形式输出
-x/s $rdi # 将rdi寄存器指向的地址开始的内容以字符串形式输出
-x/10g $rsp # g: giant words 以64bit words格式显示各数据 显示$rsp开始的10个
-```
-
-```
-x(hex) 按十六进制格式显示变量。
-d(decimal) 按十进制格式显示变量。
-u(unsigned decimal) 按十进制格式显示无符号整型。
-o(octal) 按八进制格式显示变量。
-t(binary) 按二进制格式显示变量。
-a(address) 按十六进制格式显示变量。
-c(char) 按字符格式显示变量。
-f(float) 按浮点数格式显示变量
-```
-
-
-
-```python
-# 查看完内存后 可能需要将内存中显示的16进制数转换为字符串
-key = "393434377b"
-flag = key.decode('hex') # hex to str
-```
-
-### set/modify
-
-```bash
-set $eax=1 # 设置寄存器 eax 为 0
-set {int}0x83040 = 4 # 将内存位置0x83040表示为整数，将值4存储到该存储位置
-```
-
-
-
-### gdb调试时输入不可见字符
-
-- 使用类似如下的python脚本，将输入写入文件`input`中：
-
-```python
-s = b"\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f\x00\n\n\n\nabcdABCD"
-with open("input", "wb") as f:
-    f.write(s)
-```
-
-- 存入`input`的内容：
-
-```assembly
-$ hexdump input
-0000000 0201 0403 0605 0807 0a09 0c0b 0e0d 000f
-0000010 0a0a 0a0a 6261 6463 4241 4443
-```
-
-- 在GDB 开始调试时，使用run时添加`< input`
-
-```assembly
-r < input
-```
-
-- 将不可见字符保存成文件`input`的demo
-
-```python
-#!/usr/bin/env python  # gdb调试时输入不可见字符 demo 
-from pwn import *
-from LibcSearcher import LibcSearcher 
-context.log_level = "DEBUG"
-sh = process("./ret2libc3")
-
-ret2libc3 = ELF("./ret2libc3")
-puts_plt = ret2libc3.plt["puts"] 
-libc_start_main_got = ret2libc3.got["__libc_start_main"] 
-main = ret2libc3.symbols["main"] 
-
-print("leak libc_start_main_got addr and ret to main", str(hex(puts_plt)), str(hex(main)), str(hex(libc_start_main_got)))
-# puts_plt, main, libc_start_main_got: 0x08048460 0x08048618 0x0804a024
-payload = flat(['A' * (108+4), puts_plt, main, libc_start_main_got])
-print("payload: ", payload.hex(), type(payload)) # <class 'bytes'>
-# ...... 41414141 60840408 18860408 24a00408 
-with open("input", "wb") as f:
-    f.write(payload) 
-```
-
-
-
-## gef
-
-```assembly
-hexdump qword
-hexdump dword
-hexdump word
-hexdump byte # display the ASCII character values if the byte is printable (similarly to the hexdump -C command on Linux)
-gef➤  hexdump byte 0xffd58258 132
-0xffd58258     bc 82 d5 ff 25 30 31 32 64 25 36 24 6e 00 d5 ff    ....%012d%6$n...
-0xffd58268     02 00 00 00 66 8d f2 f7 34 80 04 08 00 00 00 00    ....f...4.......
-0xffd58278     00 90 f3 f7 00 00 00 00 00 00 00 00 00 00 00 00    ................
-0xffd58288     34 80 04 08 28 da ee f7 00 c0 ee f7 80 00 f2 f7    4...(...........
-0xffd58298     00 00 00 00 1e ec d3 f7 fc c3 ee f7 ff ff ff ff    ................
-0xffd582a8     00 00 00 00 8b 85 04 08 01 00 00 00 84 83 d5 ff    ................
-0xffd582b8     8c 83 d5 ff 15 03 00 00 80 00 f2 f7 e0 82 d5 ff    ................
-0xffd582c8     00 00 00 00 46 5e d2 f7 00 c0 ee f7 00 c0 ee f7    ....F^..........
-0xffd582d8     00 00 00 00    ....
-```
-
-
-
-## pwndbg
-
-> https://github.com/pwndbg/pwndbg
->
->https://blog.csdn.net/Breeze_CAT/article/details/103789233  指令参考
-
-Installation: 
-
-1. `git clone https://github.com/pwndbg/pwndbg`
-2. `cd pwndbg`
-3. `chmod 777 ./setup.sh`
-4. `./setup.sh`
-
-- 安装完成后，使用`gdb`指令后，命令行左侧显示的是`pwndbg`
-
-
-
-### cmd quick find
-
-- 指的是执行`gdb`后，可以使用的指令。(`gdb exefile -q`, `-q` for quiet)
-
-```bash
-pwndbg # 显示可用命令
-b *0x080486AE # 在这个地址处下断点
-r # 运行
-help # 帮助 # 会显示不同类别的帮助信息 但是没有详细的指令帮助信息
-help breakpoints # 显示 breakpoints 类目下的指令
-backtrace # 显示函数调用栈
-```
-
-- 执行指令
-
-```bash
-s # 单步步入 step into # 源码层的一步
-si # step into 汇编层的一步
-n # 单步步过 step over # 源码层面的一步
-ni # step over 汇编层面的一步
-c # continue # 继续执行到断点，没断点就一直执行下去
-r # run # 重新开始执行
-```
-
-- 断点指令
-
-```bash
-# 普通断点指令b(break)
-b *0x080486AE # 在这个地址处下断点
-b func # 给函数 func 下断点，目标文件需保留符号 # b file_name:func
-b file_name:15 # 给 file_name 的15行下断点，需有源码 # b 15
-b +0x10 # 在程序当前停住的位置下 0x10 处下断点
-
-# 查看 删除 禁用断点
-info break # i b # 查看断点编号 # 还可以看到断点命中几次
-delete 1 # 删除 1 号断点
-disable 1 # 禁用 1 号断点
-enable 1 # 启用 1 号断点
-
-# 内存断点指令watch
-watch 0x123456 # 0x123456地址的数据改变的时候会断
-watch a # 变量 a 改变时命中断点
-info watchpoints # 显示watch断点信息
-
-# 捕获断点catch
-catch syscall # syscall 系统调用时断
-tcatch syscall # syscall 系统调用时断 但只断一次
-info break # i b # 查看catch的断点
-```
-
-- 打印指令
-
-```bash
-# 查看内存指令x   # x /nuf 0x123456
-
-# 打印指令p(print)
-p *(0x123456) # 查看0x123456地址的值 # 与x指令的区别： x指令查看地址的值不用星号
-
-# 打印汇编指令disass(disassemble)
-disass 0x123456 # 显示0x123456前后的汇编指令
-
-# 打印源代码指令list
-```
-
-
-
-
-
-```bash
-stack # 查看栈
-retaddr # 打印包含返回地址的栈地址
-canary # 直接看canary的值
-plt # 查看plt表
-got # 查看got表
-hexdump # 像 IDA 那样显示数据，带字符串
-hexdump 0xffffd3cc # 像 IDA 那样显示 0xffffd3cc 地址后的64bytes，带字符串
-```
-
-
-
-
-
-## OllyDbg
-
-> Shareware/Freeware	http://www.ollydbg.de/  v2.01 (27-Sep-2013), v1.10 是v1.x的最终版，v2彻底重写
->
-> windows的 32bit  x86 汇编级分析调试器, Ring3
->
-> 吾爱破解论坛上有包含很多插件的v1.1汉化版
-
-- 标题栏 module a: 表示当前在a.exe代码内
-- 菜单栏File下方一栏左边: 显示当前状态，paused一般是到了断点
-- 反汇编窗口（左上）：显示反汇编代码。标题栏上的地址、HEX 数据、反汇编、注释可以通过在窗口中右击出现的菜单 界面选项->隐藏标题 或 显示标题 来进行切换是否显示。用鼠标左键点击注释标签可以切换注释显示的方式
-- 信息窗口（在反汇编窗口下方）：显示选中的第一条指令及跳转目标地址、字串等
-- 寄存器窗口（右上）：显示当前所选线程的 CPU 寄存器内容。点击标签 寄存器 (FPU) 可以切换显示方式
-- 数据窗口（左下）：内存/文件的内容。右键菜单可切换显示方式
-- 堆栈窗口（右下）：显示当前线程的堆栈
-
-
-
-- View =>
-  - Executable modules: 查看可执行模块。右键用户程序 => View names 查看某个模块用到的函数。在函数处右键可以Find references to import(enter)，出现新窗口显示引用到该函数的地址与指令，双击跳转到对应汇编指令处
-- Option => 
-  - Appearance => Directories: 修改udd, plugins 路径。UDD 目录的作用是保存调试工作
-  - Debugging options: 修改调试选项，包括异常、字符串等
-
-
-
-- 配置：od将所有配置放在安装目录的ollydbg.ini中
-- 插件：将下载的插件(e.g. dll)复制到`plugin`文件夹，od启动时会自动识别。但不可超过32个否则会出错
-
-
-
-主界面右键 => Search for => All referenced text strings: 会显示被引用的所有文本文件
-
-
-
-
-
-### shortcut / cmd
-
-| shortcut  | functionality                                                |
-| --------- | ------------------------------------------------------------ |
-| F2        | 设置/删除断点(光标处)                                        |
-| F8        | 单步步过。执行一条指令，call等子过程不进入                   |
-| F7        | 单步步入。遇到call等子过程会进入，进入后停在子过程第一条指令 |
-| F4        | 运行到光标处                                                 |
-| F9        | 运行至断点处                                                 |
-| Ctrl + F9 | 执行到ret指令处暂停。常用于从系统领空返回用户程序领空        |
-| Alt + F9  | 执行到用户代码。可用于从系统领空快速返回到调试程序的领空     |
-|           |                                                              |
-|           |                                                              |
-
-
-
-### Cases
-
-```python
-# 从od的汇编指令窗口复制过来的，修改过的地方的原始指令及修改原因将在注释中说明
-00F7108C    .  FF15 1460F700 call dword ptr ds:[<&KERNEL32.IsDebuggerPr>; [IsDebuggerPresent
-00F71092    .  85C0          test eax,eax # 前面在测试是否有debugger 
-00F71094       90            nop # je short 00F710B9 # 这里会导致flag处理函数被跳过
-00F71095       90            nop # 因为指令长度不同 前面改为nop后 这里会自动填充一个nop
-00F71096    >  41            inc ecx
-00F71097    .  41            inc ecx
-00F71098    .  41            inc ecx
-00F71099    .  41            inc ecx
-00F7109A       90            nop # int 3 # 中断3 软件中断
-00F7109B    .  8B55 F4       mov edx,dword ptr ss:[ebp-0xC]
-00F7109E    .  E8 5DFFFFFF   call csaw2013.00F71000 ; 对flag处理的调用 # 因前面的修改，现在可以执行到这
-00F710A3       90            nop # jmp short 00F710EF # 这条指令会导致跳过第1个MessageBoxA
-00F710A4       90            nop # 自动填充 nop
-00F710A5    .  6A 02         push 0x2 ; /Style = MB_ABORTRETRYIGNORE|MB_APPLMODAL
-00F710A7    .  68 2078F700   push csaw2013.00F77820                     ; |Flag
-00F710AC    .  FF75 F4       push dword ptr ss:[ebp-0xC]                ; |Text = ""
-00F710AF    .  6A 00         push 0x0                                   ; |hOwner = NULL
-00F710B1    .  FF15 E460F700 call dword ptr ds:[<&USER32.MessageBoxA>]  ; \MessageBoxA第一次使用
-00F710B7       90            nop # jmp short 00F710CD # 这条指令会导致跳过第2个MessageBoxA
-00F710B8       90            nop # 自动填充 nop
-00F710B9    >  6A 02         push 0x2               ; /Style = MB_ABORTRETRYIGNORE|MB_APPLMODAL
-00F710BB    .  68 2078F700   push csaw2013.00F77820                     ; |Flag
-00F710C0    .  8B45 F4       mov eax,dword ptr ss:[ebp-0xC]             ; |
-00F710C3    .  40            inc eax                                    ; |
-00F710C4    .  50            push eax                                   ; |Text = 00000005 ???
-00F710C5    .  6A 00         push 0x0                                   ; |hOwner = NULL
-00F710C7    .  FF15 E460F700 call dword ptr ds:[<&USER32.MessageBoxA>]  ; \MessageBoxA
-```
-
-
-
-
-
-# Machine Code Lookup Table
-
-> 常见机器码速查，用于应对花指令
-
-```assembly
-90 nop
-9A CALL # CALL immed32
-E8 call # CALL immed16
-E9 # JMP immed16
-EB # JMP immed8
-```
-
-
-
-# Anti-Debug
-
-> 反调试技术
-
-
-
-## SMC(Self Modifying Code)
-
-- SMC技术,就是一种将可执行文件中的代码或数据进行加密，防止别人使用逆向工程工具（e.g. 反汇编工具）对程序进行静态分析的方法，只有程序运行时才对代码和数据进行解密，从而正常运行程序和访问数据
-- 计算机病毒通常也会采用SMC技术动态修改内存中的可执行代码来达到变形或对代码加密的目的，从而躲过杀毒软件的查杀或者迷惑反病毒工作者对代码进行分析。现在，很多加密软件（或者称为“壳”程序）为了防止Cracker（破解者）跟踪自己的代码，也采用了动态代码修改技术对自身代码进行保护
-
-SMC应对方式：
-
-1. 找到程序中的SMC解密过程，IDA分析并手动解密被SMC加密过的代码/数据
-2. 动态调试，在SMC解密结束后的地方下断点
-
-
-
-```cpp
-// IDA  逆向出来的一个片段 包含简单smc解密过程
-  for ( i = 0; i <= 181; ++i ) // simple smc decrypt
-    judge[i] ^= 0xCu; // 使用异或解密
-  printf("Please input flag:");
-  __isoc99_scanf("%20s", s);
-  v5 = strlen(s);
-  if ( v5 == 14 && (*(unsigned int (__fastcall **)(char *))judge)(s) ) // call function judge(after decrypted)
-    puts("Right!");
-```
-
-- 在IDA中打开后，因为上述解密代码需要在程序运行后才会执行，所以IDA打开的judge函数还处于被加密过的状态（即乱码状态）
-- 因为已经可以看到smc解密过程了，可以根据smc解密过程，对程序文件做patch，使用脚本在未运行时解密
-- 以下为上述smc解密过程的python脚本，可以解密judge函数。注意只能运行一次
-
-```python
-from ida_bytes import patch_byte, get_byte
-s = 0x600b00 # judge函数的地址
-for i in range(182): # 182为judege函数的总长度
-    patch_byte(s+i, get_byte(s+i) ^ 0xc)
-```
-
-> IDA python ida_bytes:  https://www.hex-rays.com/products/ida/support/idapython_docs/ida_bytes-module.html
-
-- 脚本运行结束后，U取消原本定义，C生成汇编代码，P生成函数。至此judge函数可以正常逆向了
-
-
-
-## 花指令
-
-> 可能会涉及修改机器码，参考**Machine Code**章节
-
-1. 不影响程序本身的运行
-2. 阻碍静态分析工具正确分析
-
-- 企图隐藏掉不想被逆向工程的代码块/功能的一种方法, 在真实代码中插入一些垃圾代码的同时保证原有程序的正确执行, 而程序无法很好地反编译, 难以理解程序内容, 达到反调试的效果
-
-> 比如使用`jz ... jnz ... call`(`call`机器码`E8`). call 永不执行，而后面一些指令的机器码被当成`call`的一部分而被掩藏
-
-
-
-花指令情形列举：
-
-- IDA中显示类似`jump short xxx+2`，该地址`xxx`很可能就是一个混淆用的机器码，将被跳过的字节改为`90`(`nop`)来消除影响
-- 
-
-
-
-
-
-### Cases
-
-- 使用了多种花指令   `mathematic_sage_starctf_2021_wherekey`:  https://github.com/hex-16/CTF-detailed-writeups/tree/main/reverse/mathematic_sage_starctf_2021_wherekey 
-
-
-
