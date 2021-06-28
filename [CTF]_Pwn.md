@@ -890,7 +890,8 @@ int main(int argc, char *argv[]){
 > C调用约定
 
 - **C/C++编译器默认的函数调用约定**。所有非C++成员函数和未使用stdcall或fastcall声明的函数都默认是cdecl方式
-- **参数从右到左入栈，caller负责清除栈中的参数，返回值在EAX**
+- **参数从右到左入栈**
+- **caller负责清除栈中的参数，返回值在EAX**
 - 由于每次函数调用都要产生清除(还原)堆栈的代码，故使用cdecl方式编译的程序比使用stdcall方式编译的程序大(后者仅需在被调函数内产生一份清栈代码)
 - cdecl调用方式**支持可变参数**函数(e.g. `printf`)，且调用时即使实参和形参数目不符也不会导致堆栈错误
 - 对于**C**函数，cdecl方式的名字修饰约定是**在函数名前添加一个下划线**；对于C++函数，除非特别使用extern "C"，C++函数使用不同的名字修饰方式
@@ -898,7 +899,7 @@ int main(int argc, char *argv[]){
 > ### 可变参数函数支持条件
 >
 > 1. 参数自右向左进栈
-> 2. 由主调函数负责清除栈中的参数(参数出栈)
+> 2. 由**主调函数caller负责清除栈中的参数**(参数出栈)
 >
 > 参数按照从右向左的顺序压栈，则参数列表最左边(第一个)的参数最接近栈顶位置。所有参数距离帧基指针的偏移量都是常数，而不必关心已入栈的参数数目。只要不定的参数的数目能根据第一个已明确的参数确定，就可使用不定参数。例如`printf`函数，第一个参数即格式化字符串可作为后继参数指示符。通过它们就可得到后续参数的类型和个数，进而知道所有参数的尺寸。当传递的参数过多时，以帧基指针为基准，获取适当数目的参数，其他忽略即可。若函数参数自左向右进栈，则第一个参数距离栈帧指针的偏移量与已入栈的参数数目有关，需要计算所有参数占用的空间后才能精确定位。当实际传入的参数数目与函数期望接受的参数数目不同时，偏移量计算会出错
 >
@@ -974,6 +975,27 @@ int func(int para);
 ---
 
 # Linux Pwn
+
+
+
+## libc / ld Versions
+
+> 本节主要记录如何获取题目要求的libc.so ld.so版本
+
+- 首先需要安装docker，使用`sudo systemctl start docker`启动，`docker version`查看版本。
+
+```bash
+# 以拉取ubuntu:16.04的libc, ld为例
+sudo docker container run -t -i ubuntu:16.04 /bin/bash # 拉取并运行ubuntu:16.04后进入容器内console
+ls /lib/x86_64-linux-gnu/ | grep libc # 查看含libc字样的文件  可看到版本
+ls /lib/x86_64-linux-gnu/ | grep ld # 查看含ld字样的文件 可看到版本
+# NEW a new console
+sudo docker container ls # 然后复制 ubuntu:16.04 的 CONTAINER ID
+# 复制 ubuntu:16.04 的 /lib/x86_64-linux-gnu/libc-2.23.so 到 /home/kali/libc-2.23.so
+sudo docker cp 3198a81a976d:/lib/x86_64-linux-gnu/libc-2.23.so /home/kali/libc-2.23.so 
+# 复制 ubuntu:16.04 的 /lib/x86_64-linux-gnu/ld-2.23.so 到 /home/kali/ld-2.23.so
+sudo docker cp 3198a81a976d:/lib/x86_64-linux-gnu/ld-2.23.so /home/kali/ld-2.23.so
+```
 
 
 
