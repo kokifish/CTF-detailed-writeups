@@ -1302,9 +1302,27 @@ readelf -S ret2libc # 可以获得段地址，比如bbs段的地址 # 也可在I
 
 
 
+### Blind ROP (BROP)
 
+> BROP(Blind ROP)于2014年由Standford的Andrea Bittau提出，其相关研究成果发表在Oakland 2014，其论文题目是Hacking Blind
 
+- BROP是**没有对应应用程序的源代码或者二进制文件**下，对程序进行攻击，劫持程序的执行流
 
+**攻击条件**
+
+1. 源程序必须存在栈溢出漏洞，以便于攻击者可以控制程序流程。
+2. 服务器端的进程在崩溃之后会重新启动，并且重新启动的进程的地址与先前的地址一样（这也就是说即使程序有ASLR保护，但是其只是在程序最初启动的时候有效果）。目前nginx, MySQL, Apache, OpenSSH等服务器应用都是符合这种特性的。
+
+**基本思路**：在BROP中，基本的遵循的思路如下
+
+- 判断栈溢出长度
+  - 暴力枚举: 直接从1暴力枚举即可，直到发现程序崩溃
+- Stack Reading
+  - 获取栈上的数据来泄露canaries，以及ebp和返回地址。
+- Blind ROP
+  - 找到足够多的 gadgets 来控制输出函数的参数，并且对其进行调用，比如说常见的 write 函数以及puts函数。
+- Build the exploit
+  - 利用输出函数来 dump 出程序以便于来找到更多的 gadgets，从而可以写出最后的 exploit。
 
 
 
@@ -1314,9 +1332,138 @@ readelf -S ret2libc # 可以获得段地址，比如bbs段的地址 # 也可在I
 
 > 花式栈溢出
 
+#### Stack Pivoting
+
+> 直译 栈旋转. 指劫持栈指针
+>
+> cases: 
+
+劫持栈指针指向攻击者所能控制的内存处，然后再在相应的位置进行 ROP。通常在以下情况需要使用Stack Pivoting
+
+- 可以控制的栈溢出的字节数较少，难以构造较长的 ROP 链。比如可以劫持到bbs, heap。
+- 开启了 PIE 保护，栈地址未知，我们可以将栈劫持到已知的区域
+- 其它漏洞难以利用，需要进行转换。比如说将栈劫持到堆空间，从而在堆上写 rop 及进行堆漏洞利用
+
+利用 stack pivoting 的要求：
+
+1. 可以控制程序执行流。
+
+2. 可以控制 **sp** 指针。一般来说，控制栈指针会使用 ROP，常见的控制栈指针的 gadgets 一般是
+
+```assembly
+pop rsp/esp
+# 利用两次leave 在控制rbp后 间接控制rsp
+leave ...; leave: mov rsp, rbp, pop rbp; # 第一条 leave 利用栈上内容，覆盖rbp
+leave  ; 第二条 leave 把已经被劫持的rbp的值赋值给rsp
+```
+
+- `libc_csu_init` 中的 gadgets，通过偏移可以控制 rsp 指针，上面是正常的，下面是偏移的
+
+```assembly
+gef➤  x/7i 0x000000000040061a
+0x40061a <__libc_csu_init+90>:  pop    rbx
+0x40061b <__libc_csu_init+91>:  pop    rbp
+0x40061c <__libc_csu_init+92>:  pop    r12
+0x40061e <__libc_csu_init+94>:  pop    r13
+0x400620 <__libc_csu_init+96>:  pop    r14
+0x400622 <__libc_csu_init+98>:  pop    r15
+0x400624 <__libc_csu_init+100>: ret    
+gef➤  x/7i 0x000000000040061d
+0x40061d <__libc_csu_init+93>:  pop    rsp
+0x40061e <__libc_csu_init+94>:  pop    r13
+0x400620 <__libc_csu_init+96>:  pop    r14
+0x400622 <__libc_csu_init+98>:  pop    r15
+0x400624 <__libc_csu_init+100>: ret
+```
+
+更加高级的 fake frame: 
+
+可以控制的内存，一般有：
+
+- bss 段。由于进程按页分配内存，分配给 bss 段的内存大小至少一个页(4k，0x1000)大小。然而一般bss段的内容用不了这么多的空间，并且 bss 段分配的内存页拥有读写权限
+- heap。但是这个需要能泄露堆地址
 
 
 
+
+
+
+
+#### Frame Faking
+
+> 帧伪造 栈帧伪造
+>
+> Cases:
+>
+> - GKCTF2021 应急挑战杯 checkin login   对应writeup有详细的劫持过程的分析，分析了一部分重要指令前后rbp rsp的变换
+
+构造一个虚假的栈帧来控制程序的执行流
+
+概括地讲，在之前讲的栈溢出不外乎两种方式
+
+- 控制程序 EIP
+- 控制程序 EBP
+
+其最终都是控制程序的执行流。 frame faking 利用的技巧是同时控制 EBP 与 EIP，在控制程序执行流的同时，也改变程序栈帧的位置。一般来说其 payload 如下
+
+```assembly
+buffer padding | fake ebp | leave ret addr | ; 利用栈溢出将栈上构造为该格式
+```
+
+- 函数的返回地址被覆盖为执行 `leave ret` 的地址，这就表明了函数在正常执行完自己的 `leave ret` 后，还会再次执行一次 `leave ret`
+- 其中 `fake ebp` 为构造的栈帧的基地址，需要注意的是这里是一个地址。是想要劫持过去的目的地址。一般构造的假栈帧如下
+
+```assembly
+fake ebp #  fake ebp 指向 ebp2, 即它为 ebp2 所在的地址
+|
+v
+ebp2|target function addr|leave ret addr|arg1|arg2 # 右边为高地址
+```
+
+- 通常`fake ebp`表示的地址(ebp2)是能够控制的可读的内容
+
+```assembly
+; 函数序言      # 函数的入口点与出口点的基本操作
+push ebp  # 将ebp压栈
+mov ebp, esp #将esp的值赋给ebp
+....
+; 函数尾声
+leave ; mov esp, ebp; pop ebp # 将ebp的值赋给esp, 弹出ebp
+ret # pop eip，弹出栈顶元素作为程序下一个执行地址
+```
+
+- 基本控制过程：Case: GKCTF2021 应急挑战杯 checkin login 就是这个过程
+
+1. 在有栈溢出的程序执行 leave 时，其分为两个步骤
+   - mov esp, ebp ，将 esp 也指向当前栈溢出漏洞的 ebp 基地址处。
+   - pop ebp， 这会将栈中存放的 fake ebp 的值赋给 ebp。即执行完指令之后，ebp便指向了ebp2，也就是保存了 ebp2 所在的地址。`$ebp = addr_of_rbp2`
+2. 执行 ret 指令，会再次执行 leave ret 指令。pop eip,  `$eip = addr_leave_ret`
+3. 执行 leave 指令，其分为两个步骤
+   - mov esp, ebp; 使 esp 指向 ebp2。`$esp = addr_rbp2`
+   - pop ebp; 将 ebp 的值设置为 ebp2 (因为`$esp = addr_rbp2`)，同时 esp 会指向 target function。`$ebp=ebp2, $esp=target_function_addr`, 因为pop后esp+4，所以就指向紧跟在ebp2后的`target_function_addr`
+4. 执行 ret 后程序就会执行 target function(因为现在rsp指向了`target_function_addr`)，当其进行函数序言：
+   - push ebp，会将 ebp2 值压入栈中，
+   - mov ebp, esp，将 ebp 指向当前基地址。`$ebp=$esp=addr_rbp2`
+
+```assembly
+ebp    ; 此时的栈结构
+|
+v
+ebp2|leave ret addr|arg1|arg2
+```
+
+1. 当程序执行时，其会正常申请空间，同时我们在栈上也安排了该函数对应的参数，所以程序会正常执行。
+2. 程序结束后，其又会执行两次 leave ret addr，所以如果我们在 ebp2 处布置好了对应的内容，那么我们就可以一直控制程序的执行流程
+
+在 fake frame 中，必须得有一块可以写的内存，并且还知道这块内存的地址，这一点与 stack pivoting 相似
+
+
+
+
+
+
+
+---
 
 ## Format String Vulnerability
 

@@ -12,6 +12,10 @@
 >
 > writeup writer: hexhex16@outlook.com    https://github.com/hex-16    thank liwl
 
+- Frame Faking. 构造一个虚假的栈帧来控制程序的执行流。同时控制 EBP 与 EIP。笔记 ROP:  Frame Faking 有描述，更抽象一些。
+
+总体过程：
+
 1. 利用溢出的8B，修改rbp的值。而后经两次`leave`，rsp修改为指向name小一些的地址，而后的ret读取name所属空间上的内容，导致rip可被修改至调用`main_logic`
 2. rsp修改为栈区地址后，使得`buf+0x20=name`，修改name缓冲区可控区域即可覆盖返回地址，修改至`pop edi; ret`，使得`edi = puts@got`再调用`puts`即可输出`puts`的真实地址，从而泄露libc基址(Anti ASLR)
 3. 让step-2的puts为调用`main_logic`前的一个`puts`，那么泄露完`puts`真实地址后还能再执行一次`main_logic`，这时在name缓冲区上对应于返回地址的地方填入`one_gadget`，完成getshell
@@ -24,8 +28,6 @@
 - 一开始第一步返回的地址填的是`main_logic`的起始地址，即`payload = b"admin\0".ljust(0x8, b'\0') + p64(0x4018BF)`这一句用的地址是`0x4018C7`，导致buf+0x18 = name，仅有0x10 B空间构造ROP。即name: admin\0\0\0 + 浪费8B + RA + 8B可利用
 - 构造rop payload时，没有想到用`main_logic`前的`call _puts`，想着还得在payload加上一个`p64(main_logic)`，然而name上可控空间较小，无法放下这么长的payload，后面liwl师傅说可以用`main_logic`调用前的`call _puts`
 - 远程pwn时，`one_gadget`选取错误，本地没有可用的ld.so，无法进行本地调试。选用的`one_gadget`是试出来的。TBD: 学会从ubuntu docker中拉取对应版本的ld.so
-
-
 
 # IDA Logic Analysis
 
