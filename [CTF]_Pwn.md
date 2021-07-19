@@ -362,95 +362,6 @@ ROPgadget --binary ret2baby  --string "/bin/sh" # 获得 /bin/sh 字符串对应
 
 
 
-## ASLR
-
-> 地址空间配置随机加载  Address space layout randomization  地址空间配置随机化  地址空间布局随机化
->
-> OS层级的保护。一种防范内存损坏漏洞被利用的计算机安全技术
->
-> Linux系统上控制ASLR启动与否
-
-- ASLR通过**随机放置进程关键数据区域的地址空间**来防止攻击者能可靠地跳转到内存的特定位置来利用函数。现代操作系统一般都加设这一机制，以防范恶意程序对已知地址进行**Return-to-libc**攻击
-- ASLR 的有效性依赖于整个地址空间布局是否对于攻击者保持未知。只有编译时作为 位置无关可执行文件(Position Independent Executable) **PIE** 的可执行程序才能得到 ASLR 技术的最大保护，因为只有这样，可执行文件的所有代码节区才会被加载在随机地址。PIE 机器码不管绝对地址是多少都可以正确执行。
-
-
-
-ASLR绕过方法：
-
-- 利用地址泄露
-- 访问与特定地址关联的数据
-- 针对 ASLR 实现的缺陷来猜测地址，常见于系统熵过低或 ASLR 实现不完善。
-- 利用侧信道攻击
-
-
-
-修改`/proc/sys/kernel/randomize_va_space`来控制ASLR启动与否，具体选项：
-
-- 0: 关闭 ASLR，没有随机化。栈、堆、.so 的基地址每次都相同
-- 1: 普通的 ASLR。栈基地址、mmap 基地址、.so 加载基地址都将被随机化，但是堆基地址没有随机化
-- 2: 增强的 ASLR，在 1 的基础上，增加了堆基地址随机化
-
-
-
-
-
-
-
-### Settings
-
-查看ASLR是否开启
-
-```bash
-$ cat /proc/sys/kernel/randomize_va_space
-2
-$ sysctl -a --pattern randomize
-kernel.randomize_va_space = 2
-```
-
-关闭ASLR
-
-```bash
-echo 0 > /proc/sys/kernel/randomize_va_space # 关闭Linux系统的ASLR
-sudo bash -c "echo 0 > /proc/sys/kernel/randomize_va_space" # kali20.04测试时需用
-sudo sysctl -w kernel.randomize_va_space=0    <== disable
-```
-
-
-关闭ASLR时，两次ldd的输出值一样。`ldd` 命令会加载共享对象并显示它们在内存中的地址。但是开启ASLR后，每次ldd的输出都不通
-
-```bash
-kernel.randomize_va_space = 0 # 关闭了ASLR
-$ ldd /bin/bash
-        linux-vdso.so.1 (0x00007ffff7fd1000) # same addresses
-        libtinfo.so.6 => /lib/x86_64-linux-gnu/libtinfo.so.6 (0x00007ffff7c69000)
-        libdl.so.2 => /lib/x86_64-linux-gnu/libdl.so.2 (0x00007ffff7c63000)
-        libc.so.6 => /lib/x86_64-linux-gnu/libc.so.6 (0x00007ffff7a79000)
-        /lib64/ld-linux-x86-64.so.2 (0x00007ffff7fd3000)
-$ ldd /bin/bash
-        linux-vdso.so.1 (0x00007ffff7fd1000) # same addresses
-        libtinfo.so.6 => /lib/x86_64-linux-gnu/libtinfo.so.6 (0x00007ffff7c69000)
-        libdl.so.2 => /lib/x86_64-linux-gnu/libdl.so.2 (0x00007ffff7c63000)
-        libc.so.6 => /lib/x86_64-linux-gnu/libc.so.6 (0x00007ffff7a79000)
-        /lib64/ld-linux-x86-64.so.2 (0x00007ffff7fd3000)
-```
-
-```bash
-kernel.randomize_va_space = 2 # 开启增强的ASLR
-$ ldd /bin/bash
-        linux-vdso.so.1 (0x00007fff47d0e000) # first set of addresses
-        libtinfo.so.6 => /lib/x86_64-linux-gnu/libtinfo.so.6 (0x00007f1cb7ce0000)
-        libdl.so.2 => /lib/x86_64-linux-gnu/libdl.so.2 (0x00007f1cb7cda000)
-        libc.so.6 => /lib/x86_64-linux-gnu/libc.so.6 (0x00007f1cb7af0000)
-        /lib64/ld-linux-x86-64.so.2 (0x00007f1cb8045000)
-$ ldd /bin/bash
-        linux-vdso.so.1 (0x00007ffe1cbd7000) # second set of addresses
-        libtinfo.so.6 => /lib/x86_64-linux-gnu/libtinfo.so.6 (0x00007fed59742000)
-        libdl.so.2 => /lib/x86_64-linux-gnu/libdl.so.2 (0x00007fed5973c000)
-        libc.so.6 => /lib/x86_64-linux-gnu/libc.so.6 (0x00007fed59552000)
-        /lib64/ld-linux-x86-64.so.2 (0x00007fed59aa7000)
-```
-
-
 
 
 ## Canary
@@ -577,6 +488,8 @@ security_init (void){
 
 
 
+
+
 ### Canary Bypass
 
 > Canary 绕过
@@ -644,7 +557,9 @@ int main(void) {
 
 
 
-#### 泄露栈中的 Canary
+#### Leak Canary
+
+> 泄露栈中的
 
 - Canary 设计为以字节 `\x00` 结尾，本意是为了保证 Canary 可以截断字符串。
 - 泄露栈中的 Canary 的思路是覆盖 Canary 的低字节，来打印出剩余的 Canary 部分。
@@ -726,6 +641,102 @@ ex2.c  canary.py  core    ex2
 
 
 #### 覆盖 TLS 中储存的 Canary 值
+
+
+
+
+
+
+
+## ASLR
+
+> 地址空间配置随机加载  Address space layout randomization  地址空间配置随机化  地址空间布局随机化
+>
+> OS层级的保护。一种防范内存损坏漏洞被利用的计算机安全技术
+>
+> Linux系统上控制ASLR启动与否
+
+- ASLR通过**随机放置进程关键数据区域的地址空间**来防止攻击者能可靠地跳转到内存的特定位置来利用函数。现代操作系统一般都加设这一机制，以防范恶意程序对已知地址进行**Return-to-libc**攻击
+- ASLR 的有效性依赖于整个地址空间布局是否对于攻击者保持未知。只有编译时作为 位置无关可执行文件(Position Independent Executable) **PIE** 的可执行程序才能得到 ASLR 技术的最大保护，因为只有这样，可执行文件的所有代码节区才会被加载在随机地址。PIE 机器码不管绝对地址是多少都可以正确执行。
+
+
+
+ASLR绕过方法：
+
+- 利用地址泄露
+- 访问与特定地址关联的数据
+- 针对 ASLR 实现的缺陷来猜测地址，常见于系统熵过低或 ASLR 实现不完善。
+- 利用侧信道攻击
+
+
+
+修改`/proc/sys/kernel/randomize_va_space`来控制ASLR启动与否，具体选项：
+
+- 0: 关闭 ASLR，没有随机化。栈、堆、.so 的基地址每次都相同
+- 1: 普通的 ASLR。栈基地址、mmap 基地址、.so 加载基地址都将被随机化，但是堆基地址没有随机化
+- 2: 增强的 ASLR，在 1 的基础上，增加了堆基地址随机化
+
+
+
+
+
+
+
+### Settings
+
+查看ASLR是否开启
+
+```bash
+$ cat /proc/sys/kernel/randomize_va_space
+2
+$ sysctl -a --pattern randomize
+kernel.randomize_va_space = 2
+```
+
+关闭ASLR
+
+```bash
+echo 0 > /proc/sys/kernel/randomize_va_space # 关闭Linux系统的ASLR
+sudo bash -c "echo 0 > /proc/sys/kernel/randomize_va_space" # kali20.04测试时需用
+sudo sysctl -w kernel.randomize_va_space=0    <== disable
+```
+
+
+关闭ASLR时，两次ldd的输出值一样。`ldd` 命令会加载共享对象并显示它们在内存中的地址。但是开启ASLR后，每次ldd的输出都不通
+
+```bash
+kernel.randomize_va_space = 0 # 关闭了ASLR
+$ ldd /bin/bash
+        linux-vdso.so.1 (0x00007ffff7fd1000) # same addresses
+        libtinfo.so.6 => /lib/x86_64-linux-gnu/libtinfo.so.6 (0x00007ffff7c69000)
+        libdl.so.2 => /lib/x86_64-linux-gnu/libdl.so.2 (0x00007ffff7c63000)
+        libc.so.6 => /lib/x86_64-linux-gnu/libc.so.6 (0x00007ffff7a79000)
+        /lib64/ld-linux-x86-64.so.2 (0x00007ffff7fd3000)
+$ ldd /bin/bash
+        linux-vdso.so.1 (0x00007ffff7fd1000) # same addresses
+        libtinfo.so.6 => /lib/x86_64-linux-gnu/libtinfo.so.6 (0x00007ffff7c69000)
+        libdl.so.2 => /lib/x86_64-linux-gnu/libdl.so.2 (0x00007ffff7c63000)
+        libc.so.6 => /lib/x86_64-linux-gnu/libc.so.6 (0x00007ffff7a79000)
+        /lib64/ld-linux-x86-64.so.2 (0x00007ffff7fd3000)
+```
+
+```bash
+kernel.randomize_va_space = 2 # 开启增强的ASLR
+$ ldd /bin/bash
+        linux-vdso.so.1 (0x00007fff47d0e000) # first set of addresses
+        libtinfo.so.6 => /lib/x86_64-linux-gnu/libtinfo.so.6 (0x00007f1cb7ce0000)
+        libdl.so.2 => /lib/x86_64-linux-gnu/libdl.so.2 (0x00007f1cb7cda000)
+        libc.so.6 => /lib/x86_64-linux-gnu/libc.so.6 (0x00007f1cb7af0000)
+        /lib64/ld-linux-x86-64.so.2 (0x00007f1cb8045000)
+$ ldd /bin/bash
+        linux-vdso.so.1 (0x00007ffe1cbd7000) # second set of addresses
+        libtinfo.so.6 => /lib/x86_64-linux-gnu/libtinfo.so.6 (0x00007fed59742000)
+        libdl.so.2 => /lib/x86_64-linux-gnu/libdl.so.2 (0x00007fed5973c000)
+        libc.so.6 => /lib/x86_64-linux-gnu/libc.so.6 (0x00007fed59552000)
+        /lib64/ld-linux-x86-64.so.2 (0x00007fed59aa7000)
+```
+
+
 
 
 
@@ -843,7 +854,7 @@ intel系统中栈是向下生长的(栈越扩大其值越小,堆恰好相反)
 
 
 
-## Examples
+**Examples**
 
 > https://www.tenouk.com/Bufferoverflowc/Bufferoverflow2a.html
 
@@ -879,8 +890,8 @@ int main(int argc, char *argv[]){
 
 函数调用约定通常规定如下几方面内容：
 
-1. 函数参数的传递顺序和方式：最常见的参数传递方式是通过堆栈传递。主调函数将参数压入栈中，被调函数以相对于帧基指针的正偏移量来访问栈中的参数。对于有多个参数的函数，调用约定需规定主调函数将参数压栈的顺序(从左至右还是从右至左)。某些调用约定允许使用寄存器传参以提高性能
-2. 栈的维护方式：主调函数将参数压栈后调用被调函数体，返回时需将被压栈的参数全部弹出，以便将栈恢复到调用前的状态。清栈过程可由主调函数或被调函数负责完成。
+1. 函数**参数的传递顺序和方式**：最常见的参数传递方式是通过堆栈传递。主调函数将参数压入栈中，被调函数以相对于帧基指针的正偏移量来访问栈中的参数。对于有多个参数的函数，调用约定需规定主调函数将参数压栈的顺序(从左至右还是从右至左)。某些调用约定允许使用寄存器传参以提高性能
+2. **栈**的维护方式：主调函数将参数压栈后调用被调函数体，返回时需将被压栈的参数全部弹出，以便将栈恢复到调用前的状态。清栈过程可由主调函数或被调函数负责完成。
 3. 名字修饰(Name-mangling)策略(函数名修饰 Decorated Name 规则：编译器在链接时为区分不同函数，对函数名作不同修饰。若函数之间的调用约定不匹配，可能会产生堆栈异常或链接错误等问题。因此，为了保证程序能正确执行，所有的函数调用均应遵守一致的调用约定
 
 
@@ -977,6 +988,10 @@ int func(int para);
 # Linux Pwn
 
 
+
+
+
+---
 
 ## libc / ld Versions
 
@@ -1157,7 +1172,7 @@ sh.interactive() # 将代码交互转换为手工交互
 
 
 
-
+---
 
 ## ROP
 
@@ -2117,21 +2132,311 @@ cases:
 
 
 
+---
 
-
-## Glibc Heap Utilization
+## Glibc Heap
 
 > Glibc Heap利用
 
-- 对于不同的应用来说，由于内存的需求各不相同等特性，因此目前堆的实现有很多种:
+- 对于不同的应用来说，由于内存的需求各不相同等特性，因此目前堆的实现有很多种: 
 
-```
+```python
 dlmalloc  – General purpose allocator
-ptmalloc2 – glibc
+ptmalloc2 – glibc  # 以 glibc 中堆的实现为主进行介绍 glibc-2.3.x. 之后，glibc 中集成了ptmalloc2
 jemalloc  – FreeBSD and Firefox
 tcmalloc  – Google
 libumem   – Solaris
 ```
+
+在 glibc 内部有精心设计的数据结构来管理heap。与堆相应的数据结构主要分为
+
+- 宏观结构，包含堆的宏观信息，可以通过这些数据结构索引堆的基本信息。
+- 微观结构，用于具体处理堆的分配与回收中的内存块。
+
+### malloc_chunk
+
+**chunk**: 称由 malloc 申请的内存为 chunk。这块内存在 ptmalloc 内部用 malloc_chunk 结构体来表示。当程序申请的 chunk 被 free 后，会被加入到相应的空闲管理列表中
+
+**无论一个 chunk 的大小如何，处于分配状态还是释放状态，它们都使用一个统一的结构**。虽然它们使用了同一个数据结构，但是根据是否被释放，它们的表现形式会有所不同。
+
+malloc_chunk 的结构：
+
+```cpp
+// This struct declaration is misleading (but accurate and necessary). 误导的结构体 仅用作理解
+// It declares a "view" into memory allowing access to necessary fields at known offsets from a given base. See explanation below.
+// ptmalloc 用 malloc_chunk 表示 mallloc 申请的内存(chunk)
+struct malloc_chunk { // default: define INTERNAL_SIZE_T size_t 
+  INTERNAL_SIZE_T      prev_size;  // Size of previous chunk (if free). 
+  INTERNAL_SIZE_T      size;       // Size in bytes, including overhead.
+
+  struct malloc_chunk* fd;         // double links -- used only if free.
+  struct malloc_chunk* bk;
+
+ // Only used for large blocks: pointer to next larger size.
+  struct malloc_chunk* fd_nextsize; // double links -- used only if free.
+  struct malloc_chunk* bk_nextsize;
+};
+```
+
+- **prev_size**: 如果该 chunk 的**物理相邻的前一地址 chunk（两个指针的地址差值为前一 chunk 大小）**是空闲的话，那该字段记录的是前一个 chunk 的大小 (包括 chunk 头)。否则，该字段可以用来存储物理相邻的前一个 chunk 的数据。**这里的前一 chunk 指的是较低地址的 chunk** 。
+- **size**: 该 chunk 的大小，大小必须是 2 * SIZE_SZ 的整数倍(32bit OS: 8B, 64bit OS: 16B)。如果申请的内存大小不是 2 * SIZE_SZ 的整数倍，会被转换满足大小的最小的 2 * SIZE_SZ 的倍数。32 位系统中，SIZE_SZ 是 4；64 位系统中，SIZE_SZ 是 8。 该字段的低三个比特位对 chunk 的大小没有影响，它们从高到低分别表示
+  - NON_MAIN_ARENA，记录当前 chunk 是否不属于主线程，1 表示不属于，0 表示属于。
+  - IS_MAPPED，记录当前 chunk 是否是由 **mmap** 分配的。
+  - **PREV_INUSE**，记录前一个 chunk 块是否被分配。一般来说，堆中第一个被分配的内存块的 size 字段的 P 位都会被设置为 **1**，以便于防止访问前面的非法内存。当一个 chunk 的 size 的 P 位为 **0** 时，我们能通过 prev_size 字段来获取上一个 chunk 的大小以及地址。这也方便进行空闲 chunk 之间的合并。
+- **fd, bk**:  chunk 处于分配状态时，从 fd 字段开始是用户的数据。chunk 空闲时，会被添加到对应的空闲管理链表中，其字段的含义如下
+  - fd 指向下一个（非物理相邻）空闲的 chunk
+  - bk 指向上一个（非物理相邻）空闲的 chunk
+  - 通过 fd 和 bk 可以将空闲的 chunk 块加入到空闲的 chunk 块链表进行统一管理
+- **fd_nextsize, bk_nextsize**: 也是只有 chunk 空闲的时候才使用，不过其用于较大的 chunk（large chunk）。
+  - fd_nextsize 指向前一个与当前 chunk 大小不同的第一个空闲块，不包含 bin 的头指针。
+  - bk_nextsize 指向后一个与当前 chunk 大小不同的第一个空闲块，不包含 bin 的头指针。
+  - 一般空闲的 large chunk 在 fd 的遍历顺序中，按照由大到小的顺序排列。**这样做可以避免在寻找合适 chunk 时挨个遍历**
+
+
+
+INTERNAL_SIZE_T，SIZE_SZ，MALLOC_ALIGN_MASK:
+
+```cpp
+#ifndef INTERNAL_SIZE_T // INTERNAL_SIZE_T might be signed/unsigned, 32/64 bits, the same width as int/long
+# define INTERNAL_SIZE_T size_t // 默认与size_t一致，最好定义为unsigned，但size_t是signed
+#endif // 64bit OS中可能会被定义为32bit unsigned int, 除非需要16B alignments
+// size_t 可能与 INTERNAL_SIZE_T 位宽不等、有符号性不同 // int long 可能为32/64bit 也可能等位宽
+// 建议将INTERNAL_SIZE_T提升至unsigned long后作对比，但注意unsigned到更宽的long不是sign-extend
+#define SIZE_SZ (sizeof (INTERNAL_SIZE_T)) // The corresponding word size.
+// 一般 SIZE_SZ = 4 in 32bit OS; 8 in 64bit OS
+#define MALLOC_ALIGN_MASK (MALLOC_ALIGNMENT - 1) // The corresponding bit mask value.
+```
+
+> 一般来说，size_t 在 64 位中是 64 位无符号整数，32 位中是 32 位无符号整数
+
+**称前两个字段称为 chunk header，后面的部分称为 user data。每次 malloc 申请得到的内存指针，其实指向 user data 的起始处。**
+
+```python
+# 一个已经分配的 chunk 的 mem layout
+chunk-> +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+ # chunk header ↓
+        |             Size of previous chunk, if unallocated (P clear)  | 
+        +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+        |             Size of chunk, in bytes                     |A|M|P| # 记录大小
+  mem-> +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+ # chunk header ↑
+        |             User data starts here...                          . # user data
+        .                                                               . # user data...
+        .             (malloc_usable_size() bytes)                      .
+next    .                                                               |
+chunk-> +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+        |             (size of chunk, but used for application data)    |
+        +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+        |             Size of next chunk, in bytes                |A|0|1| # 1: 前一 chunk 块被分配
+        +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+```
+
+被释放的 chunk 被记录在链表中（可能是循环双向链表 / 单向链表）。具体结构如下
+
+```python
+# 被释放的 chunk 被记录在链表中（可能是循环双向链表 / 单向链表）。具体结构如下
+chunk-> +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+        |             Size of previous chunk, if unallocated (P clear)  |
+        +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+`head:  |             Size of chunk, in bytes                     |A|0|P| # 0:
+  mem-> +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+        |             Forward pointer to next chunk in list             |
+        +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+        |             Back pointer to previous chunk in list            |
+        +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+        |             Unused space (may be 0 bytes long)                .
+        .                                                               .
+ next   .                                                               |
+chunk-> +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+`foot:  |             Size of chunk, in bytes                           |
+        +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+        |             Size of next chunk, in bytes                |A|0|0| # 0: 前一 chunk 块未被分配
+        +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+```
+
+可以发现，如果一个 chunk 处于 free 状态，那么会有两个位置记录其相应的大小
+
+1. 本身的 size 字段会记录，
+2. 它后面的 chunk 会记录。
+
+**一般情况下**，物理相邻的两个空闲 chunk 会被合并为一个 chunk 。堆管理器会通过 prev_size 字段以及 size 字段合并两个物理相邻的空闲 chunk 块
+
+```
+一些关于堆的约束:
+The three exceptions to all this are:
+     1. The special chunk `top' doesn't bother using the
+    trailing size field since there is no next contiguous chunk
+    that would have to index off it. After initialization, `top'
+    is forced to always exist.  If it would become less than
+    MINSIZE bytes long, it is replenished.
+     2. Chunks allocated via mmap, which have the second-lowest-order
+    bit M (IS_MMAPPED) set in their size fields.  Because they are
+    allocated one-by-one, each must contain its own trailing size
+    field.  If the M bit is set, the other bits are ignored
+    (because mmapped chunks are neither in an arena, nor adjacent
+    to a freed chunk).  The M bit is also used for chunks which
+    originally came from a dumped heap via malloc_set_state in
+    hooks.c.
+     3. Chunks in fastbins are treated as allocated chunks from the
+    point of view of the chunk allocator.  They are consolidated
+    with their neighbors only in bulk, in malloc_consolidate.
+```
+
+#### chunk MACRO
+
+ chunk 的大小、对齐检查以及一些转换的宏
+
+```c
+// mem 指向用户得到的内存的起始位置
+// conversion from malloc headers to user pointers, and back
+#define chunk2mem(p) ((void *) ((char *) (p) + 2 * SIZE_SZ))
+#define mem2chunk(mem) ((mchunkptr)((char *) (mem) -2 * SIZE_SZ))
+```
+
+```c
+// 最小的 chunk 大小 The smallest possible chunk
+#define MIN_CHUNK_SIZE (offsetof(struct malloc_chunk, fd_nextsize))
+```
+
+- offsetof 函数计算出 fd_nextsize 在 malloc_chunk 中的偏移，说明最小的 chunk 至少要包含 bk 指针
+
+**最小申请的堆内存大小**: 用户最小申请的内存大小必须是 2 * SIZE_SZ 的最小整数倍
+
+> **就目前而看 MIN_CHUNK_SIZE 和 MINSIZE 大小是一致的，个人认为之所以要添加两个宏是为了方便以后修改 malloc_chunk 时方便一些**
+
+```c
+// The smallest size we can malloc is an aligned minimal chunk // 最小申请的堆内存大小
+// MALLOC_ALIGN_MASK = 2 * SIZE_SZ -1
+#define MINSIZE                                                                \
+    (unsigned long) (((MIN_CHUNK_SIZE + MALLOC_ALIGN_MASK) & ~MALLOC_ALIGN_MASK))
+```
+
+**检查分配给用户的内存是否对齐** 2 * SIZE_SZ 大小对齐。
+
+```c
+// Check if m has acceptable alignment // MALLOC_ALIGN_MASK = 2 * SIZE_SZ -1
+#define aligned_OK(m) (((unsigned long) (m) & MALLOC_ALIGN_MASK) == 0)
+
+#define misaligned_chunk(p)                                                    \
+    ((uintptr_t)(MALLOC_ALIGNMENT == 2 * SIZE_SZ ? (p) : chunk2mem(p)) &       \
+     MALLOC_ALIGN_MASK)
+```
+
+**请求字节数判断**
+
+```c
+//  Check if a request is so large that it would wrap around zero when
+//  padded and aligned. To simplify some other code, the bound is made
+//  low enough so that adding MINSIZE will also not wrap around zero.
+#define REQUEST_OUT_OF_RANGE(req)                                              \
+    ((unsigned long) (req) >= (unsigned long) (INTERNAL_SIZE_T)(-2 * MINSIZE))
+```
+
+**将用户请求内存大小转为实际分配内存大小**
+
+```c
+// pad request bytes into a usable size -- internal version
+// MALLOC_ALIGN_MASK = 2 * SIZE_SZ -1 # SIZE_SZ: 4 in 32bit OS, 8 in 64bit OS
+#define request2size(req)                                                      \
+    (((req) + SIZE_SZ + MALLOC_ALIGN_MASK < MINSIZE)                           \
+         ? MINSIZE                                                             \
+         : ((req) + SIZE_SZ + MALLOC_ALIGN_MASK) & ~MALLOC_ALIGN_MASK)
+
+//  Same, except also perform argument check
+#define checked_request2size(req, sz)                                          \
+    if (REQUEST_OUT_OF_RANGE(req)) {                                           \
+        __set_errno(ENOMEM);                                                   \
+        return 0;                                                              \
+    }                                                                          \
+    (sz) = request2size(req);
+```
+
+当一个 chunk 处于已分配状态时，它的**物理相邻的下一个 chunk 的 prev_size** 字段必然是**无效**的，故而这个字段就可以被当前这个 chunk 使用。这就是 ptmalloc 中 chunk 间的复用
+
+1. 首先，利用 REQUEST_OUT_OF_RANGE 判断是否可以分配用户请求的字节大小的 chunk。
+2. 其次，需要注意的是用户请求的字节是用来存储数据的，即 chunk header 后面的部分。与此同时，由于 chunk 间复用，所以可以使用下一个 chunk 的 prev_size 字段。因此，这里只需要再添加 SIZE_SZ 大小即可以完全存储内容。
+3. 由于系统中所允许的申请的 chunk 最小是 MINSIZE，所以与其进行比较。如果不满足最低要求，那么就需要直接分配 **MINSIZE** 字节。
+4. 如果大于的话，因为系统中申请的 chunk 需要 **2 * SIZE_SZ** 对齐，所以这里需要加上 MALLOC_ALIGN_MASK 以便于对齐。
+
+
+
+### bin
+
+用户释放掉的 chunk 不会马上归还给系统，ptmalloc 会统一管理 heap 和 mmap 映射区域中的空闲的 chunk。当用户再一次请求分配内存时，ptmalloc 分配器会试图在空闲的 chunk 中挑选一块合适的给用户。这样可以避免频繁的系统调用，降低内存分配的开销。
+
+ptmalloc 采用分箱式方法对空闲的 chunk 进行管理。首先，它会根据空闲的 chunk 的大小以及使用状态将 chunk 初步分为 4 类：fast bins，small bins，large bins，unsorted bin。每类中仍然有更细的划分，相似大小的 chunk 会用双向链表链接起来。也就是说，在每类 bin 的内部仍然会有多个互不相关的链表来保存不同大小的 chunk。
+
+对于 small bins，large bins，unsorted bin 来说，ptmalloc 将它们维护在同一个数组中。这些 bin 对应的数据结构在 malloc_state 中:
+
+```c
+#define NBINS 128
+//  Normal bins packed as described above
+mchunkptr bins[ NBINS * 2 - 2 ];
+```
+
+`bins` 主要用于索引不同 bin 的 fd 和 bk。以 32 位系统为例，bins 前 4 项的含义如下
+
+| 含义      | bin1 fd / bin2 prev_size | bin1 bk / bin2 size | bin2 fd / bin3 prev_size | bin2 bk / bin3 size |
+| --------- | ------------------------ | ------------------- | ------------------------ | ------------------- |
+| bin index | 0                        | 1                   | 2                        | 3                   |
+
+bin2 prev_size与bin1 fd重合，bin2 size与bin1 bk重合。只使用fd, bk索引链表，故该重合部分记录的实际是bin1 fd, bk。也就是说，虽然后一个bin和前一个bin公用部分数据，但是其实记录的仍然是前一个bin的链表数据。通过这样复用节省空间。
+
+> fd 指向下一个（非物理相邻）空闲的 chunk，
+
+数组中的 bin 依次如下
+
+1. 第一个为 **unsorted bin**，这里面的 chunk 没有进行排序，存储的 chunk 比较杂。
+2. 索引从 **2** 到 63 的 bin 称为 **small bin**，**同一个 small bin 链表中的 chunk 的大小相同**。两个相邻索引的 small bin 链表中的 chunk 大小相差的字节数为 **2 个机器字长**，即 32 位相差 8 字节，64 位相差 16 字节。
+3. small bins 后面的 bin 被称作 **large bins**。large bins 中的每一个 bin 都**包含一定范围内的 chunk**，其中的 chunk **按 fd 指针的顺序从大到小排列**。相同大小的 chunk 同样按照最近使用顺序排列。
+
+此外，上述这些 bin 的排布都会遵循一个原则：**任意两个物理相邻的空闲 chunk 不能在一起**
+
+并不是所有的 chunk 被释放后就立即被放到 bin 中。ptmalloc 为了提高分配的速度，会把一些小的 chunk **先**放到 fast bins 的容器内。**而且，fastbin 容器中的 chunk 的使用标记总是被置位的，所以不满足上面的原则。**
+
+bin 通用的宏如下
+
+```c
+typedef struct malloc_chunk *mbinptr;
+
+/* addressing -- note that bin_at(0) does not exist */
+#define bin_at(m, i)                                                           \
+    (mbinptr)(((char *) &((m)->bins[ ((i) -1) * 2 ])) -                        \
+              offsetof(struct malloc_chunk, fd))
+
+/* analog of ++bin */
+//获取下一个bin的地址
+#define next_bin(b) ((mbinptr)((char *) (b) + (sizeof(mchunkptr) << 1)))
+
+/* Reminders about list directionality within bins */
+// 这两个宏可以用来遍历bin
+// 获取 bin 的位于链表头的 chunk
+#define first(b) ((b)->fd)
+// 获取 bin 的位于链表尾的 chunk
+#define last(b) ((b)->bk)
+```
+
+
+
+
+
+
+
+
+
+### Use After Free
+
+> Use After Free, UAF问题 
+
+当一个内存块被释放之后再次被使用，有以下几种情况：
+
+- 内存块被释放后，其对应的指针被设置为 NULL ， 然后再次使用，程序崩溃。
+- 内存块被释放后，其对应的指针没有被设置为 NULL ，然后在它下一次被使用之前，没有代码对这块内存块进行修改，那么**程序很有可能可以正常运转**。
+- 内存块被释放后，其对应的指针没有被设置为NULL，但是在它下一次使用之前，有代码对这块内存进行了修改，那么当程序再次使用这块内存时，**就很有可能会出现奇怪的问题**。
+
+一般所指的 **Use After Free** 漏洞主要是后两种。一般称被释放后没有被设置为NULL的内存指针为**dangling pointer**。
+
+
+
+
 
 
 
