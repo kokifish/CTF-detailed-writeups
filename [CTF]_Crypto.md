@@ -180,6 +180,22 @@ class SecurePrng(object):
 > 以此类推，直到所有bit都选择完毕，这样一来用最后剩下的候选进行测试，
 
 
+#### 线性同余生成器（LCG(linear congruential generator)）
+
+* https://en.wikipedia.org/wiki/Linear_congruential_generator
+
+简介：The generator is defined by recurrence relation:
+$$X_{n+1}=(aX_n+c)\ mod\ m$$ 其中$X$是伪随机值(pseudorandom values)，并且
+* $m,\ 0 < m$ the "modulus"模数
+* $a,\ 0 < a < m$ the "multiplier"乘数
+* $c,\ 0\leq c < m$ the "increment"加数
+* $X_0,\ 0\leq X_0 < m$ the "seed" 种子。
+
+求解方案参考reference：https://www.codercto.com/a/35743.html
+
+主要流程参见`crypto/linear_congruential_generator.md`
+
+
 #### 反馈移位寄存器
 ![反馈移位寄存器](crypto/images/Feedback_shift_register.jpg)
 * $a_0, a_1, ... , a_{n-1}$位初态
@@ -189,6 +205,35 @@ class SecurePrng(object):
 ##### 线性反馈移位寄存器 - LFSR
 
 ##### B-M 算法 (一种求解线性反馈移位寄存器的算法)
+
+##### python中的一个库`z3`
+`z3`这个库主要用来**解方程组**，它微软开发的一套约束求解器，可以简单的理解它是解方程。其优势在于可以求解有位运算的方程组。如果方程有多组解，z3只会给出其中的一组解。
+
+* 参考题目
+    * TCTF 2019 Quals - zer0lfsr https://fireshellsecurity.team/0ctf-zer0lfsr/
+    * TCTF 2021 - zer0lfsr-
+
+基本用法： 参考 https://www.jianshu.com/p/64d87659673a
+`z3.simplify()`函数可以简化z3表达式从而加快运算速度，但是有可能导致精度丢失。
+
+使用`z3`求解出约束的多项式之后，需要把结果转换成`python`中的类型，比如int,float,bool等类型，解决方法如下
+(参考：https://www.jb51.cc/python/186627.html 和 https://jingyan.baidu.com/article/48a420579c65f3e8242504b8.html)
+> 对于布尔值,可以使用函数is_true和is_false.数值可以是整数,合理或代数.我们可以使用函数is_int_value,is_rational_value和is_algebraic_value来测试每种情况.整数情况是最简单的,我们可以使用方法as_long()将Z3整数值转换为Python long.对于有理值,我们可以使用方法numerator()和分母()来获取表示分子和分母的Z3整数.方法numerator_as_long()和denominator_as_long()是self.numerator().as_long()和self.denominator().as_long()的快捷方式.最后,代数数字用于表示非理性数字. AlgebraicNumRef类有一个称为约(self,precision)的方法.它返回一个Z3有理数,它以精度为1/10 ^的精度逼近代数
+
+
+```python
+x,y,z = BitVecs('x y z', 8)
+s = Solver()
+s.add(x^y&z== 12)   # 用add方法添加约束
+s.add(y&x>>3 == 3)
+s.add(z^y==4)
+
+s.check()   # 求解
+s.model()
+[z = 19, y = 23, x = 31]
+```
+更进一步的理解：https://blog.csdn.net/s1054436218/article/details/78651075
+
 
 #### 非线性反馈移位寄存器
 * 非线性组合生成器，对多个 LFSR 的输出使用一个非线性组合函数
@@ -206,6 +251,7 @@ python中的random库使用的是**Mersenne Twister 算法作为核心生成器*
 > 具体的算法流程还没有完全了解，目前只需要知道怎么去破解即可。
 
 参考：`crypto/random_number_Mersenne_Twister_2021NahamconCTF_Dice_Roll`中的writeup。
+破解代码见`crypto/code/mersenne-twister-predictor-master.zip`。
 
 ## $\mathrm I.\mathrm I\mathrm I$ 块密码 TODO
 所谓块加密就是每次加密一块明文，常见的加密算法有：
@@ -865,14 +911,14 @@ $$ 注意：这里每一行代表一个向量，因此使用LLL算法求线性�
     因此可以求出在格上离距离向量$\pmb{u}$最短的向量$\pmb{v} = (\alpha t_1, \alpha t_2, ..., \frac{\alpha}{2^{l+1}})$，此时$\alpha$就可以求出。
 
 #### BCTF 2018 - guess_number
-比赛是一个典型的**Hiddefdn number problem**，可以把这道题目的求解堪称是Hidden number problem的一个典型的解法。
+比赛是一个典型的**Hidden number problem**，可以把这道题目的求解堪称是Hidden number problem的一个典型的解法。
 
 * 题目代码``crypto/code/Hidden_Number_Problem/server.py``
 * 解题代码``crypto/code/Hidden_Number_Problem/Hidden_Number_Problem.sage``
 
 # 哈希函数
 
-哈希函数（Hash Functionfd）把消息或数据压缩成摘要，使得数据量变小。即把任意长度的消息hash成固定长度的序列。
+哈希函数（Hash Function）把消息或数据压缩成摘要，使得数据量变小。即把任意长度的消息hash成固定长度的序列。
 
 定义：一个Hash族是满足下列条件的四元组$(\mathcal{X,Y,K,H})$：
 1. $\mathcal X$是所有可能的消息的集合。
@@ -1041,6 +1087,24 @@ HashCat 工具 : https://hashcat.net/hashcat/
 
 * **TIPS**：可以使用256个线性无关的256bit的hash值生成任意256bit的hash值。
 
+### 工作量证明(proof of work)
+很多时候题目要先要我们给出工作量证明，由于套路都比较类似，因此这里给出了一个方便的工作量证明的方法，在实际比赛的时候能直接用到。
+```python
+TABLE2 = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+
+def proof_of_work(str, hashh):
+    l = len(TABLE2)
+    for i in range(l):
+        for j in range(l):
+            for k in range(l):
+                for ll in range(l):
+                    tmp = (TABLE2[i] + TABLE2[j] + TABLE2[k] + TABLE2[ll]).encode()
+                    if sha256(tmp + str).hexdigest().encode() == hashh:
+                        print(tmp)
+                        client.send(tmp + b'\n')
+                        return
+```
+
 # 数字签名
 数字签名（digital signature）主要用于对数字消息（digital message）进行签名，以防消息的冒名伪造或篡改，亦可以用于通信双方的身份鉴别。其基本原理如下：
 ![数字签名](crypto/images/Digital_Signature.PNG)
@@ -1204,3 +1268,6 @@ openssl x509 -inform der -in certificate.cer -out certificate.pem
     * https://github.com/OOTS/34c3ctf/blob/master/software_update/solution/exploit.py
 * 2019 36c3 SaV-ls-l-aaS
     * https://ctftime.org/writeup/17966
+
+# 解题技巧
+遇到密文是乱七八糟的字符串而明文是正常的英文字符+数字+括号的情况的时候，可以使用这种特性缩小明文和密钥的取值。参考`crypto/2021_Mtctf/RSA_2021_MTctf_easy_RSA`这道题。
