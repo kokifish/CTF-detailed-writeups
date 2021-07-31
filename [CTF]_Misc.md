@@ -176,7 +176,7 @@ https://www.fileformat.info/format/cloud.htm
 
 **Cases**
 
-- 
+- 2021DASCTF实战精英夏令营暨DASCTF July X CBCTF 4th, ezSteganography: 用stegsolve打开后，从red通道lsb看到提示；然后stegsolve -> Analyse -> Data Extract -> 只勾选Green 0，点save bin，出来的是个png图像，打开后可以看到flag的上半部分；用QIM quantization(step=20)对图片做提取，得到水印图，得到剩下的一半flag
 
 
 
