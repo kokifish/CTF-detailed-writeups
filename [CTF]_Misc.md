@@ -16,15 +16,15 @@ Misc 在国外的比赛中其实又被具体划分为各个小块，有
 
 # Information Gathering Technology
 
-> 信息搜集技术
+> 信息搜集技术   社会工程学相关的题目也列在这
 
 
 
 # Code Analysis
 
+> 编码有关的分析
 
-
-## Commonly Used Coding in the Communication Field
+## Coding in the Communication
 
 电话拨号编码：1-9 分别使用 1-9 个脉冲，0 则表示使用 10 个脉冲
 
@@ -84,7 +84,13 @@ Misc 在国外的比赛中其实又被具体划分为各个小块，有
 
 ### ASCII编码
 
+![](ascii_table_black.png)
+
 ### Base编码
+
+> 转码  https://gchq.github.io/CyberChef/
+
+
 
 ### 霍夫曼编码
 
@@ -112,35 +118,35 @@ e.g. 源文本： `The`
 
 > 生活中常用的编码
 
-条形码
+### 条形码
 
-二维码(UR Code)
+- 在线识别  https://online-barcode-reader.inliteresearch.com/
 
-* 条形码与二维码在线识别
-https://online-barcode-reader.inliteresearch.com/
+### QR Code
 
-### 各种奇奇怪怪的编码，编程语言，算法
+二维码(QR Code, UR Code)
+
+* 条形码与二维码在线识别  https://online-barcode-reader.inliteresearch.com/
+
+## Other Code/Language/Algorithm
+
 https://www.dangermouse.net/esoteric/
 
 * npiet语言：使用图像进行编程  ``2021红帽杯初赛colorful code``
 
 
+
+---
+
 # Forensic Steganography
 
-> 隐写取证
+> 隐写取证   由于隐写取证分析过程与目标载体关联较大，将按照载体来列举隐写取证的知识与案例
 
-任何要求检查一个静态数据文件从而获取隐藏信息的都可以被认为是隐写取证题（除非单纯地是密码学的知识），一些低分的隐写取证又常常与古典密码学结合在一起，而高分的题目则通常用与一些较为复杂的现代密码学知识结合在一起
-
-
-> Common tools
-
-* binwalk工具对设备的固件文件系统进行提取
-    * 有时候会有多个文件组合起来，使用binwalk可以把这些文件分离出来，ctf比赛取证与隐写经常会用到。
+任何要求检查一个静态数据文件从而获取隐藏信息的都可以被认为是隐写取证题（除非单纯地是密码学的知识），一些低分的隐写取证又常常与古典密码学结合在一起，而高分的题目则通常用与一些较为复杂的现代密码学知识结合在一起。
 
 
-## Cases
 
-- xctf-2020-huaweictf misc:s34hunka: 一个以单元格背景颜色保存的图片，看起来像是图像隐写，实际上主要是信息检索，使用网上的原版与给出的、转为图片后的版本进行对照，像素差异处则为flag。
+
 
 
 
@@ -149,25 +155,9 @@ https://www.dangermouse.net/esoteric/
 # Image Analysis
 
 - 元数据（Metadata），又称中介数据、中继数据，为描述数据的数据（Data about data），主要是描述数据属性（property）的信息，用来支持如指示存储位置、历史数据、资源查找、文件记录等功能。
-
 - 常用图像隐写套路
-https://blog.csdn.net/u012486730/article/details/82016706
-
-- PNG图片
-文件格式：
-1. http://www.libpng.org/pub/png/spec/1.2/PNG-Contents.html
-2. https://www.fileformat.info/format/png/egff.htm
-    - 常见隐写：图像宽度；图像数据块IDAT（衣服图片可能有多个块进行信息隐藏）；LSB信息隐藏
-
-- JPEG图片格式
-1. https://www.cnblogs.com/senior-engineer/p/9548347.html
-2. https://www.fileformat.info/format/jpeg/egff.htm
-    - 隐写软件：Stegdetect；JPHS；SilentEye
-
-- GIF图片格式
-https://www.fileformat.info/format/gif/egff.htm
-    - gif图片隐写方案：**空间轴**(由于 GIF 的动态特性，由一帧帧的图片构成，所以每一帧的图片，多帧图片间的结合，都成了隐藏信息的一种载体)； **时间轴**(GIF 文件每一帧间的时间间隔也可以作为信息隐藏的载体)
-
+  https://blog.csdn.net/u012486730/article/details/82016706
+  
 - 常见ctf图像隐写工具
     - Stegsolve 
     - F5-steganography
@@ -175,11 +165,59 @@ https://www.fileformat.info/format/gif/egff.htm
 - 文件格式查询网站
 https://www.fileformat.info/format/cloud.htm
 
-## Cases
+## PNG
+
+  文件格式：
+1. http://www.libpng.org/pub/png/spec/1.2/PNG-Contents.html
+2. https://www.fileformat.info/format/png/egff.htm
+    - 常见隐写：图像宽度；图像数据块IDAT（衣服图片可能有多个块进行信息隐藏）；LSB信息隐藏
+
+
+
+**Cases**
+
+- 
+
+
+
+
+
+## JPEG
+
+1. https://www.cnblogs.com/senior-engineer/p/9548347.html
+2. https://www.fileformat.info/format/jpeg/egff.htm
+    - 隐写软件：Stegdetect；JPHS；SilentEye
+
+**Cases**
+
+- information_hiding_2021chunqiubei_fungame_snowww 把jpg文件中隐藏的信息先提取，然后发现是原图加上水印程序，我们需要写出逆向的水印函数就可以把水印恢复出来，水印就是flag。
+
+
+
+## GIF
+> https://www.fileformat.info/format/gif/egff.htm
+
+- gif图片隐写方案：**空间轴**(由于 GIF 的动态特性，由一帧帧的图片构成，所以每一帧的图片，多帧图片间的结合，都成了隐藏信息的一种载体)； **时间轴**(GIF 文件每一帧间的时间间隔也可以作为信息隐藏的载体)
+
+
+
+**Cases**
 
 - breakin-ctf-2017_misc_Mysterious-GIF：gif文件中分离出zip，zip中分离出多个小zip，解压得到partxx.enc，在gif的元数据comment中找到私钥，对.enc文件进行RSA解密，连接成一个图片文件
 
-- information_hiding_2021chunqiubei_fungame_snowww 把jpg文件中隐藏的信息先提取，然后发现是原图加上水印程序，我们需要写出逆向的水印函数就可以把水印恢复出来，水印就是flag。
+
+
+# Audio Steganography
+
+> 音频隐写
+
+与音频相关的 CTF 题目主要使用了隐写的策略，主要分为：
+
+* MP3 隐写 （工具： Mp3Stego http://www.petitcolas.net/steganography/mp3stego/）
+* LSB 隐写 （工具： Silenteye）
+* 波形隐写 （工具：**AutoStitch**(较简单) 或 Adobe Audition）
+* 频谱隐写
+* 等等
 
 
 
@@ -302,132 +340,6 @@ print ('output :' + "".join(output))
 
 
 
-## PcapPlusPlus
-
-> https://pcapplusplus.github.io/docs/tutorials/intro
-
-- PcapPlusPlus is built of 3 libraries: Common++, Packet++ and Pcap++.
-
-### Packet++
-
-- 解析、创建、编辑多种支持的协议的包的库
-- 可以独立运行，不依赖于Pcap++, libpcap/WinPcap/Npcap等
-
-主要类与功能:
-
-1. `RawPacket`: 表示从网络捕获的原始数据
-2. `Layer`: 所有协议层的基类。每个协议层负责解析属于该协议的数据包中的特定字节
-3. `Packet` - representing a packet that was parsed by the different PcapPlusPlus protocol parsers and contains the different protocol layers
-4. Protocol layers (e.g. `EthLayer, IPv4Layer, IPv6Layer, TcpLayer, UdpLayer, DnsLayer, HttpRequestLayer, HttpResponseLayer, PayloadLayer`, etc.) - classes representing specific protocol parsers. 都继承了 `Layer` class
-5. `PacketUtils`: 包含多种常用功能的类。e.g. 计算5元组/2元组的哈希值
-6. `TcpReassembly`: TCP重组(a.k.a TCP reconstruction) of TCP streams
-7. `IPv4Reassembly` - a class for providing IPv4 reassembly (a.k.a IPv4 de-fragmentation) of IPv4 packets
-
-### Pcap++
-
-- 拦截、发送数据包，提供网络、网卡信息，统计数据等的库
-- 主要是包捕获引擎(libpcap, WinPcap, Npcap, DPDK, PF_RING...)的c++包装器，但也提供了这些引擎中不存在的一些独特特性和功能
-
-主要类与功能:
-
-1. `PcapLiveDevice`:表示Linux/MacOS/FreeBSD网络接口，并允许捕获和发送数据包以及检索接口信息
-2. `WinPcapLiveDevice`: 表示一个Windows网络接口，并包含' PcapLiveDevice '中暴露的所有功能。这个类实际上继承了' PcapLiveDevice '并为WinPcap/Npcap和Windows操作系统做了相关的调整
-3. `DpdkDevice`: 表示一个支持DPDK的网络接口，并封装了用于捕获和发送数据包以及检索接口信息的DPDK基本功能
-4. `PfRingDevice`: 表示启用PF_RING的网络接口，并封装用于捕获和发送数据包以及检索接口信息的PF_RING功能
-5. `PcapRemoteDevice`: 表示远程机器上的网络接口，并允许使用rpcap协议在该接口上捕获和发送数据包。这个类实际上封装了WinPcap的远程捕获功能，因此只能在Windows上使用
-6. pcap and pcap-ng file readers and writers (`PcapFileReaderDevice, PcapFileWriterDevice, PcapNgFileReaderDevice, PcapNgFileWriterDevice, IFileReaderDevice, IFileWriterDevice`)
-7. 数据包过滤引擎 Packet filtering engine - a C++ API for the [BPF (Berkeley Packet Filter)](https://en.wikipedia.org/wiki/Berkeley_Packet_Filter) format for easy-to-use packet filtering from a network interface or pcap/pcap-ng file
-8. `NetworkUtils` - 包含需要网络交互的公共和基本操作的类。e.g. 通过发送ARP请求发现远程机器的MAC地址, 通过主机名(通过发送DNS请求)发现IPv4地址...
-
-
-
-### Common++
-
-- 包含`Packet++`和`Pcap++`使用的公共代码实用程序和类的库
-
-主要类与功能:
-
-1. `IPv4Address, IPv6Address`: 表示IPv4/IPv6地址的类
-2. `MacAddress`: 表示MAC(以太网)地址的类
-3. `IpUtils.h`: 各种有用的网络工具
-4. `LoggerPP`: PcapPlusPlus中广泛使用的一个简单的日志基础设施
-5. `SystemUtils.h`: 几个用于与操作系统交互的实用工具
-
-
-
-原始数据仅在RawPacket对象中存一次，不同层仅指向对应数据开始的地方。e.g. UDP Layer指向UDP开始的地方
-
-![](https://raw.githubusercontent.com/hex-16/pictures/master/Code_pic/PcapPlusPlus_LayersAndRawData.png)
-
-
-
-### PcapPlusPlus Build on Linux
-
-> installation case on Fedora33, build from source
-
-```python
-git clone https://github.com/seladb/PcapPlusPlus.git
-cd PcapPlusPlus/
-./configure-linux.sh --default
-make all
-sudo make install
-```
-
-
-
-### Cases
-
-
-
-```cpp
-// author: hexhex16@outlook.com
-// 小的pcap文件生成方式： editcap -i 60 ./data/202010041400.pcap small.pcap
-#include <pcap.h>
-#include "IPv4Layer.h"
-#include "Packet.h"
-#include "PcapFileDevice.h"
-#include "stdlib.h"
-
-int main(int argc, char* argv[]) {
-    // open a pcap file for reading
-    pcpp::PcapFileReaderDevice reader("small_00000_20201004130000.pcap");
-    if (!reader.open()) {
-        printf("Error opening the pcap file\n");
-        return 1;
-    }
-
-    // read the first (and only) packet from the file
-    pcpp::RawPacket rawPacket;
-    if (!reader.getNextPacket(rawPacket)) {
-        printf("Couldn't read the first packet in the file\n");
-        return 1;
-    }
-
-    // parse the raw packet into a parsed packet
-    pcpp::Packet parsedPacket(&rawPacket);
-
-    // verify the packet is IPv4
-    if (parsedPacket.isPacketOfType(pcpp::IPv4)) {
-        // extract source and dest IPs
-        pcpp::IPv4Address srcIP =
-            parsedPacket.getLayerOfType<pcpp::IPv4Layer>()->getSrcIpAddress();
-        pcpp::IPv4Address destIP =
-            parsedPacket.getLayerOfType<pcpp::IPv4Layer>()->getDstIpAddress();
-        printf("Source IP is '%s'; Dest IP is '%s'\n", srcIP.toString().c_str(),
-               destIP.toString().c_str());  // print source and dest IPs
-    }
-
-    while (reader.getNextPacket(rawPacket)) {
-    }
-    pcpp::IPcapDevice::PcapStats stats;
-    reader.getStatistics(stats);
-    printf("Read %lu packets successfully and %lu packets could not be read\n",
-           stats.packetsRecv, stats.packetsDrop);
-
-    reader.close();  // close the file
-}
-```
-
 
 
 
@@ -436,7 +348,8 @@ int main(int argc, char* argv[]) {
 
 > 压缩包分析
 
-## ZIP压缩包
+## ZIP
+
 CTF中ZIP压缩包的考察一般都是把压缩包进行加密，然后尝试把ZIP的加密给破解。
 
 > 主要攻击
@@ -462,7 +375,8 @@ CTF中ZIP压缩包的考察一般都是把压缩包进行加密，然后尝试�
         * 检测伪加密的小工具 ``ZipCenOp.jar``
         * 有时候用 ``WinRar`` 的修复功能（此方法有时有奇效，不仅针对伪加密）
 
-## RAR压缩包
+## RAR
+
 RAR 文件主要由标记块，压缩文件头块，文件头块，结尾块组成。详细格式见：https://forensicswiki.xyz/wiki/index.php?title=RAR
 
 > 主要攻击
@@ -476,16 +390,10 @@ RAR 文件主要由标记块，压缩文件头块，文件头块，结尾块组�
 
 
 
-# Audio Steganography
 
-> 音频隐写
+---
 
-与音频相关的 CTF 题目主要使用了隐写的策略，主要分为：
-* MP3 隐写 （工具： Mp3Stego http://www.petitcolas.net/steganography/mp3stego/）
-* LSB 隐写 （工具： Silenteye）
-* 波形隐写 （工具：**AutoStitch**(较简单) 或 Adobe Audition）
-* 频谱隐写
-* 等等
+* 
 
 参考：
 1. https://www.sqlsec.com/2018/01/ctfwav.html
@@ -493,6 +401,9 @@ RAR 文件主要由标记块，压缩文件头块，文件头块，结尾块组�
 
 
 
+# Docx, Xlsx, Pdf, etc
+
+- xctf-2020-huaweictf misc:s34hunka: 一个xls以单元格背景颜色保存的图片，看起来像是图像隐写，实际上主要是信息检索，使用网上的原版与给出的、转为图片后的版本进行对照，像素差异处则为flag。
 
 # Disk Memory Analysis
 
@@ -519,6 +430,14 @@ Linux: EXT2 -> EXT3 -> EXT4
 
 VMDK 文件本质上是物理硬盘的虚拟版，也会存在跟物理硬盘的分区和扇区中类似的填充区域，我们可以利用这些填充区域来把我们需要隐藏的数据隐藏到里面去，这样可以避免隐藏的文件增加了 VMDK 文件的大小（如直接附加到文件后端），也可以避免由于 VMDK 文件大小的改变所带来的可能导致的虚拟机错误。而且 VMDK 文件一般比较大，适合用于隐藏大文件。
 
+
+
+# Git Leak
+
+> git 泄露
+
+- 工具：scrabble
+
 # Other
 
 
@@ -533,6 +452,9 @@ VMDK 文件本质上是物理硬盘的虚拟版，也会存在跟物理硬盘的
 
 
 
-# Tools
+# Tools Lookup Table
 
-- stegsolve 可查看LSB隐写
+- StegSolve: jave app，可查看LSB隐写，提取各层数据，查看各通道各层的二值图。
+- binwalk: Linux命令行工具，可识别文件中隐藏的其他文件格式(特征字串匹配)
+- ctftools.com:   https://ctftools.com/down/   大杂烩，编码、web、隐写、漏洞扫描什么的都有，大多提供的是软件下载
+- CyberChef: https://gchq.github.io/CyberChef/   编码、隐写、格式、压缩包、流量等

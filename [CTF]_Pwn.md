@@ -1174,7 +1174,7 @@ sh.interactive() # 将代码交互转换为手工交互
 
 ---
 
-## ROP
+## Stack Overflow and ROP
 
 > ROP(Return Oriented Programming)   面向返回编程    栈溢出问题
 >
@@ -1314,6 +1314,12 @@ Important Cases:
 ```bash
 readelf -S ret2libc # 可以获得段地址，比如bbs段的地址 # 也可在IDA中获得bbs段的地址
 ```
+
+
+
+### ret2csu
+
+
 
 
 
@@ -2134,7 +2140,7 @@ cases:
 
 ---
 
-## Glibc Heap
+## Glibc Heap: ptmalloc2
 
 > Glibc Heap利用
 
@@ -2152,6 +2158,16 @@ libumem   – Solaris
 
 - 宏观结构，包含堆的宏观信息，可以通过这些数据结构索引堆的基本信息。
 - 微观结构，用于具体处理堆的分配与回收中的内存块。
+
+
+
+
+
+
+
+
+
+
 
 ### malloc_chunk
 
