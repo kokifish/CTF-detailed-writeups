@@ -19,7 +19,7 @@
 _rdtsc() // 检测程序运行需要多少个CPU周期
 ```
 
-
+> tools: 
 
 
 
@@ -54,7 +54,7 @@ checksec --file=filename  # 新版
 
 ```bash
 sudo apt install ruby
-gem install one_gadget
+gem install one_gadget # gem: ruby 包管理
 one_gadget libc-2.27.so
 one_gadget libc-2.27.so --near exit,mkdir # Reorder gadgets according to the distance of given functions.
 one_gadget /lib/x86_64-linux-gnu/libc.so.6 --near 'write.*' --raw # Regular expression is acceptable.
@@ -636,15 +636,40 @@ ex2.c  canary.py  core    ex2
 
 #### 劫持`__stack_chk_fail` 函数
 
-
+TBD
 
 
 
 #### 覆盖 TLS 中储存的 Canary 值
 
+TBD
 
 
 
+## PIE(PIC)
+
+> PIC = Position Independent Code 
+>
+> -fpic Generate position-independent code (PIC) suitable for use in a shared library
+>
+> https://zhuanlan.zhihu.com/p/91420787 如何做到PIC 带案例
+>
+> https://sa.sogou.com/sgsearch/sgs_tc_news.php?req=XJfILdCUU2TuOxZDyaoqZBTGiGQumUZMYP-S-WEG-a0=&user_type=1  这里有详细的利用GOT实现PIC的过程 含图示 TBD
+>
+> `readelf -l hello | grep LOAD | head -1` 查看Load Address
+
+- PIC: 通过获取当前eip值 + 全局偏移表global offset table（GOT）来实现的
+
+1. 利用`get_pc_trunk`获得当前eip的值，例如将eip存储到eax的`__x86.get_pc_thunk.ax` :
+
+```assembly
+call   4f5 <__x86.get_pc_thunk.ax>  # -fpic后的程序调用__x86.get_pc_thunk.ax来获取当前eip
+ 4f5 <__x86.get_pc_thunk.ax>: # 由于 call指令会 push eip; jmp 4f5; 所以此时esp指向的值就是eip
+ 4f5:    8b 04 24       mov  (%esp),%eax # 把esp指向的值(RA aka caller eip) 赋值给eax
+ 4f8:    c3             ret # pop eip, 取的也是RA
+```
+
+2. GOT
 
 
 
@@ -652,9 +677,8 @@ ex2.c  canary.py  core    ex2
 
 > 地址空间配置随机加载  Address space layout randomization  地址空间配置随机化  地址空间布局随机化
 >
-> OS层级的保护。一种防范内存损坏漏洞被利用的计算机安全技术
+> OS层级的保护。一种防范内存损坏漏洞被利用的计算机安全技术。
 >
-> Linux系统上控制ASLR启动与否
 
 - ASLR通过**随机放置进程关键数据区域的地址空间**来防止攻击者能可靠地跳转到内存的特定位置来利用函数。现代操作系统一般都加设这一机制，以防范恶意程序对已知地址进行**Return-to-libc**攻击
 - ASLR 的有效性依赖于整个地址空间布局是否对于攻击者保持未知。只有编译时作为 位置无关可执行文件(Position Independent Executable) **PIE** 的可执行程序才能得到 ASLR 技术的最大保护，因为只有这样，可执行文件的所有代码节区才会被加载在随机地址。PIE 机器码不管绝对地址是多少都可以正确执行。
@@ -793,12 +817,12 @@ Full RELRO:
 >
 > https://www.tenouk.com/Bufferoverflowc/Bufferoverflow2a.html
 
-CPU在执行call指令时需要进行两步操作：
+Procedure of `call tag`:
 
-1. 将当前的IP(也就是函数返回地址)入栈，即：`push IP`; 对ESP/RSP/SP寄存器减去4/8 然后将操作数写到上述寄存器里的指针所指向的内存中。
-2. 跳转，即： `jmp dword ptr 内存单元地址`。
+1. `push IP`: 将当前的IP(a.k.a.函数返回地址)入栈. a.k.a ESP/RSP 减 4/8; IP写到ESP/RSP存的指针所指向的内存中。
+2. `jmp tag`: a.k.a `jmp dword ptr 内存单元地址`。
 
-`ret`指令相当于`pop IP`, CPU在执行`ret`指令时只需要恢复IP。从栈指针ESP/RSP/SP指向的内存中读取数据，(通常)写到其他寄存器里，然后将栈指针加上4/8
+`ret`指令相当于`pop IP`, CPU在执行`ret`指令时只需要恢复IP。从栈指针ESP/RSP/SP指向的内存中读取数据，(通常)写到其他寄存器里，然后将栈指针esp/rsp加上4/8
 
 32bit系统：
 
@@ -1418,9 +1442,7 @@ gef➤  x/7i 0x000000000040061d
 >
 > - GKCTF2021 应急挑战杯 checkin login   对应writeup有详细的劫持过程的分析，分析了一部分重要指令前后rbp rsp的变换
 
-构造一个虚假的栈帧来控制程序的执行流
-
-概括地讲，在之前讲的栈溢出不外乎两种方式
+构造一个虚假的栈帧来控制程序的执行流。概括地讲，在之前讲的栈溢出不外乎两种方式
 
 - 控制程序 EIP
 - 控制程序 EBP
@@ -2140,9 +2162,9 @@ cases:
 
 ---
 
-## Glibc Heap: ptmalloc2
+## Heap Exploitation: Ptmalloc2
 
-> Glibc Heap利用
+> 主要是 Glibc Heap: ptmalloc2 利用
 
 - 对于不同的应用来说，由于内存的需求各不相同等特性，因此目前堆的实现有很多种: 
 
@@ -2161,7 +2183,49 @@ libumem   – Solaris
 
 
 
+### Heap Overview
 
+堆：程序运行过程中，堆可以提供动态分配的内存，允许程序申请大小未知的内存。实质上是程序虚拟地址空间的一块连续的线性区域，由低地址向高地址增长
+
+堆管理器：一般称管理堆的那部分程序为堆管理器。堆管理器处于用户程序与内核中间，主要工作：
+
+1. 响应用户的申请内存请求，向OS申请内存，然后返回给用户程序。为保证内存管理的高效性，内核一般会预先分配很大一块连续内存，堆管理器通过某种算法管理这块内存。只有堆空间不足时，堆管理器才会再次与OS交互
+2. 管理用户释放的内存。一般，用户释放的内存不会直接返还给OS，而是由堆管理器管理，这些释放了的内存可以来响应用户新的内存申请请求。
+
+> Wolfram Gloger 在 Doug Lea 的基础上改进使其支持多线程，即 ptmalloc。glibc-2.3.x. 后，glibc 集成 ptmalloc2
+>
+> 目前 Linux 标准发行版中使用的堆分配器是 glibc 中的堆分配器：ptmalloc2。ptmalloc2 主要是通过 malloc/free 函数来分配和释放内存块
+>
+> 内存分配，使用莞城中，Linux的基本内存管理思想：**只有当真正访问一个地址的时候，系统才会建立虚拟页面与物理页面的映射关系**。OS虽然给程序分配了很大一块内存，但只是虚拟内存，只有当用户使用到相应的内存时，OS才会真正分配物理页面给用户使用。
+
+#### malloc and free
+
+> 在glibc 的 [malloc.c](https://github.com/iromise/glibc/blob/master/malloc/malloc.c#L448) 中有响应的说明
+
+`malloc(size_t n)`: 返回对应大小字节的内存块指针
+
+- n == 0: 返回当前OS允许的堆的最小内存块. returns a minumum-sized chunk. (The minimum  size is 16 bytes on most 32bit systems, and 24 or 32 bytes on 64bit  systems.)
+- n < 0: 由于大部分OS的`size_t`是无符号数，所以程序会申请很大的内存空间，通常会因空间不足失败
+
+`free(void* p)`: 释放由p指向的内存块。p可能是malloc, realloc得到的
+
+- p == NULL: 不执行任何操作
+- p已释放: 再次释放会出现任意效果，即 double free
+- 除非通过`mallopt`禁用，释放很大内存空间时，程序会将这些内存空间还给OS以减小程序使用的内存空间
+
+#### (s)brk and mmap
+
+> https://www.huaweicloud.com/articles/12453899.html Linux进程分配内存的两种方式--brk() 和mmap()
+
+- 应用程序调用malloc(OS无关代码)，malloc调用依赖OS的库函数`__brk / __mmap` 陷入内核态，最后触发系统调用`sys_brk / sys_mmap_pgoff`
+
+![](https://raw.githubusercontent.com/hex-16/pictures/master/CTF_pic/brk_and_mmap.png)
+
+![](https://raw.githubusercontent.com/hex-16/pictures/04cb1b2b6abf8929ddd76b404144e1985959df11/CTF_pic/segments_chinese.jpg)
+
+32bit OS虚拟内存空间(ASLR open): 注意图中由于开启了ASLR, `start_brk(end_data)`与BBS段末尾有一段随机偏移
+
+![](https://raw.githubusercontent.com/hex-16/pictures/master/CTF_pic/program_virtual_address_memory_space.png)
 
 
 
@@ -2171,25 +2235,23 @@ libumem   – Solaris
 
 ### malloc_chunk
 
-**chunk**: 称由 malloc 申请的内存为 chunk。这块内存在 ptmalloc 内部用 malloc_chunk 结构体来表示。当程序申请的 chunk 被 free 后，会被加入到相应的空闲管理列表中
-
-**无论一个 chunk 的大小如何，处于分配状态还是释放状态，它们都使用一个统一的结构**。虽然它们使用了同一个数据结构，但是根据是否被释放，它们的表现形式会有所不同。
+- **chunk**: 称由 malloc 申请的内存为 chunk。
+- **malloc_chunk**: 无论大小，分配 / 释放状态，chunk都使用一个结构体 malloc_chunk 来表示。但根据是否被释放，malloc_chunk 表现形式有不同。
 
 malloc_chunk 的结构：
 
 ```cpp
 // This struct declaration is misleading (but accurate and necessary). 误导的结构体 仅用作理解
-// It declares a "view" into memory allowing access to necessary fields at known offsets from a given base. See explanation below.
 // ptmalloc 用 malloc_chunk 表示 mallloc 申请的内存(chunk)
 struct malloc_chunk { // default: define INTERNAL_SIZE_T size_t 
-  INTERNAL_SIZE_T      prev_size;  // Size of previous chunk (if free). 
-  INTERNAL_SIZE_T      size;       // Size in bytes, including overhead.
+  INTERNAL_SIZE_T      prev_size; // Size of previous chunk (if free). 前一个chunk的大小(free后有效)
+  INTERNAL_SIZE_T      size;      // Size in bytes, including overhead.
 
-  struct malloc_chunk* fd;         // double links -- used only if free.
+  struct malloc_chunk* fd;        // double links -- used only if free.
   struct malloc_chunk* bk;
 
  // Only used for large blocks: pointer to next larger size.
-  struct malloc_chunk* fd_nextsize; // double links -- used only if free.
+  struct malloc_chunk* fd_nextsize;// double links -- used only if free.
   struct malloc_chunk* bk_nextsize;
 };
 ```

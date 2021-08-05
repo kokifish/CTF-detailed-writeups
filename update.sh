@@ -11,7 +11,7 @@ echo "[Step-1] git pull origin main:"
 git pull origin main -v;
 echo
 echo "=== [WARNING] If conflict occured, related files will show below: ========="
-git status
+git status -v
 echo "=== [WARNING] Fix by hands if conflict exits. Then [RE-RUN] this script ==="
 echo 
 
@@ -19,8 +19,8 @@ echo "[Step-2] Local changes add and commit:"
 git checkout main;
 git add . -v;
 
-git commit -am "$var";
+git commit -v -am "$var";
 
 
 echo "[Step-3] git push origin main:"
-git push origin main
+git push origin main -v
