@@ -180,6 +180,8 @@ typedef struct {
 
 #### p_vaddr and Base Address
 
+> 段基址
+
 **地址无关代码使用段之间的相对地址来进行寻址，内存中的虚拟地址之间的差必须与文件中的虚拟地址之间的差相匹配**
 
 **基地址Base Address**：内存中任何段的虚拟地址与文件中对应的虚拟地址之间的差值对于任何一个可执行文件或共享对象来说是一个单一常量值。这个差值就是基地址，基地址的一个用途就是在动态链接期间重新定位程序
@@ -187,6 +189,8 @@ typedef struct {
 
 
 #### Segment Permissions: p_flags
+
+> 段权限: p_flags
 
 被系统加载到内存中的程序至少有一个可加载的段。当系统为可加载的段创建内存镜像时，它会按照 p_flags 将段设置为对应的权限
 
@@ -203,6 +207,8 @@ p_flags == 0: 段是不可访问的。
 一般来说，.text 段一般具有读和执行权限，但是不会有写权限。数据段一般具有写，读，以及执行权限
 
 #### Segment Content
+
+> 段内容
 
 一个segment可能包括一到多个section，但不影响程序的加载。但仍需要各种各样的数据来使得程序可以执行、动态链接
 
@@ -231,12 +237,85 @@ p_flags == 0: 段是不可访问的。
 
 ### Section Header Table
 
+> 节头表
+
+- 该结构用于定位 ELF 文件中的每个section的具体位置
+
+节头表Section Header Table是一个数组，每个数组的元素的类型是 `ELF32_Shdr` ，每`ELF32_Shdr`都描述了一个section的概要内容
+
+```cpp
+typedef struct {
+    ELF32_Word      sh_name;
+    ELF32_Word      sh_type;
+    ELF32_Word      sh_flags;
+    ELF32_Addr      sh_addr;
+    ELF32_Off       sh_offset;
+    ELF32_Word      sh_size;
+    ELF32_Word      sh_link;
+    ELF32_Word      sh_info;
+    ELF32_Word      sh_addralign;
+    ELF32_Word      sh_entsize;
+} Elf32_Shdr;
+```
+
+| 成员         | 说明                                                         |
+| ------------ | :----------------------------------------------------------- |
+| sh_name      | 节名称，是节区头字符串表节区中（Section Header String Table Section）的索引，因此该字段实际是一个数值。在字符串表中的具体内容是以 NULL 结尾的字符串。 |
+| sh_type      | 根据节的内容和语义进行分类，具体的类型下面会介绍。           |
+| sh_flags     | 每一比特代表不同的标志，描述节是否可写，可执行，需要分配内存等属性。 |
+| sh_addr      | 如果节区将出现在进程的内存映像中，此成员给出节区的第一个字节应该在进程镜像中的位置。否则，此字段为 0。 |
+| sh_offset    | 给出节区的第一个字节与文件开始处之间的偏移。SHT_NOBITS 类型的节区不占用文件的空间，因此其 sh_offset 成员给出的是概念性的偏移。 |
+| sh_size      | 此成员给出节区的字节大小。除非节区的类型是 SHT_NOBITS ，否则该节占用文件中的 sh_size 字节。类型为 SHT_NOBITS 的节区长度可能非零，不过却不占用文件中的空间。 |
+| sh_link      | 此成员给出节区头部表索引链接，其具体的解释依赖于节区类型。   |
+| sh_info      | 此成员给出附加信息，其解释依赖于节区类型。                   |
+| sh_addralign | 某些节区的地址需要对齐。例如，如果一个节区有一个 doubleword 类型的变量，那么系统必须保证整个节区按双字对齐。也就是说，sh_addr%sh_addralignsh_addr%sh_addralign=0。目前它仅允许为 0，以及 2 的正整数幂数。 0 和 1 表示没有对齐约束。 |
+| sh_entsize   | 某些节区中存在具有固定大小的表项的表，如符号表。对于这类节区，该成员给出每个表项的字节大小。反之，此成员取值为 0。 |
 
 
 
 
 
-### Loader
+### Sections
+
+> 节区
+
+包含目标文件中除了 ELF 头部、程序头部表、节区头部表的所有信息
+
+
+
+
+
+### Code Section
+
+
+
+
+
+### Data Related Sections
+
+
+
+### .symtab: Symbol Table
+
+
+
+### String Sections
+
+
+
+
+
+### Dynamic Sections
+
+
+
+### Misc Sections
+
+
+
+
+
+## Loader
 
 程序加载过程其实就是系统创建或者或者扩充进程镜的过程。它只是按照一定的规则把文件的段拷贝到虚拟内存段中。进程只有在执行的过程中使用了对应的逻辑页面时，才会申请相应的物理页面。通常来说，一个进程中有很多页是没有被引用的。因此，延迟物理读写可以提高系统的性能。为了达到这样的效率，可执行文件以及共享目标文件所拥有的段的文件偏移以及虚拟地址必须是合适的，也就是说他们必须是页大小的整数倍。
 
