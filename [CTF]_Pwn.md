@@ -675,7 +675,7 @@ call   4f5 <__x86.get_pc_thunk.ax>  # -fpic后的程序调用__x86.get_pc_thunk.
 
 ## ASLR
 
-> 地址空间配置随机加载  Address space layout randomization  地址空间配置随机化  地址空间布局随机化
+> 地址空间配置随机加载  Address Space Layout Randomization  地址空间配置随机化  地址空间布局随机化
 >
 > OS层级的保护。一种防范内存损坏漏洞被利用的计算机安全技术。
 >
@@ -759,8 +759,6 @@ $ ldd /bin/bash
         libc.so.6 => /lib/x86_64-linux-gnu/libc.so.6 (0x00007fed59552000)
         /lib64/ld-linux-x86-64.so.2 (0x00007fed59aa7000)
 ```
-
-
 
 
 
@@ -2215,7 +2213,7 @@ libumem   – Solaris
 - p已释放: 再次释放会出现任意效果，即 double free
 - 除非通过`mallopt`禁用，释放很大内存空间时，程序会将这些内存空间还给OS以减小程序使用的内存空间
 
-#### (s)brk and mmap
+##### (s)brk
 
 > https://www.huaweicloud.com/articles/12453899.html Linux进程分配内存的两种方式--brk() 和mmap()
 
@@ -2231,6 +2229,100 @@ libumem   – Solaris
 
 
 
+```cpp
+/* sbrk and brk example */
+#include <stdio.h>
+#include <unistd.h>
+#include <sys/types.h>
+int main(){
+    void *curr_brk, *tmp_brk = NULL;
+    printf("Welcome to sbrk example:%d\n", getpid()); // Welcome to sbrk example:6141
+    // sbrk(0) gives current program break location
+    tmp_brk = curr_brk = sbrk(0);
+    printf("Program Break Location1:%p\n", curr_brk); // Program Break Location1:0x804b000
+    getchar(); // start_brk = brk = end_data = 0x804b000  ← 首次调用brk前
+    // brk(addr) increments/decrements program break location
+    brk(curr_brk+4096); // 首次调用brk
+    curr_brk = sbrk(0);
+    printf("Program break Location2:%p\n", curr_brk); // Program Break Location2:0x804c000
+// cat /proc/6141/maps
+// 0804a000-0804b000 rw-p 00001000 08:01 539624   /home/sploitfun/ptmalloc.ppt/syscalls/sbrk
+// 0804b000-0804c000 rw-p 00000000 00:00 0        [heap]  # 出现了heap 堆栈 # rw-p 堆可读可写，属隐私数据
+// b7e21000-b7e22000 rw-p 00000000 00:00 0
+    getchar();
+
+    brk(tmp_brk);
+    curr_brk = sbrk(0);
+    printf("Program Break Location3:%p\n", curr_brk);
+    getchar();
+}
+```
+
+> 00000000 表明文件偏移，0 表示这部分内容并不是从文件中映射得到的
+>
+> 00:00 主从 (Major/mirror) 的设备号，全为0表示这部分内容不是从文件中映射得到的
+>
+> 0 Inode 号。0表示这部分内容不是从文件中映射得到的 
+
+#####  mmap
+
+- malloc 使用 mmap 来创建独立的匿名映射段。匿名映射的目的主要是可以申请以 0 填充的内存，并且这块内存仅被调用进程所使用
+
+```cpp
+/* Private anonymous mapping example using mmap syscall */
+#include <stdio.h>
+#include <sys/mman.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <stdlib.h>
+
+void static inline errExit(const char* msg){
+    printf("%s failed. Exiting the process\n", msg);
+    exit(-1);
+}
+
+int main(){
+    int ret = -1;
+    printf("Welcome to private anonymous mapping example::PID:%d\n", getpid());
+    printf("Before mmap\n");
+    getchar();
+//08048000-08049000 r-xp 00000000 08:01 539691   /home/sploitfun/ptmalloc.ppt/syscalls/mmap
+//08049000-0804a000 r--p 00000000 08:01 539691   /home/sploitfun/ptmalloc.ppt/syscalls/mmap
+//0804a000-0804b000 rw-p 00001000 08:01 539691   /home/sploitfun/ptmalloc.ppt/syscalls/mmap
+//b7e21000-b7e22000 rw-p 00000000 00:00 0
+    char* addr = NULL;
+    addr = mmap(NULL, (size_t)132*1024, PROT_READ|PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0); // mmap !!!
+//08048000-08049000 r-xp 00000000 08:01 539691   /home/sploitfun/ptmalloc.ppt/syscalls/mmap
+//08049000-0804a000 r--p 00000000 08:01 539691   /home/sploitfun/ptmalloc.ppt/syscalls/mmap
+//0804a000-0804b000 rw-p 00001000 08:01 539691   /home/sploitfun/ptmalloc.ppt/syscalls/mmap
+//b7e00000-b7e22000 rw-p 00000000 00:00 0 // 申请的内存与已存在的 结合为 b7e00000~b7e21000 的 mmap 段
+    if (addr == MAP_FAILED)
+        errExit("mmap");
+    printf("After mmap\n");
+    getchar();
+
+    ret = munmap(addr, (size_t)132*1024); // Unmap mapped region.
+//08048000-08049000 r-xp 00000000 08:01 539691     /home/sploitfun/ptmalloc.ppt/syscalls/mmap
+//08049000-0804a000 r--p 00000000 08:01 539691     /home/sploitfun/ptmalloc.ppt/syscalls/mmap
+//0804a000-0804b000 rw-p 00001000 08:01 539691     /home/sploitfun/ptmalloc.ppt/syscalls/mmap
+//b7e21000-b7e22000 rw-p 00000000 00:00 0 // 原来申请的内存段没有了，恢复成原来的样子
+    if(ret == -1)
+        errExit("munmap");
+    printf("After munmap\n");
+    getchar();
+}
+```
+
+
+
+#### Multi-thread Support
+
+> TBD
+
+**虽然程序可能只是向操作系统申请很小的内存，但是为了方便，操作系统会把很大的内存分配给程序。这样的话，就避免了多次内核态与用户态的切换，提高了程序的效率**。称这一块连续的内存区域为 **arena**。称由主线程申请的内存为 **main_arena**。arena 空间不足时，可通过增加 brk 来增加堆的空间；可通过减小 brk 来缩小 arena 空间。
+
 
 
 
@@ -2240,11 +2332,10 @@ libumem   – Solaris
 - **chunk**: 称由 malloc 申请的内存为 chunk。
 - **malloc_chunk**: 无论大小，分配 / 释放状态，chunk都使用一个结构体 malloc_chunk 来表示。但根据是否被释放，malloc_chunk 表现形式有不同。
 
-malloc_chunk 的结构：
+
 
 ```cpp
-// This struct declaration is misleading (but accurate and necessary). 误导的结构体 仅用作理解
-// ptmalloc 用 malloc_chunk 表示 mallloc 申请的内存(chunk)
+// malloc_chunk 的结构 // 误导的结构体 仅用作理解 // ptmalloc 用 malloc_chunk 表示 mallloc 申请的内存(chunk)
 struct malloc_chunk { // default: define INTERNAL_SIZE_T size_t 
   INTERNAL_SIZE_T      prev_size; // Size of previous chunk (if free). 前一个chunk的大小(free后有效)
   INTERNAL_SIZE_T      size;      // Size in bytes, including overhead.
