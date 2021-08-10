@@ -2266,7 +2266,7 @@ int main(){
 
 #####  mmap
 
-- malloc 使用 mmap 来创建独立的匿名映射段。匿名映射的目的主要是可以申请以 0 填充的内存，并且这块内存仅被调用进程所使用
+- malloc 使用 mmap 来创建独立的匿名映射段。匿名映射主要目的: 可以申请以 0 填充的内存，且这块内存仅被调用进程所使用
 
 ```cpp
 /* Private anonymous mapping example using mmap syscall */
