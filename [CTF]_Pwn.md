@@ -2165,6 +2165,8 @@ cases:
 ## Heap Exploitation: Ptmalloc2
 
 > 主要是 Glibc Heap: ptmalloc2 利用
+>
+> https://zhuanlan.zhihu.com/p/352445428
 
 - 对于不同的应用来说，由于内存的需求各不相同等特性，因此目前堆的实现有很多种: 
 
@@ -2438,16 +2440,24 @@ The three exceptions to all this are:
 
 ### bin
 
-用户释放掉的 chunk 不会马上归还给系统，ptmalloc 会统一管理 heap 和 mmap 映射区域中的空闲的 chunk。当用户再一次请求分配内存时，ptmalloc 分配器会试图在空闲的 chunk 中挑选一块合适的给用户。这样可以避免频繁的系统调用，降低内存分配的开销。
+- 用户释放掉的 chunk 不会马上归还给OS，由 ptmalloc 统一管理 heap 和 mmap 映射区域中空闲的 chunk。用户再次请求分配内存时，ptmalloc 分配器会试图在空闲的 chunk 中挑选一块合适的给用户。以避免频繁的系统调用，降低内存分配开销
+- ptmalloc 采用**分箱式**方法对空闲的 chunk 进行管理。
+- 根据空闲的 chunk 的大小以及使用状态将 chunk 初步分为 4 类：
+1. unsorted bin: 是第一个，没有排序，存储的chunk较杂
+2. small bins: 索引2\~63，同一个small bin链表中的chunk大小相同。两个相邻索引的 small bin 链表中的 chunk 大小相差的字节数为 **2 个机器字长**，即 32 位相差 8 字节，64 位相差 16 字节。
+3. large bins: small bins 后面的 bin 被称作 **large bins**。large bins 中的每一个 bin 都**包含一定范围内的 chunk**，其中的 chunk **按 fd 指针的顺序从大到小排列**。相同大小的 chunk 同样按照最近使用顺序排列。
+4. fast bins: 并不是所有的 chunk 被释放后就立即被放到 bin 中。ptmalloc 为了提高分配的速度，会把一些小的 chunk **先**放到 fast bins 的容器内。**而且，fastbin 容器中的 chunk 的使用标记总是被置位的，所以不满足上面的原则。**
 
-ptmalloc 采用分箱式方法对空闲的 chunk 进行管理。首先，它会根据空闲的 chunk 的大小以及使用状态将 chunk 初步分为 4 类：fast bins，small bins，large bins，unsorted bin。每类中仍然有更细的划分，相似大小的 chunk 会用双向链表链接起来。也就是说，在每类 bin 的内部仍然会有多个互不相关的链表来保存不同大小的 chunk。
+每类中仍然有更细的划分，相似大小的 chunk 会用**双向链表**链接起来。aka. 在每类 bin 内部会有多个互不相关的链表来保存不同大小的 chunk。
+
+> 上述这些 bin 的排布都会遵循一个原则：**任意两个物理相邻的空闲 chunk 不能在一起**
 
 对于 small bins，large bins，unsorted bin 来说，ptmalloc 将它们维护在同一个数组中。这些 bin 对应的数据结构在 malloc_state 中:
 
 ```c
 #define NBINS 128
 //  Normal bins packed as described above
-mchunkptr bins[ NBINS * 2 - 2 ];
+mchunkptr bins[ NBINS * 2 - 2 ]; // 254
 ```
 
 `bins` 主要用于索引不同 bin 的 fd 和 bk。以 32 位系统为例，bins 前 4 项的含义如下
@@ -2460,15 +2470,7 @@ bin2 prev_size与bin1 fd重合，bin2 size与bin1 bk重合。只使用fd, bk索�
 
 > fd 指向下一个（非物理相邻）空闲的 chunk，
 
-数组中的 bin 依次如下
 
-1. 第一个为 **unsorted bin**，这里面的 chunk 没有进行排序，存储的 chunk 比较杂。
-2. 索引从 **2** 到 63 的 bin 称为 **small bin**，**同一个 small bin 链表中的 chunk 的大小相同**。两个相邻索引的 small bin 链表中的 chunk 大小相差的字节数为 **2 个机器字长**，即 32 位相差 8 字节，64 位相差 16 字节。
-3. small bins 后面的 bin 被称作 **large bins**。large bins 中的每一个 bin 都**包含一定范围内的 chunk**，其中的 chunk **按 fd 指针的顺序从大到小排列**。相同大小的 chunk 同样按照最近使用顺序排列。
-
-此外，上述这些 bin 的排布都会遵循一个原则：**任意两个物理相邻的空闲 chunk 不能在一起**
-
-并不是所有的 chunk 被释放后就立即被放到 bin 中。ptmalloc 为了提高分配的速度，会把一些小的 chunk **先**放到 fast bins 的容器内。**而且，fastbin 容器中的 chunk 的使用标记总是被置位的，所以不满足上面的原则。**
 
 bin 通用的宏如下
 
