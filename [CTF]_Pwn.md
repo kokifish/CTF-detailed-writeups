@@ -652,7 +652,7 @@ TBD
 >
 > -fpic Generate position-independent code (PIC) suitable for use in a shared library
 >
-> https://zhuanlan.zhihu.com/p/91420787 如何做到PIC 带案例
+> https://zhuanlan.zhihu.com/p/91420787 如何做到PIC (2 parts) 带案例
 >
 > https://sa.sogou.com/sgsearch/sgs_tc_news.php?req=XJfILdCUU2TuOxZDyaoqZBTGiGQumUZMYP-S-WEG-a0=&user_type=1  这里有详细的利用GOT实现PIC的过程 含图示 TBD
 >
@@ -670,6 +670,29 @@ call   4f5 <__x86.get_pc_thunk.ax>  # -fpic后的程序调用__x86.get_pc_thunk.
 ```
 
 2. GOT
+
+
+
+
+
+### PLT and GOT
+
+> the key to code sharing and dynamic libraries. 对代码复用、动态库有关键作用. 运行时重定位
+>
+> https://www.freebuf.com/articles/system/135685.html Linux中的GOT和PLT到底是个啥？
+
+GOT: Global Offset Table, 全局偏移表。存放**函数地址的数据表**
+
+PLT: Procedure Linkage Table, 程序链接表。**额外代码段**表
+
+动态链接所需要的：
+
+- 需要存放外部函数的数据段（GOT）
+- 获取数据段存放函数地址的一小段额外代码（PLT）
+
+![](https://raw.githubusercontent.com/hex-16/pictures/master/CTF_pic/pwn_PLT_GOT_very_simple_illustration.jpg)
+
+
 
 
 
@@ -1026,8 +1049,8 @@ int func(int para);
 sudo docker container run -t -i ubuntu:16.04 /bin/bash # 拉取并运行ubuntu:16.04后进入容器内console
 ls /lib/x86_64-linux-gnu/ | grep libc # 查看含libc字样的文件  可看到版本
 ls /lib/x86_64-linux-gnu/ | grep ld # 查看含ld字样的文件 可看到版本
-# NEW a new console
-sudo docker container ls # 然后复制 ubuntu:16.04 的 CONTAINER ID
+# NEW a new console # 接下来在新的terminal执行
+sudo docker container ls # 然后在输出中复制 ubuntu:16.04 的 CONTAINER ID
 # 复制 ubuntu:16.04 的 /lib/x86_64-linux-gnu/libc-2.23.so 到 /home/kali/libc-2.23.so
 sudo docker cp 3198a81a976d:/lib/x86_64-linux-gnu/libc-2.23.so /home/kali/libc-2.23.so 
 # 复制 ubuntu:16.04 的 /lib/x86_64-linux-gnu/ld-2.23.so 到 /home/kali/ld-2.23.so
@@ -1038,22 +1061,7 @@ sudo docker cp 3198a81a976d:/lib/x86_64-linux-gnu/ld-2.23.so /home/kali/ld-2.23.
 
 
 
-## PLT and GOT
 
-> the key to code sharing and dynamic libraries. 对代码复用、动态库有关键作用. 运行时重定位
->
-> https://www.freebuf.com/articles/system/135685.html Linux中的GOT和PLT到底是个啥？
-
-GOT: Global Offset Table, 全局偏移表。存放**函数地址的数据表**
-
-PLT: Procedure Linkage Table, 程序链接表。**额外代码段**表
-
-动态链接所需要的：
-
-- 需要存放外部函数的数据段（GOT）
-- 获取数据段存放函数地址的一小段额外代码（PLT）
-
-![](https://raw.githubusercontent.com/hex-16/pictures/master/CTF_pic/pwn_PLT_GOT_very_simple_illustration.jpg)
 
 
 
@@ -1113,17 +1121,15 @@ Stack Overflow Workflow:
 
 
 
+### Stack Overflow Theory
 
-
-
-
-### Theory 栈溢出原理
-
+> 栈溢出原理
+>
 > https://www.cnblogs.com/rec0rd/p/7646857.html  关于Linux下ASLR与PIE的一些理解
 >
 > https://www.anquanke.com/post/id/85831 现代栈溢出利用技术基础：ROP
 
-- 程序向栈中某个变量中写入的字节数超过了这个变量本身所申请的字节数，因而导致与其相邻的栈中的变量的值被改变
+- 程序向栈中某个变量中写入的字节数超过变量本身所申请的字节数，导致与其相邻的栈中的变量的值被改变
 - 这种问题是一种特定的缓冲区溢出漏洞，类似的还有堆溢出，bss 段溢出等溢出方式
 - 栈溢出漏洞轻则可以使程序崩溃，重则可以使攻击者控制程序执行流程
 
@@ -1196,7 +1202,7 @@ sh.interactive() # 将代码交互转换为手工交互
 
 ---
 
-## Stack Overflow and ROP
+## ROP and Stack Overflow
 
 > ROP(Return Oriented Programming)   面向返回编程    栈溢出问题
 >
@@ -2164,7 +2170,9 @@ cases:
 
 > 主要是 Glibc Heap: ptmalloc2 利用
 >
-> https://zhuanlan.zhihu.com/p/352445428
+> https://zhuanlan.zhihu.com/p/352445428 ptmalloc内存管理器 设计假设 malloc/free流程
+>
+> https://www.bilibili.com/read/cv5280184/ 二进制安全之堆溢出（系列） 堆基础 & 结构（一)
 
 - 对于不同的应用来说，由于内存的需求各不相同等特性，因此目前堆的实现有很多种: 
 
@@ -2215,7 +2223,7 @@ libumem   – Solaris
 
 ##### (s)brk
 
-> https://www.huaweicloud.com/articles/12453899.html Linux进程分配内存的两种方式--brk() 和mmap()
+> https://www.huaweicloud.com/articles/12453899.html Linux进程分配内存的两种方式--brk() 和mmap() 挺详细的，带案例说明
 
 - 应用程序调用malloc(OS无关代码)，malloc调用依赖OS的库函数`__brk / __mmap` 陷入内核态，最后触发系统调用`sys_brk / sys_mmap_pgoff`
 
@@ -2246,8 +2254,8 @@ int main(){
     curr_brk = sbrk(0);
     printf("Program break Location2:%p\n", curr_brk); // Program Break Location2:0x804c000
 // cat /proc/6141/maps
-// 0804a000-0804b000 rw-p 00001000 08:01 539624   /home/sploitfun/ptmalloc.ppt/syscalls/sbrk
-// 0804b000-0804c000 rw-p 00000000 00:00 0        [heap]  # 出现了heap 堆栈 # rw-p 堆可读可写，属隐私数据
+// 0804a000-0804b000 rw-p 00001000 08:01 539624 /home/sploitfun/ptmalloc.ppt/syscalls/sbrk
+// 0804b000-0804c000 rw-p 00000000 00:00 0      [heap] # 出现了heap堆; rw-p 堆可读可写，属隐私数据
 // b7e21000-b7e22000 rw-p 00000000 00:00 0
     getchar();
 
@@ -2266,11 +2274,13 @@ int main(){
 
 #####  mmap
 
-- malloc 使用 mmap 来创建独立的匿名映射段。匿名映射主要目的: 可以申请以 0 填充的内存，且这块内存仅被调用进程所使用
+- malloc 使用 `mmap` 来创建独立的匿名映射段
+- 匿名映射主要目的: 可以申请以 0 填充的内存，且这块内存仅被调用进程所使用
+- `munmap`: 释放mmap分配的内存
+- `mmap`创建的chunk紧邻libc
 
 ```cpp
-/* Private anonymous mapping example using mmap syscall */
-#include <stdio.h>
+#include <stdio.h> // Private anonymous mapping example using mmap syscall
 #include <sys/mman.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -2317,25 +2327,15 @@ int main(){
 
 
 
-#### Multi-thread Support
-
-> TBD
-
-**虽然程序可能只是向操作系统申请很小的内存，但是为了方便，操作系统会把很大的内存分配给程序。这样的话，就避免了多次内核态与用户态的切换，提高了程序的效率**。称这一块连续的内存区域为 **arena**。称由主线程申请的内存为 **main_arena**。arena 空间不足时，可通过增加 brk 来增加堆的空间；可通过减小 brk 来缩小 arena 空间。
 
 
-
-
-
-### malloc_chunk
+#### malloc_chunk
 
 - **chunk**: 称由 malloc 申请的内存为 chunk。
 - **malloc_chunk**: 无论大小，分配 / 释放状态，chunk都使用一个结构体 malloc_chunk 来表示。但根据是否被释放，malloc_chunk 表现形式有不同。
 
-
-
 ```cpp
-// malloc_chunk 的结构 // 误导的结构体 仅用作理解 // ptmalloc 用 malloc_chunk 表示 mallloc 申请的内存(chunk)
+// malloc_chunk 结构 仅用作理解 // ptmalloc 用 malloc_chunk 表示 mallloc 申请的内存(chunk)
 struct malloc_chunk { // default: define INTERNAL_SIZE_T size_t 
   INTERNAL_SIZE_T      prev_size; // Size of previous chunk (if free). 前一个chunk的大小(free后有效)
   INTERNAL_SIZE_T      size;      // Size in bytes, including overhead.
@@ -2451,7 +2451,7 @@ The three exceptions to all this are:
     with their neighbors only in bulk, in malloc_consolidate.
 ```
 
-#### chunk MACRO
+##### chunk MACRO
 
  chunk 的大小、对齐检查以及一些转换的宏
 
@@ -2529,9 +2529,38 @@ The three exceptions to all this are:
 
 
 
-### bin
+#### Macro Structure: arena & main_arena
 
-- 用户释放掉的 chunk 不会马上归还给OS，由 ptmalloc 统一管理 heap 和 mmap 映射区域中空闲的 chunk。用户再次请求分配内存时，ptmalloc 分配器会试图在空闲的 chunk 中挑选一块合适的给用户。以避免频繁的系统调用，降低内存分配开销
+> 宏观结构
+
+程序可能向OS申请很小的内存，但OS可能会把很大的内存分配给程序，以避免多次内核态 \<-\>用户态 切换，提高效率。称这一块连续的内存区域为 **arena**。arena 空间不足时，可通过增加 brk 来增加堆的空间；可通过减小 brk 来缩小 arena 空间。
+
+- **main_arena**: 由主线程申请的内存。管理所有堆块的结构体
+- **arena**: 对应多线程的子线程。存在于线程的控制块plt中
+
+- chunk_size的倒数第三个标志位NON_MAIN_ARENA，多线程时为1，主线程为0
+- 子线程的堆和主线程的堆不一样
+- 每个线程会预分配一个堆空间
+
+
+
+定位子线程的chunk的技巧
+
+1. 向子线程的堆块输入特殊值:`0xdeadbeef`
+2. gdb: `search -4 0xdeadbeef`
+3. 搜索出来的地址即堆的地址
+
+多线程利用思路
+
+1. 在子线程中找到堆空间的地址空间A
+2. 在A中找到恢复线程的arena的结构
+3. 通过arena的结构尝试堆利用
+
+
+
+#### bins
+
+- 程序运行时使用bins结构 管理 释放的堆块(chunk)。以避免频繁系统调用，降低内存分配开销
 - ptmalloc 采用**分箱式**方法对空闲的 chunk 进行管理。
 - 根据空闲的 chunk 的大小以及使用状态将 chunk 初步分为 4 类：
 1. unsorted bin: 是第一个，没有排序，存储的chunk较杂
@@ -2586,6 +2615,14 @@ typedef struct malloc_chunk *mbinptr;
 ```
 
 
+
+
+
+
+
+
+
+### Heap Overflow
 
 
 
