@@ -8,12 +8,80 @@
 
 
 
+# SQL Injection
+
+SQL注入是因为后台**SQL语句拼接了用户的输入**，而且Web应用程序对用户输入数据的合法性没有判断和过滤，**前端传入后端的参数是攻击者可控的**，攻击者可以通过构造不同的SQL语句来实现对数据库的任意操作，e.g. 增删改查...，如果数据库的用户权限足够大，还可以对操作系统执行操作。SQL注入是针对数据库、后台、系统层面的攻击
+
+1. 平台层注入：由不安全的数据库配置或数据库平台的漏洞所致
+2. 代码层注入：由于程序员对输入未进行细致地过滤
+
+mysql: 
+
+- 单行注释：`#`
+- 多行注释：`/* */`
+
+在**MySQL5.0以上**，MySQL默认添加 `information_schema` 数据库，该数据库中的表是只读的，不能进行更新、删除和插入...，不能加载触发器，实际只是一个视图，不是基本表，没有关联的文件
+
+`information_schema`数据库中三个很重要的表
+
+- `information_schema.schemata`: mysql数据库中所有数据库的库名
+- `information_schema.tables`： mysql数据库中所有数据表的表名
+- `information_schema.columns`: mysql数据库中所有列的列名
+
+```mysql
+select schema_name from information_schema.schemata limit 0,1 # 查第一个数据库名
+select table_name from information_schema.tables limit 0,1 # 查第一个数据表名
+select table_name from information_schema.tables where table_schema='security'limit 0,1 # 查security库中所有表名
+select column_name from information_schema.columns limit 0,1 # 查第一个列名
+# 查security库中的数据表users的所有列
+select column_name from information_schema.columns where table_schema='security' and table_name='users' limit 0,1
+# 查users表中指定列password的第一条数据(只能是database()所在数据库的数据，因当前数据库不能查其他数据库的数据)
+select password from users limit 0,1
+```
+
+## sql Query
+
+> https://blog.csdn.net/qq_36119192/article/details/82875868  常见SQL语句
+
+```mysql
+version()： 查询数据库的版本
+user()：查询数据库的使用者
+database()：数据库
+system_user()：系统用户名
+session_user()：连接数据库的用户名
+current_user：当前用户名
+load_file()：读取本地文件
+@@datadir：读取数据库路径
+@@basedir：mysql安装路径
+@@version_complie_os：查看操作系统
+
+```
 
 
-# Sql Injection
 
 
+## 分类
 
+**依据注入点类型分类**
+
+- 数字类型的注入
+- 字符串类型的注入
+- 搜索型注入
+
+**依据提交方式分类**
+
+- GET注入
+- POST注入
+- COOKIE注入
+- HTTP头注入(XFF注入、UA注入、REFERER注入）
+
+**依据获取信息的方式分类**
+
+- 基于布尔的盲注
+- 基于时间的盲注
+- 基于报错的注入
+- 联合查询注入
+- 堆查询注入 (可同时执行多条语句)
 
 
 # Arbitrary File Read Vulnerability
@@ -83,7 +151,7 @@ URI = scheme:[//authority]path[?query][#fragment]
   - host: 表示从哪个服务器上获取资源，以域名 / IP呈现(e.g. baidu.com, 127.0.0.1)
   - port: 服务器端口号。使用默认端口号时可以将端口省略
 - path: 指向资源的路径。`/`分层
-- query: 查询字符串，将用户输入数据传递给服务端，`?`开头。`?username=admin&password=admin123`
+- query: 查询字符串，将用户输入数据传递给服务端，`?`开头。e.g. `?username=admin&password=admin123`
 - fragment: 片段ID。fragment内容不会传递给服务器，一般用于表示页面锚点
 
 ```cpp
@@ -117,6 +185,10 @@ URI = scheme:[//authority]path[?query][#fragment]
   └┬┘ └──────────────────────┬──────────────────────┘
   scheme                    path
 ```
+
+
+
+
 
 
 
@@ -155,3 +227,6 @@ xss漏洞通常是通过php的输出函数将javascript代码输出到html页面
 
 
 # 反序列化
+
+
+
