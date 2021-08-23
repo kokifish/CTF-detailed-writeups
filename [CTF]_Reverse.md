@@ -45,7 +45,7 @@
 
 1. [opt] 使用`exeinfope/PEiD/strings/file/binwalk/IDA`等静态分析工具收集信息，并根据这些静态信息进行google/github搜索
 2. 研究程序的保护方法，如代码混淆，保护壳及反调试等技术，并设法破除或绕过保护
-3. 反汇编目标软件(IDA)，快速定位到关键代码进行分析。(如果直接step-3)
+3. 反汇编目标软件(IDA)，快速定位到关键代码进行分析。(如果直接step-3也可，位数错误/解析失败再跳回step-1/2)
 4. 结合动态调试(OllyDbg, gdb, etc)，验证自己的初期猜想，在分析的过程中理清程序功能
 5. 针对程序功能，写出对应脚本，求解出 flag
 
@@ -523,45 +523,7 @@ java -jar Guess-the-Number.jar 309137378 # 带参数运行.jar文件
 
 
 
-## ELF
 
-ELF (Executable and Linkable Format)文件，也就是在 Linux 中的目标文件，主要有以下三种类型
-
-1. 可重定位文件 Relocatable File: 包含由编译器生成的代码以及数据。链接器会将它与其它目标文件链接起来从而创建可执行文件或者共享目标文件。在 Linux 系统中，这种文件的后缀一般为 `.o` 。
-2. 可执行文件 Executable File: 就是我们通常在 Linux 中执行的程序
-3. 共享目标文件 Shared Object File: 包含代码和数据，这种文件是我们所称的库文件，一般以 `.so` 结尾。一般情况下，它有以下两种使用情景：
-   - 链接器 (Link eDitor, ld ) 可能会处理它和其它可重定位文件以及共享目标文件，生成另外一个目标文件。
-   - 动态链接器 (Dynamic Linker) 将它与可执行文件以及其它共享目标组合在一起生成进程镜像。
-
-目标文件由汇编器和链接器创建，是文本程序的二进制形式，可以直接在处理器上运行。那些需要虚拟机才能够执行的程序 (Java) 不属于这一范围
-
-### Format
-
-- 目标文件既会参与程序链接又会参与程序执行。出于方便性和效率考虑，根据过程的不同，目标文件格式提供了其内容的两种并行视图: 链接视图与执行视图
-
-![](https://raw.githubusercontent.com/hex-16/pictures/master/CTF_pic/object_file_format.png)
-
-**链接视图**：文件开始处是 ELF 头部（ **ELF Header**），它给出了整个文件的组织情况。
-
-如果程序头部表（Program Header Table）存在的话，它会告诉系统如何创建进程。用于生成进程的目标文件必须具有程序头部表，但是重定位文件不需要这个表。
-
-节区部分包含在链接视图中要使用的大部分信息：指令、数据、符号表、重定位信息等等。
-
-节区头部表（Section Header Table）包含了描述文件节区的信息，每个节区在表中都有一个表项，会给出节区名称、节区大小等信息。用于链接的目标文件必须有节区头部表，其它目标文件则无所谓，可以有，也可以没有。
-
-对于**执行视图**来说，其主要的不同点在于没有了 section，而有了多个 segment。其实这里的 segment 大都是来源于链接视图中的 section。
-
->  尽管图中是按照 ELF 头，程序头部表，节区，节区头部表的顺序排列的。但实际上除了 ELF 头部表以外，其它部分都没有严格的的顺序。
-
-
-
-![](https://raw.githubusercontent.com/hex-16/pictures/master/CTF_pic/ELF-Walkthrough.png)
-
-
-
-### Loader
-
-程序加载过程其实就是系统创建或者或者扩充进程镜的过程。它只是按照一定的规则把文件的段拷贝到虚拟内存段中。进程只有在执行的过程中使用了对应的逻辑页面时，才会申请相应的物理页面。通常来说，一个进程中有很多页是没有被引用的。因此，延迟物理读写可以提高系统的性能。为了达到这样的效率，可执行文件以及共享目标文件所拥有的段的文件偏移以及虚拟地址必须是合适的，也就是说他们必须是页大小的整数倍。
 
 
 
@@ -571,39 +533,7 @@ ELF (Executable and Linkable Format)文件，也就是在 Linux 中的目标文�
 
 - TBD
 
-
-
-# Android Reverse
-
-
-
-## apktool
-
-```bash
-apktool.jar d andra.apk # 然后会出现一个文件夹 andra 保存经过了解压的apk里面的文件
-apktool.jar d -r andra.apk -o andra # 与上面一样 
-```
-
-
-
-
-
-
-
-### Installation
-
-> test in 2020.3, Kali20.04, apktool 2.5   https://ibotpeaches.github.io/Apktool/install/
-
-1. Download Linux [wrapper script](https://raw.githubusercontent.com/iBotPeaches/Apktool/master/scripts/linux/apktool) (Right click, Save Link As `apktool`)
-2. Download apktool-2 ([find newest here](https://bitbucket.org/iBotPeaches/apktool/downloads/))
-3. Rename downloaded jar to `apktool.jar`
-4. Move both files (`apktool.jar` & `apktool`) to `/usr/local/bin` (root needed)
-5. Make sure both files are executable (`chmod +x`)
-6. Try running apktool via cli. (actually, use apktool.jar)
-
-
-
-# Assembly Lookup Table
+# **Assembly Lookup Table**
 
 > http://c.biancheng.net/view/3560.html
 >
@@ -688,7 +618,7 @@ apktool.jar d -r andra.apk -o andra # 与上面一样
 
 
 
-# Opcode Cheat Sheet
+# **Opcode Lookup Table**
 
 > 常见机器码速查，用于应对花指令
 
@@ -706,51 +636,20 @@ EB # JMP immed8
 
 
 
-# Function Cheat Sheet
+# **Function Lookup Table**
 
 > 一些典型/常见函数的解析，有助于阅读逆向出来的代码
 
 ## FILENO, stdin, stdout, stderr
 
-- This function returns the file descriptor number associated with a specified stream.
-
-```cpp
-#define _POSIX_SOURCE
-#include <stdio.h>
-int fileno(const FILE *stream);
-```
-
-- `stream`: The stream for which the associated file descriptor will be returned.
 - `unistd.h`定义了如下宏，映射到标准流的fd
-- `STDIN_FILENO`: Standard input, `stdin` (value 0).
-- `STDOUT_FILENO`: Standard output, `stdout` (value 1).
-- `STDERR_FILENO`: Standard error, `stderr` (value 2).
+0. `STDIN_FILENO`: Standard input, `stdin` (value 0).
+1. `STDOUT_FILENO`: Standard output, `stdout` (value 1).
+2. `STDERR_FILENO`: Standard error, `stderr` (value 2).
 
 ```cpp
+// int _fileno(FILE *stream); // _fileno: Gets the file descriptor associated with a stream.
 #define _POSIX_SOURCE
-#include <errno.h>
-#include <stdio.h>
-main() {
-  FILE *stream;
-  char my_file[]="my.file";
-  printf("fileno(stdin) = %d\n", fileno(stdin)); // fileno(stdin) = 0
-  if ((stream = fopen(my_file, "w")) == NULL)
-    perror("fopen() error");
-  else {
-    printf("fileno() of the file is %d\n", fileno(stream)); // fileno() of the file is 3
-    fclose(stream);   remove(my_file);
-  }
-}
-```
-
-
-
-- `_fileno`: Gets the file descriptor associated with a stream.
-
-```cpp
-int _fileno(
-   FILE *stream
-);
 #include <stdio.h>
 int main( void ){ //  uses _fileno to obtain the file descriptor(fd) for some standard C streams
    printf( "fd of stdin %d\n", _fileno( stdin ) ); // fd of stdin 0
@@ -1394,7 +1293,7 @@ for i in range(182): # 182为judege函数的总长度
 
 ---
 
-# Book: **Reverse Engineering for Beginners**
+# **BOOK**: *Reverse Engineering for Beginners*
 
 > 主要内容摘自 **逆向工程权威指南** [乌克兰]Dennis Yurichev 著, Archer安天安全研究与应急处理中心 译
 

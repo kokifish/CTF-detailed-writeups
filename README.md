@@ -23,7 +23,7 @@ This REPO is devoted to writing very detailed writeups so that CTF beginners (in
   - `image_analysis_zongheng_2020_mosaic`
 - `[alt]` level-3 directory: `pic`, `src`, `doc`,`test`, etc. But **avoid** using it. Use the full name is permitted.
 
-> Archive simple/similar cases in a folder named by `Simple_Cases_`+ challenge subclass
+> Archive simple/similar cases in a folder named by `SimpleCases_`+ challenge subclass
 
 # Contacts
 

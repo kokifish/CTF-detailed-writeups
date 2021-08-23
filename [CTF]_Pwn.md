@@ -19,7 +19,7 @@
 _rdtsc() // 检测程序运行需要多少个CPU周期
 ```
 
-
+> tools: 
 
 
 
@@ -54,7 +54,7 @@ checksec --file=filename  # 新版
 
 ```bash
 sudo apt install ruby
-gem install one_gadget
+gem install one_gadget # gem: ruby 包管理
 one_gadget libc-2.27.so
 one_gadget libc-2.27.so --near exit,mkdir # Reorder gadgets according to the distance of given functions.
 one_gadget /lib/x86_64-linux-gnu/libc.so.6 --near 'write.*' --raw # Regular expression is acceptable.
@@ -636,13 +636,61 @@ ex2.c  canary.py  core    ex2
 
 #### 劫持`__stack_chk_fail` 函数
 
-
+TBD
 
 
 
 #### 覆盖 TLS 中储存的 Canary 值
 
+TBD
 
+
+
+## PIE(PIC)
+
+> PIC = Position Independent Code 
+>
+> -fpic Generate position-independent code (PIC) suitable for use in a shared library
+>
+> https://zhuanlan.zhihu.com/p/91420787 如何做到PIC (2 parts) 带案例
+>
+> https://sa.sogou.com/sgsearch/sgs_tc_news.php?req=XJfILdCUU2TuOxZDyaoqZBTGiGQumUZMYP-S-WEG-a0=&user_type=1  这里有详细的利用GOT实现PIC的过程 含图示 TBD
+>
+> `readelf -l hello | grep LOAD | head -1` 查看Load Address
+
+- PIC: 通过获取当前eip值 + 全局偏移表global offset table（GOT）来实现的
+
+1. 利用`get_pc_trunk`获得当前eip的值，例如将eip存储到eax的`__x86.get_pc_thunk.ax` :
+
+```assembly
+call   4f5 <__x86.get_pc_thunk.ax>  # -fpic后的程序调用__x86.get_pc_thunk.ax来获取当前eip
+ 4f5 <__x86.get_pc_thunk.ax>: # 由于 call指令会 push eip; jmp 4f5; 所以此时esp指向的值就是eip
+ 4f5:    8b 04 24       mov  (%esp),%eax # 把esp指向的值(RA aka caller eip) 赋值给eax
+ 4f8:    c3             ret # pop eip, 取的也是RA
+```
+
+2. GOT
+
+
+
+
+
+### PLT and GOT
+
+> the key to code sharing and dynamic libraries. 对代码复用、动态库有关键作用. 运行时重定位
+>
+> https://www.freebuf.com/articles/system/135685.html Linux中的GOT和PLT到底是个啥？
+
+GOT: Global Offset Table, 全局偏移表。存放**函数地址的数据表**
+
+PLT: Procedure Linkage Table, 程序链接表。**额外代码段**表
+
+动态链接所需要的：
+
+- 需要存放外部函数的数据段（GOT）
+- 获取数据段存放函数地址的一小段额外代码（PLT）
+
+![](https://raw.githubusercontent.com/hex-16/pictures/master/CTF_pic/pwn_PLT_GOT_very_simple_illustration.jpg)
 
 
 
@@ -650,11 +698,10 @@ ex2.c  canary.py  core    ex2
 
 ## ASLR
 
-> 地址空间配置随机加载  Address space layout randomization  地址空间配置随机化  地址空间布局随机化
+> 地址空间配置随机加载  Address Space Layout Randomization  地址空间配置随机化  地址空间布局随机化
 >
-> OS层级的保护。一种防范内存损坏漏洞被利用的计算机安全技术
+> OS层级的保护。一种防范内存损坏漏洞被利用的计算机安全技术。
 >
-> Linux系统上控制ASLR启动与否
 
 - ASLR通过**随机放置进程关键数据区域的地址空间**来防止攻击者能可靠地跳转到内存的特定位置来利用函数。现代操作系统一般都加设这一机制，以防范恶意程序对已知地址进行**Return-to-libc**攻击
 - ASLR 的有效性依赖于整个地址空间布局是否对于攻击者保持未知。只有编译时作为 位置无关可执行文件(Position Independent Executable) **PIE** 的可执行程序才能得到 ASLR 技术的最大保护，因为只有这样，可执行文件的所有代码节区才会被加载在随机地址。PIE 机器码不管绝对地址是多少都可以正确执行。
@@ -742,8 +789,6 @@ $ ldd /bin/bash
 
 
 
-
-
 ## RELRO
 
 > Relocation Read-Only
@@ -793,12 +838,12 @@ Full RELRO:
 >
 > https://www.tenouk.com/Bufferoverflowc/Bufferoverflow2a.html
 
-CPU在执行call指令时需要进行两步操作：
+Procedure of `call tag`:
 
-1. 将当前的IP(也就是函数返回地址)入栈，即：`push IP`; 对ESP/RSP/SP寄存器减去4/8 然后将操作数写到上述寄存器里的指针所指向的内存中。
-2. 跳转，即： `jmp dword ptr 内存单元地址`。
+1. `push IP`: 将当前的IP(a.k.a.函数返回地址)入栈. a.k.a ESP/RSP 减 4/8; IP写到ESP/RSP存的指针所指向的内存中。
+2. `jmp tag`: a.k.a `jmp dword ptr 内存单元地址`。
 
-`ret`指令相当于`pop IP`, CPU在执行`ret`指令时只需要恢复IP。从栈指针ESP/RSP/SP指向的内存中读取数据，(通常)写到其他寄存器里，然后将栈指针加上4/8
+`ret`指令相当于`pop IP`, CPU在执行`ret`指令时只需要恢复IP。从栈指针ESP/RSP/SP指向的内存中读取数据，(通常)写到其他寄存器里，然后将栈指针esp/rsp加上4/8
 
 32bit系统：
 
@@ -1004,8 +1049,8 @@ int func(int para);
 sudo docker container run -t -i ubuntu:16.04 /bin/bash # 拉取并运行ubuntu:16.04后进入容器内console
 ls /lib/x86_64-linux-gnu/ | grep libc # 查看含libc字样的文件  可看到版本
 ls /lib/x86_64-linux-gnu/ | grep ld # 查看含ld字样的文件 可看到版本
-# NEW a new console
-sudo docker container ls # 然后复制 ubuntu:16.04 的 CONTAINER ID
+# NEW a new console # 接下来在新的terminal执行
+sudo docker container ls # 然后在输出中复制 ubuntu:16.04 的 CONTAINER ID
 # 复制 ubuntu:16.04 的 /lib/x86_64-linux-gnu/libc-2.23.so 到 /home/kali/libc-2.23.so
 sudo docker cp 3198a81a976d:/lib/x86_64-linux-gnu/libc-2.23.so /home/kali/libc-2.23.so 
 # 复制 ubuntu:16.04 的 /lib/x86_64-linux-gnu/ld-2.23.so 到 /home/kali/ld-2.23.so
@@ -1016,22 +1061,7 @@ sudo docker cp 3198a81a976d:/lib/x86_64-linux-gnu/ld-2.23.so /home/kali/ld-2.23.
 
 
 
-## PLT and GOT
 
-> the key to code sharing and dynamic libraries. 对代码复用、动态库有关键作用. 运行时重定位
->
-> https://www.freebuf.com/articles/system/135685.html Linux中的GOT和PLT到底是个啥？
-
-GOT: Global Offset Table, 全局偏移表。存放**函数地址的数据表**
-
-PLT: Procedure Linkage Table, 程序链接表。**额外代码段**表
-
-动态链接所需要的：
-
-- 需要存放外部函数的数据段（GOT）
-- 获取数据段存放函数地址的一小段额外代码（PLT）
-
-![](https://raw.githubusercontent.com/hex-16/pictures/master/CTF_pic/pwn_PLT_GOT_very_simple_illustration.jpg)
 
 
 
@@ -1091,17 +1121,15 @@ Stack Overflow Workflow:
 
 
 
+### Stack Overflow Theory
 
-
-
-
-### Theory 栈溢出原理
-
+> 栈溢出原理
+>
 > https://www.cnblogs.com/rec0rd/p/7646857.html  关于Linux下ASLR与PIE的一些理解
 >
 > https://www.anquanke.com/post/id/85831 现代栈溢出利用技术基础：ROP
 
-- 程序向栈中某个变量中写入的字节数超过了这个变量本身所申请的字节数，因而导致与其相邻的栈中的变量的值被改变
+- 程序向栈中某个变量中写入的字节数超过变量本身所申请的字节数，导致与其相邻的栈中的变量的值被改变
 - 这种问题是一种特定的缓冲区溢出漏洞，类似的还有堆溢出，bss 段溢出等溢出方式
 - 栈溢出漏洞轻则可以使程序崩溃，重则可以使攻击者控制程序执行流程
 
@@ -1174,7 +1202,7 @@ sh.interactive() # 将代码交互转换为手工交互
 
 ---
 
-## ROP
+## ROP and Stack Overflow
 
 > ROP(Return Oriented Programming)   面向返回编程    栈溢出问题
 >
@@ -1317,6 +1345,12 @@ readelf -S ret2libc # 可以获得段地址，比如bbs段的地址 # 也可在I
 
 
 
+### ret2csu
+
+
+
+
+
 ### Blind ROP (BROP)
 
 > BROP(Blind ROP)于2014年由Standford的Andrea Bittau提出，其相关研究成果发表在Oakland 2014，其论文题目是Hacking Blind
@@ -1412,9 +1446,7 @@ gef➤  x/7i 0x000000000040061d
 >
 > - GKCTF2021 应急挑战杯 checkin login   对应writeup有详细的劫持过程的分析，分析了一部分重要指令前后rbp rsp的变换
 
-构造一个虚假的栈帧来控制程序的执行流
-
-概括地讲，在之前讲的栈溢出不外乎两种方式
+构造一个虚假的栈帧来控制程序的执行流。概括地讲，在之前讲的栈溢出不外乎两种方式
 
 - 控制程序 EIP
 - 控制程序 EBP
@@ -2134,9 +2166,13 @@ cases:
 
 ---
 
-## Glibc Heap
+## Heap Exploitation: Ptmalloc2
 
-> Glibc Heap利用
+> 主要是 Glibc Heap: ptmalloc2 利用
+>
+> https://zhuanlan.zhihu.com/p/352445428 ptmalloc内存管理器 设计假设 malloc/free流程
+>
+> https://www.bilibili.com/read/cv5280184/ 二进制安全之堆溢出（系列） 堆基础 & 结构（一)
 
 - 对于不同的应用来说，由于内存的需求各不相同等特性，因此目前堆的实现有很多种: 
 
@@ -2153,27 +2189,162 @@ libumem   – Solaris
 - 宏观结构，包含堆的宏观信息，可以通过这些数据结构索引堆的基本信息。
 - 微观结构，用于具体处理堆的分配与回收中的内存块。
 
-### malloc_chunk
 
-**chunk**: 称由 malloc 申请的内存为 chunk。这块内存在 ptmalloc 内部用 malloc_chunk 结构体来表示。当程序申请的 chunk 被 free 后，会被加入到相应的空闲管理列表中
 
-**无论一个 chunk 的大小如何，处于分配状态还是释放状态，它们都使用一个统一的结构**。虽然它们使用了同一个数据结构，但是根据是否被释放，它们的表现形式会有所不同。
+### Heap Overview
 
-malloc_chunk 的结构：
+堆：程序运行过程中，堆可以提供动态分配的内存，允许程序申请大小未知的内存。实质上是程序虚拟地址空间的一块连续的线性区域，由低地址向高地址增长
+
+堆管理器：一般称管理堆的那部分程序为堆管理器。堆管理器处于用户程序与内核中间，主要工作：
+
+1. 响应用户的申请内存请求，向OS申请内存，然后返回给用户程序。为保证内存管理的高效性，内核一般会预先分配很大一块连续内存，堆管理器通过某种算法管理这块内存。只有堆空间不足时，堆管理器才会再次与OS交互
+2. 管理用户释放的内存。一般，用户释放的内存不会直接返还给OS，而是由堆管理器管理，这些释放了的内存可以来响应用户新的内存申请请求。
+
+> Wolfram Gloger 在 Doug Lea 的基础上改进使其支持多线程，即 ptmalloc。glibc-2.3.x. 后，glibc 集成 ptmalloc2
+>
+> 目前 Linux 标准发行版中使用的堆分配器是 glibc 中的堆分配器：ptmalloc2。ptmalloc2 主要是通过 malloc/free 函数来分配和释放内存块
+>
+> 内存分配，使用莞城中，Linux的基本内存管理思想：**只有当真正访问一个地址的时候，系统才会建立虚拟页面与物理页面的映射关系**。OS虽然给程序分配了很大一块内存，但只是虚拟内存，只有当用户使用到相应的内存时，OS才会真正分配物理页面给用户使用。
+
+#### malloc and free
+
+> 在glibc 的 [malloc.c](https://github.com/iromise/glibc/blob/master/malloc/malloc.c#L448) 中有响应的说明
+
+`malloc(size_t n)`: 返回对应大小字节的内存块指针
+
+- n == 0: 返回当前OS允许的堆的最小内存块. returns a minumum-sized chunk. (The minimum  size is 16 bytes on most 32bit systems, and 24 or 32 bytes on 64bit  systems.)
+- n < 0: 由于大部分OS的`size_t`是无符号数，所以程序会申请很大的内存空间，通常会因空间不足失败
+
+`free(void* p)`: 释放由p指向的内存块。p可能是malloc, realloc得到的
+
+- p == NULL: 不执行任何操作
+- p已释放: 再次释放会出现任意效果，即 double free
+- 除非通过`mallopt`禁用，释放很大内存空间时，程序会将这些内存空间还给OS以减小程序使用的内存空间
+
+##### (s)brk
+
+> https://www.huaweicloud.com/articles/12453899.html Linux进程分配内存的两种方式--brk() 和mmap() 挺详细的，带案例说明
+
+- 应用程序调用malloc(OS无关代码)，malloc调用依赖OS的库函数`__brk / __mmap` 陷入内核态，最后触发系统调用`sys_brk / sys_mmap_pgoff`
+
+![](https://raw.githubusercontent.com/hex-16/pictures/master/CTF_pic/brk_and_mmap.png)
+
+![](https://raw.githubusercontent.com/hex-16/pictures/04cb1b2b6abf8929ddd76b404144e1985959df11/CTF_pic/segments_chinese.jpg)
+
+32bit OS虚拟内存空间(ASLR open): 注意图中由于开启了ASLR, `start_brk(end_data)`与BBS段末尾有一段随机偏移
+
+![](https://raw.githubusercontent.com/hex-16/pictures/master/CTF_pic/program_virtual_address_memory_space.png)
+
+
 
 ```cpp
-// This struct declaration is misleading (but accurate and necessary). 误导的结构体 仅用作理解
-// It declares a "view" into memory allowing access to necessary fields at known offsets from a given base. See explanation below.
-// ptmalloc 用 malloc_chunk 表示 mallloc 申请的内存(chunk)
-struct malloc_chunk { // default: define INTERNAL_SIZE_T size_t 
-  INTERNAL_SIZE_T      prev_size;  // Size of previous chunk (if free). 
-  INTERNAL_SIZE_T      size;       // Size in bytes, including overhead.
+/* sbrk and brk example */
+#include <stdio.h>
+#include <unistd.h>
+#include <sys/types.h>
+int main(){
+    void *curr_brk, *tmp_brk = NULL;
+    printf("Welcome to sbrk example:%d\n", getpid()); // Welcome to sbrk example:6141
+    // sbrk(0) gives current program break location
+    tmp_brk = curr_brk = sbrk(0);
+    printf("Program Break Location1:%p\n", curr_brk); // Program Break Location1:0x804b000
+    getchar(); // start_brk = brk = end_data = 0x804b000  ← 首次调用brk前
+    // brk(addr) increments/decrements program break location
+    brk(curr_brk+4096); // 首次调用brk
+    curr_brk = sbrk(0);
+    printf("Program break Location2:%p\n", curr_brk); // Program Break Location2:0x804c000
+// cat /proc/6141/maps
+// 0804a000-0804b000 rw-p 00001000 08:01 539624 /home/sploitfun/ptmalloc.ppt/syscalls/sbrk
+// 0804b000-0804c000 rw-p 00000000 00:00 0      [heap] # 出现了heap堆; rw-p 堆可读可写，属隐私数据
+// b7e21000-b7e22000 rw-p 00000000 00:00 0
+    getchar();
 
-  struct malloc_chunk* fd;         // double links -- used only if free.
+    brk(tmp_brk);
+    curr_brk = sbrk(0);
+    printf("Program Break Location3:%p\n", curr_brk);
+    getchar();
+}
+```
+
+> 00000000 表明文件偏移，0 表示这部分内容并不是从文件中映射得到的
+>
+> 00:00 主从 (Major/mirror) 的设备号，全为0表示这部分内容不是从文件中映射得到的
+>
+> 0 Inode 号。0表示这部分内容不是从文件中映射得到的 
+
+#####  mmap
+
+- malloc 使用 `mmap` 来创建独立的匿名映射段
+- 匿名映射主要目的: 可以申请以 0 填充的内存，且这块内存仅被调用进程所使用
+- `munmap`: 释放mmap分配的内存
+- `mmap`创建的chunk紧邻libc
+
+```cpp
+#include <stdio.h> // Private anonymous mapping example using mmap syscall
+#include <sys/mman.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <stdlib.h>
+
+void static inline errExit(const char* msg){
+    printf("%s failed. Exiting the process\n", msg);
+    exit(-1);
+}
+
+int main(){
+    int ret = -1;
+    printf("Welcome to private anonymous mapping example::PID:%d\n", getpid());
+    printf("Before mmap\n");
+    getchar();
+//08048000-08049000 r-xp 00000000 08:01 539691   /home/sploitfun/ptmalloc.ppt/syscalls/mmap
+//08049000-0804a000 r--p 00000000 08:01 539691   /home/sploitfun/ptmalloc.ppt/syscalls/mmap
+//0804a000-0804b000 rw-p 00001000 08:01 539691   /home/sploitfun/ptmalloc.ppt/syscalls/mmap
+//b7e21000-b7e22000 rw-p 00000000 00:00 0
+    char* addr = NULL;
+    addr = mmap(NULL, (size_t)132*1024, PROT_READ|PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0); // mmap !!!
+//08048000-08049000 r-xp 00000000 08:01 539691   /home/sploitfun/ptmalloc.ppt/syscalls/mmap
+//08049000-0804a000 r--p 00000000 08:01 539691   /home/sploitfun/ptmalloc.ppt/syscalls/mmap
+//0804a000-0804b000 rw-p 00001000 08:01 539691   /home/sploitfun/ptmalloc.ppt/syscalls/mmap
+//b7e00000-b7e22000 rw-p 00000000 00:00 0 // 申请的内存与已存在的 结合为 b7e00000~b7e21000 的 mmap 段
+    if (addr == MAP_FAILED)
+        errExit("mmap");
+    printf("After mmap\n");
+    getchar();
+
+    ret = munmap(addr, (size_t)132*1024); // Unmap mapped region.
+//08048000-08049000 r-xp 00000000 08:01 539691     /home/sploitfun/ptmalloc.ppt/syscalls/mmap
+//08049000-0804a000 r--p 00000000 08:01 539691     /home/sploitfun/ptmalloc.ppt/syscalls/mmap
+//0804a000-0804b000 rw-p 00001000 08:01 539691     /home/sploitfun/ptmalloc.ppt/syscalls/mmap
+//b7e21000-b7e22000 rw-p 00000000 00:00 0 // 原来申请的内存段没有了，恢复成原来的样子
+    if(ret == -1)
+        errExit("munmap");
+    printf("After munmap\n");
+    getchar();
+}
+```
+
+
+
+
+
+#### malloc_chunk
+
+- **chunk**: 称由 malloc 申请的内存为 chunk。
+- **malloc_chunk**: 无论大小，分配 / 释放状态，chunk都使用一个结构体 malloc_chunk 来表示。但根据是否被释放，malloc_chunk 表现形式有不同。
+
+```cpp
+// malloc_chunk 结构 仅用作理解 // ptmalloc 用 malloc_chunk 表示 mallloc 申请的内存(chunk)
+struct malloc_chunk { // default: define INTERNAL_SIZE_T size_t 
+  INTERNAL_SIZE_T      prev_size; // Size of previous chunk (if free). 前一个chunk的大小(free后有效)
+  INTERNAL_SIZE_T      size;      // Size in bytes, including overhead.
+
+  struct malloc_chunk* fd;        // double links -- used only if free.
   struct malloc_chunk* bk;
 
  // Only used for large blocks: pointer to next larger size.
-  struct malloc_chunk* fd_nextsize; // double links -- used only if free.
+  struct malloc_chunk* fd_nextsize;// double links -- used only if free.
   struct malloc_chunk* bk_nextsize;
 };
 ```
@@ -2280,7 +2451,7 @@ The three exceptions to all this are:
     with their neighbors only in bulk, in malloc_consolidate.
 ```
 
-#### chunk MACRO
+##### chunk MACRO
 
  chunk 的大小、对齐检查以及一些转换的宏
 
@@ -2358,18 +2529,55 @@ The three exceptions to all this are:
 
 
 
-### bin
+#### Macro Structure: arena & main_arena
 
-用户释放掉的 chunk 不会马上归还给系统，ptmalloc 会统一管理 heap 和 mmap 映射区域中的空闲的 chunk。当用户再一次请求分配内存时，ptmalloc 分配器会试图在空闲的 chunk 中挑选一块合适的给用户。这样可以避免频繁的系统调用，降低内存分配的开销。
+> 宏观结构
 
-ptmalloc 采用分箱式方法对空闲的 chunk 进行管理。首先，它会根据空闲的 chunk 的大小以及使用状态将 chunk 初步分为 4 类：fast bins，small bins，large bins，unsorted bin。每类中仍然有更细的划分，相似大小的 chunk 会用双向链表链接起来。也就是说，在每类 bin 的内部仍然会有多个互不相关的链表来保存不同大小的 chunk。
+程序可能向OS申请很小的内存，但OS可能会把很大的内存分配给程序，以避免多次内核态 \<-\>用户态 切换，提高效率。称这一块连续的内存区域为 **arena**。arena 空间不足时，可通过增加 brk 来增加堆的空间；可通过减小 brk 来缩小 arena 空间。
+
+- **main_arena**: 由主线程申请的内存。管理所有堆块的结构体
+- **arena**: 对应多线程的子线程。存在于线程的控制块plt中
+
+- chunk_size的倒数第三个标志位NON_MAIN_ARENA，多线程时为1，主线程为0
+- 子线程的堆和主线程的堆不一样
+- 每个线程会预分配一个堆空间
+
+
+
+定位子线程的chunk的技巧
+
+1. 向子线程的堆块输入特殊值:`0xdeadbeef`
+2. gdb: `search -4 0xdeadbeef`
+3. 搜索出来的地址即堆的地址
+
+多线程利用思路
+
+1. 在子线程中找到堆空间的地址空间A
+2. 在A中找到恢复线程的arena的结构
+3. 通过arena的结构尝试堆利用
+
+
+
+#### bins
+
+- 程序运行时使用bins结构 管理 释放的堆块(chunk)。以避免频繁系统调用，降低内存分配开销
+- ptmalloc 采用**分箱式**方法对空闲的 chunk 进行管理。
+- 根据空闲的 chunk 的大小以及使用状态将 chunk 初步分为 4 类：
+1. unsorted bin: 是第一个，没有排序，存储的chunk较杂
+2. small bins: 索引2\~63，同一个small bin链表中的chunk大小相同。两个相邻索引的 small bin 链表中的 chunk 大小相差的字节数为 **2 个机器字长**，即 32 位相差 8 字节，64 位相差 16 字节。
+3. large bins: small bins 后面的 bin 被称作 **large bins**。large bins 中的每一个 bin 都**包含一定范围内的 chunk**，其中的 chunk **按 fd 指针的顺序从大到小排列**。相同大小的 chunk 同样按照最近使用顺序排列。
+4. fast bins: 并不是所有的 chunk 被释放后就立即被放到 bin 中。ptmalloc 为了提高分配的速度，会把一些小的 chunk **先**放到 fast bins 的容器内。**而且，fastbin 容器中的 chunk 的使用标记总是被置位的，所以不满足上面的原则。**
+
+每类中仍然有更细的划分，相似大小的 chunk 会用**双向链表**链接起来。aka. 在每类 bin 内部会有多个互不相关的链表来保存不同大小的 chunk。
+
+> 上述这些 bin 的排布都会遵循一个原则：**任意两个物理相邻的空闲 chunk 不能在一起**
 
 对于 small bins，large bins，unsorted bin 来说，ptmalloc 将它们维护在同一个数组中。这些 bin 对应的数据结构在 malloc_state 中:
 
 ```c
 #define NBINS 128
 //  Normal bins packed as described above
-mchunkptr bins[ NBINS * 2 - 2 ];
+mchunkptr bins[ NBINS * 2 - 2 ]; // 254
 ```
 
 `bins` 主要用于索引不同 bin 的 fd 和 bk。以 32 位系统为例，bins 前 4 项的含义如下
@@ -2382,15 +2590,7 @@ bin2 prev_size与bin1 fd重合，bin2 size与bin1 bk重合。只使用fd, bk索�
 
 > fd 指向下一个（非物理相邻）空闲的 chunk，
 
-数组中的 bin 依次如下
 
-1. 第一个为 **unsorted bin**，这里面的 chunk 没有进行排序，存储的 chunk 比较杂。
-2. 索引从 **2** 到 63 的 bin 称为 **small bin**，**同一个 small bin 链表中的 chunk 的大小相同**。两个相邻索引的 small bin 链表中的 chunk 大小相差的字节数为 **2 个机器字长**，即 32 位相差 8 字节，64 位相差 16 字节。
-3. small bins 后面的 bin 被称作 **large bins**。large bins 中的每一个 bin 都**包含一定范围内的 chunk**，其中的 chunk **按 fd 指针的顺序从大到小排列**。相同大小的 chunk 同样按照最近使用顺序排列。
-
-此外，上述这些 bin 的排布都会遵循一个原则：**任意两个物理相邻的空闲 chunk 不能在一起**
-
-并不是所有的 chunk 被释放后就立即被放到 bin 中。ptmalloc 为了提高分配的速度，会把一些小的 chunk **先**放到 fast bins 的容器内。**而且，fastbin 容器中的 chunk 的使用标记总是被置位的，所以不满足上面的原则。**
 
 bin 通用的宏如下
 
@@ -2415,6 +2615,14 @@ typedef struct malloc_chunk *mbinptr;
 ```
 
 
+
+
+
+
+
+
+
+### Heap Overflow
 
 
 

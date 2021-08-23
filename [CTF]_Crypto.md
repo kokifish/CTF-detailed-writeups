@@ -44,7 +44,7 @@ Playfair 密码（Playfair cipher or Playfair square）是一种替换密码，1
     * 若两个字母不同行也不同列，在矩阵中找出另外两个字母（第一个字母对应行优先），使这四个字母成为一个长方形的四个角。
     * 若两个字母同行，取这两个字母右方的字母（若字母在最右方则取最左方的字母）。
     * 若两个字母同列，取这两个字母下方的字母（若字母在最下方则取最上方的字母）。
-新找到的两个字母就是原本的两个字母加密的结果。
+    新找到的两个字母就是原本的两个字母加密的结果。
 
 以 playfair example 为密匙，得
 
@@ -362,7 +362,9 @@ print(de_text)
 - **Pad with spaces**：空格填充
 
 ## $\mathrm I\mathrm I$ 非对称密码
+
 ## $\mathrm I\mathrm I.\mathrm I$ RSA
+
 ![](crypto/images/RSA_theory.PNG)
 
 ## RSA 相关攻击
@@ -1319,4 +1321,5 @@ openssl x509 -inform der -in certificate.cer -out certificate.pem
     * https://ctftime.org/writeup/17966
 
 # 解题技巧
+
 遇到密文是乱七八糟的字符串而明文是正常的英文字符+数字+括号的情况的时候，可以使用这种特性缩小明文和密钥的取值。参考`crypto/2021_Mtctf/RSA_2021_MTctf_easy_RSA`这道题。
