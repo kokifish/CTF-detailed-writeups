@@ -134,6 +134,29 @@ https://www.dangermouse.net/esoteric/
 
 * npiet语言：使用图像进行编程  ``2021红帽杯初赛colorful code``
 
+### 零宽隐写
+* 零宽度字符
+零宽度字符是一种字节宽度为0的不可打印的Unicode字符, 在浏览器等环境不可见, 但是真是存在, 获取字符串长度时也会占位置, 表示某一种控制功能的字符。
+
+```unicode
+零宽空格（zero-width space, ZWSP）用于可能需要换行处。
+    Unicode: U+200B  HTML: &#8203;
+零宽不连字 (zero-width non-joiner，ZWNJ)放在电子文本的两个字符之间，抑制本来会发生的连字，而是以这两个字符原本的字形来绘制。
+    Unicode: U+200C  HTML: &#8204;
+零宽连字（zero-width joiner，ZWJ）是一个控制字符，放在某些需要复杂排版语言（如阿拉伯语、印地语）的两个字符之间，使得这两个本不会发生连字的字符产生了连字效果。
+    Unicode: U+200D  HTML: &#8205;
+左至右符号（Left-to-right mark，LRM）是一种控制字符，用于计算机的双向文稿排版中。
+    Unicode: U+200E  HTML: &lrm; &#x200E; 或&#8206;
+右至左符号（Right-to-left mark，RLM）是一种控制字符，用于计算机的双向文稿排版中。
+    Unicode: U+200F  HTML: &rlm; &#x200F; 或&#8207;
+字节顺序标记（byte-order mark，BOM）常被用来当做标示文件是以UTF-8、UTF-16或UTF-32编码的标记。
+    Unicode: U+FEFF
+```
+在010editor中打开常见的字符为`E2 80 8D`和`E2 80 8C`
+
+* 原理不知道没太大关系，真正要深入的时候再深入也不迟，首先要知道怎样玩
+https://330k.github.io/misc_tools/unicode_steganography.html
+
 
 
 ---

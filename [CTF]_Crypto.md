@@ -367,7 +367,7 @@ print(de_text)
 
 ![](crypto/images/RSA_theory.PNG)
 
-### RSA 相关攻击
+## RSA 相关攻击
 ***TITLE:***
 
 0. 实用工具
@@ -458,9 +458,10 @@ Bob有私钥<N,d>，公钥<N,e>。敌手Alice想要Bob对M进行签名，但是B
 ##### 3.1 Wiener’s attack
 * **Theorem 2 (M. WIener)：** 让$ N=pq, q<p<2q $，并且有$d<\frac{1}{3}N^{\frac{1}{4}}$。给定公钥<N,e>，则有一个有效的方法恢复出私钥d。
 * 证明：此定理是基于连分数的近似。易得
-$$|\frac{e}{\varphi(N)}-\frac{k}{d}|=\frac{1}{d\varphi(N)} \newline
-\varphi(N)=N-p-q+1 \newline
-k<d<\frac{1}{3}N^{\frac{1}{4}}
+$$|\frac{e}{\varphi(N)}-\frac{k}{d}|=\frac{1}{d\varphi(N)}$$
+$$\varphi(N)=N-p-q+1 $$
+$$
+k < d <\frac{1}{3}N^{\frac{1}{4}}
 $$
 因此有
 $$
@@ -470,7 +471,7 @@ $$
 可知$\frac{e}{N}$的**连分数的收敛式**中有一项为$\frac{k}{d}$。**连分数的收敛式(Convergent)** 的定义：记为$c_i$。令$n$表示连分数最多展开$n$层。即
 $$a=a_0+\frac{1}{a_1+\frac{1}{\ddots +\frac{1}{a_n}}}简写为a=[a_0;a_1,a_2,...,a_n]$$则连分数的收敛式$c_i$满足
 $$\forall x\in[0,n],\ c_i=[a_0;a_1,...,a_i]$$ 因此只需要对$\frac{e}{N}$进行连分数展开，找出满足
-$$ed-1=0\ mod\ k \tag{3.1}$$的收敛式$\frac{k}{d}$，即$\exists i'\in[0,n],c_{i'}=\frac{k}{d}$，则$$\phi(n)=\frac{ed-1}{k}$$可能会出现当$d$比较小的时候$(3.1)$式成立，因此需要进行特殊的判别。
+$$ed-1=0\ mod\ k \tag{3.1}$$的收敛式$\frac{k}{d}$，即$\exists i'\in[0,n],c_{i'}=\frac{k}{d}$，则$$\phi(n)=\frac{ed-1}{k}$$ 可能会出现当$d$比较小的时候$(3.1)$式成立，因此需要进行特殊的判别。
 
 * 避免此类攻击的方法
     * 选择比较大的公钥$e$，$e>1.5N$。[这样以来k就会变大]
@@ -753,6 +754,20 @@ x=bsgs(base,a,bounds,operation)
 对于每一个素数$p_i$，因为$$a = \sum_{j=0}^{c_i-1}a_jp_i^j+sp_i^{c_i}$$我们有$$\beta^{n/p_i} = (\alpha^a)^{n/p_i} \newline =(\alpha^{a_0+a_1p_i+...+a_{c-1}p_i^{c-1}+sp_i^c})^{n/p_i} \newline =\alpha^{a_0n/p_i}\alpha^{Kn} \newline =\alpha^{a_0n/p_i}$$因此有$$\beta^{n/p_i} = \alpha^{a_0n/p_i}$$这就相当于归结为1个新的离散对数问题，但是此离散对数问题规约到一个阶为$p_i$的子群。因此我们可以使用**Pollard Rho**等算法算出这个离散对数。
 最后算出这$k$个离散对数$a_0$，从而利用中国剩余定理计算出$a\ mod\ n$。而算法的时间复杂度取决于$n$中最大的一个素因子$p_{max}$。因此算法的时间复杂度是$O(\sqrt{p_{max}})$。
 
+##### 5 基于有限域$GF(p)$上的特殊情况的离散对数
+
+已知本原根$g$，已知离散对数$a$，对于$x\in F_p$，其中$p$是奇素数，已知$y=x^a\ mod\ p$，要求x。理论上这是一个求n次剩余的问题。但是这里有一种特殊情况，就是当 $gcd(a,p-1)=1$的时候，根据欧拉定理存在$a$模$p-1$的逆元。因此可以求出$a$在模$p-1$下的逆记为$a^{-1}$。因此有
+$$
+y^{a^{-1}} \equiv x^{aa^{-1}}\ mod\ p \\
+y^{a^{-1}} \equiv x^{k(p-1)+1}\ mod\ p 
+$$
+同样根据欧拉定理定理，有
+$$
+x^{\phi(p)}\equiv 1\ mod\ p \\
+x^{p-1}\equiv 1\ mod\ p
+$$
+因此$x = y^{a^{-1}}\ mod\ p$，**前提条件**必须是$gcd(a,p-1)=1$，否则不能使用这种方法去求解。当不满足前提条件的时候，求解$n$次剩余的问题可以归结为求解离散对数问题，在计算上是困难的。
+
 ### 一 ElGamal
 **密码体制**
 ![ElGamal](crypto/images/ElGamal.PNG)
@@ -800,6 +815,11 @@ ECC 全称为椭圆曲线加密，EllipseCurve Cryptography，是一种基于椭
 * Pohlig-Hellman攻击(同样用于基点$P$的阶是可被分解成比较小的质因数的情景)
 * 暴力枚举私钥
 * 常见曲线（理论上需要使用特定的方法把该曲线转换成Weierstrass曲线的形式）：https://www.hyperelliptic.org/EFD/index.html
+
+#### 一些额外的攻击方法
+* 椭圆曲线中弱曲线的破解：
+    1. https://wstein.org/edu/2010/414/projects/novotney.pdf
+    2. https://link.springer.com/content/pdf/10.1007/s001459900052.pdf **原文**
 
 
 ### 三 超椭圆曲线
@@ -1193,8 +1213,37 @@ $$ 因此有 $$
 \delta_1 k \equiv H(x_1) + a\gamma
 \newline
 \delta_2 k \equiv H(x_2) + a\gamma
-$$ 两式相减得 $$k(\delta_1 - \delta_2) \equiv H(x_1)-H(x_2)\ mod\ q$$ 从而解出随机数$k$。然后使用第一个攻击方法恢复出私钥$a$。
+$$ 两式相减得 $$
+k(\delta_1 - \delta_2) \equiv H(x_1)-H(x_2)\ mod\ q
+$$ 
+从而解出随机数$k$。然后使用第一个攻击方法恢复出私钥$a$。
 
+
+# 常见近世代数求解
+## 二次剩余求解
+已知
+$$
+x^2\equiv n\ (mod\ p)
+$$
+求$x$.
+
+### $p$是形为$4k+3$的素数
+1. 若 $x^2\equiv n\ (mod\ p)$ 有解则其解为
+$$
+x\equiv\pm a^{\frac{p+1}{4}}(mod\ p)
+$$
+
+2. 若 $x^2\equiv a\ (mod\ pq)$ 有解,$p,q$是形为$4k+3$的素数,则其解为
+$$
+x\equiv\pm (a^{\frac{p+1}{4}}(mod\ p))\cdot s\cdot q\pm(a^{\frac{q+1}{4}}(mod\ q))\cdot t\cdot p\ \ (mod\ pq)
+$$
+
+### $p$是一般的奇素数
+代码见`crypto/code/square_root_of_quadratic_residue.py`
+参考资料：https://learnblockchain.cn/article/1520
+
+### $x^2+y^2=p$
+> 待完成
 
 # 常见Crypto攻击思想
 
