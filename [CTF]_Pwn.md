@@ -19,7 +19,7 @@
 _rdtsc() // 检测程序运行需要多少个CPU周期
 ```
 
-> tools: 
+
 
 
 
@@ -2564,7 +2564,7 @@ The three exceptions to all this are:
 - ptmalloc 采用**分箱式**方法对空闲的 chunk 进行管理。
 - 根据空闲的 chunk 的大小以及使用状态将 chunk 初步分为 4 类：
 1. unsorted bin: 是第一个，没有排序，存储的chunk较杂
-2. small bins: 索引2\~63，同一个small bin链表中的chunk大小相同。两个相邻索引的 small bin 链表中的 chunk 大小相差的字节数为 **2 个机器字长**，即 32 位相差 8 字节，64 位相差 16 字节。
+2. small bins: 索引2\~63，同一个small bin链表中的chunk大小相同。两个相邻索引的 small bin 链表中的 chunk 大小相差的字节数为 **2 个机器字长**，即 32 位相差 8 字节，64 位相差 16 字节(0x10B)。
 3. large bins: small bins 后面的 bin 被称作 **large bins**。large bins 中的每一个 bin 都**包含一定范围内的 chunk**，其中的 chunk **按 fd 指针的顺序从大到小排列**。相同大小的 chunk 同样按照最近使用顺序排列。
 4. fast bins: 并不是所有的 chunk 被释放后就立即被放到 bin 中。ptmalloc 为了提高分配的速度，会把一些小的 chunk **先**放到 fast bins 的容器内。**而且，fastbin 容器中的 chunk 的使用标记总是被置位的，所以不满足上面的原则。**
 
