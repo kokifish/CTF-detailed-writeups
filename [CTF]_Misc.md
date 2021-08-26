@@ -455,6 +455,45 @@ VMDK 文件本质上是物理硬盘的虚拟版，也会存在跟物理硬盘的
 
 
 
+## Volatility内存取证
+
+> 这里提供快速入门和常用的命令
+
+Volatility是一款开源的内存取证分析工具，由python编写，支持各种操作系统。
+下载地址：https://www.volatilityfoundation.org/26
+这里只介绍release版本的用法，在kali系统上下载volatility的Linux版本，得到的是一个可执行文件。因此通过volatility进行内存取证的时候就需要该可执行文件进行帮助。我们把该文件命名为volatility。
+
+Document：https://github.com/volatilityfoundation/volatility 官网和文档都在里面，不使用release版本可以直接下载源代码，make后根据文档介绍来使用。
+
+这里给出
+**Usage**：这是volatility使用的格式
+`volatility [command option] [image] [plugin]`
+`volatility -f [image] --profile=[profile] [plugin]`
+命令行选项决定volatility要做什么，`image`表示需要审计的镜像文件，`profile`指定镜像文件的操作系统，`plugin`代表一系列代码，表示的是对镜像文件执行某个`plugin`关联的代码，并给出执行后的结果。
+
+* `volatility -h` 查看帮助文档
+* `volatility [plugin] -h` 查看某个`plugin`的帮助文档
+* `volatility -f 1.raw imageinfo` `-f`选项后跟一个需要进行审计的镜像文件，再后面跟着的是插件`[plugin]`的名称，表示对`1.raw`文件执行`imageinfo`插件的逻辑。这里`imageinfo`插件表示的是查看镜像系统的信息，一般用来确定当前镜像文件的系统。
+* `volatility -f 1.raw --profile=Win7SP0x86 volshell` 把`1.raw`文件指定为Win7SP0x86系统的文件(默认profile设置的就是这个，但是也有可能通过`imageinfo`查到的是别的系统)，然后执行在镜像文件中打开shell。
+* `volatility -f 1.raw --profile=Win7SP0x86 pslist` 列出`1.raw`正在运行的进程。
+
+以上是内存取证最常用的步骤，下面再介绍一些常用的插件，插件的具体细节使用`volatility [plugin] -h`命令查看
+
+* `memdump` 转储进程的可寻址内存，用`-p`参数指定进程号，`-D`指定dump出来的文件的本地存储位置。
+* `hivelist` 列举注册表
+* `iehistory` 查看浏览器浏览记录
+* `filescan` 扫描内存中所有文件
+* `dumpfiles` 提取文件，可以用`-Q`参数指定文件的内存地址
+* `cmdscan` 查看cmd中命令的使用情况
+* `cmdline` Display process command-line arguments
+
+参考题目：祥云杯 2021 考古
+
+
+
+
+
+
 # Git Leak
 
 > git 泄露

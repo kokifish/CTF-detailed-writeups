@@ -414,7 +414,7 @@ print(de_text)
 
 ##### 1.1 已知 $(N, e, d)$ 求 $(p, q)$ V1
 * 攻击条件，$e$或$d$足够小
-* 攻击原理：$ed-1=k\varphi(N)$。因为$e$或$d$比较小，然后$\varphi(N)$与$N$比较接近，因此爆破$k$，从而找到$\varphi(N)$。**但是实际上求解$\varphi(N)$是非常困难的，只有少数特殊情况能求解**。然后由$$N=pq \newline \varphi(N)=(p-1)(q-1)$$得$$N-\varphi(N)+1=p+q$$接下来构造方程$$x^2+(N-\varphi(N)+1)x+N=(x-p)(x-q)=0 \tag{1.1}$$只需要解方程$(1.1)$就可以把$p$和$q$解出来。
+* 攻击原理：$ed-1=k\varphi(N)$。因为$e$或$d$比较小，然后$\varphi(N)$与$N$比较接近，因此爆破$k$，从而找到$\varphi(N)$。**但是实际上求解$\varphi(N)$是非常困难的，只有少数特殊情况能求解**。然后由$$N=pq \newline \varphi(N)=(p-1)(q-1)$$得$$N-\varphi(N)+1=p+q$$接下来构造方程$$x^2-(N-\varphi(N)+1)x+N=(x-p)(x-q)=0 \tag{1.1}$$只需要解方程$(1.1)$就可以把$p$和$q$解出来。
 
 * 代码参考 https://blog.csdn.net/ayang1986/article/details/112714749
 * ***具体python2代码见``crypto/code/Known_ed_factor_N_V1.py``*** 
