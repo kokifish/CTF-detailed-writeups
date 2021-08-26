@@ -2337,14 +2337,14 @@ int main(){
 - **malloc_chunk**: 无论大小，分配 / 释放状态，chunk都使用一个结构体 malloc_chunk 来表示。但根据是否被释放，malloc_chunk 表现形式有不同。
 
 ```cpp
-struct chunk{ 
+struct chunk{ // chunk一般结构
     size_t prev_size;
     size_t size; // size最低位为1标识chunk在使用中
     union{  // 注意这里是union 视使用与否有区别 // malloc返回的就是这部分内存
         char buf[size-0x10];
-        struct content{
-            chunk* fwd;
-            chunk* bwk; // 
+        struct content{ // 未使用时有效，使用时这里就是user data所属的前 2 x 32/64 bit
+            chunk* fd;
+            chunk* bk; 
         }
     }
 }
@@ -2475,26 +2475,7 @@ chunk-> +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
 **一般情况下**，物理相邻的两个空闲 chunk 会被合并为一个 chunk 。堆管理器会通过 prev_size 字段以及 size 字段合并两个物理相邻的空闲 chunk 块
 
-```
-一些关于堆的约束:
-The three exceptions to all this are:
-     1. The special chunk `top' doesn't bother using the
-    trailing size field since there is no next contiguous chunk
-    that would have to index off it. After initialization, `top'
-    is forced to always exist.  If it would become less than
-    MINSIZE bytes long, it is replenished.
-     2. Chunks allocated via mmap, which have the second-lowest-order
-    bit M (IS_MMAPPED) set in their size fields.  Because they are
-    allocated one-by-one, each must contain its own trailing size
-    field.  If the M bit is set, the other bits are ignored
-    (because mmapped chunks are neither in an arena, nor adjacent
-    to a freed chunk).  The M bit is also used for chunks which
-    originally came from a dumped heap via malloc_set_state in
-    hooks.c.
-     3. Chunks in fastbins are treated as allocated chunks from the
-    point of view of the chunk allocator.  They are consolidated
-    with their neighbors only in bulk, in malloc_consolidate.
-```
+
 
 ##### chunk MACRO
 
@@ -2663,11 +2644,7 @@ typedef struct malloc_chunk *mbinptr;
 
 
 
-- 1. 
-
-
-
-### Heap Overflow
+> 
 
 
 
@@ -2676,18 +2653,6 @@ typedef struct malloc_chunk *mbinptr;
 
 
 
-
-### Use After Free
-
-> Use After Free, UAF问题 
-
-当一个内存块被释放之后再次被使用，有以下几种情况：
-
-- 内存块被释放后，其对应的指针被设置为 NULL ， 然后再次使用，程序崩溃。
-- 内存块被释放后，其对应的指针没有被设置为 NULL ，然后在它下一次被使用之前，没有代码对这块内存块进行修改，那么**程序很有可能可以正常运转**。
-- 内存块被释放后，其对应的指针没有被设置为NULL，但是在它下一次使用之前，有代码对这块内存进行了修改，那么当程序再次使用这块内存时，**就很有可能会出现奇怪的问题**。
-
-一般所指的 **Use After Free** 漏洞主要是后两种。一般称被释放后没有被设置为NULL的内存指针为**dangling pointer**。
 
 
 
@@ -2697,9 +2662,8 @@ typedef struct malloc_chunk *mbinptr;
 
 glibc 2.26(ubuntu 17.10)之后引入的技术，用于缓存各个线程释放的内存，用于加速多线程下内存申请。每个线程都有自己的Tcache，因此从tcache中malloc内存时不需要加锁。但欠缺安全检查。
 
-- 使用简单单链表管理free后的内存，相同大小的放同一条链上。next指针指向下一个大小相同的chunk的user data(fd指针)
-- 用一个数组存储各个链表的根节点
-- 有另一个数组存储链表长度
+- 使用简单单链表管理free后的chunk，相同大小的放同一条链上。next指针指向下一个大小相同的chunk的user data(fd指针)
+- 用一个数组存储各链表头，另一个数组存储链表长度
 - 第`i`个根节点存储大小为 `0x10*(i+2)` 的chunk. 0x20, 0x30,0x40... 0x650
 
 ```cpp
@@ -2711,13 +2675,7 @@ typedef struct tcache_perthread_struct{
 static __thread tcache_perthread_struct *tcache = NULL;
 ```
 
-
-
-pic here!!!
-
-
-
-
+![](https://raw.githubusercontent.com/hex-16/pictures/master/CTF_pic/tcache.png)
 
 tcache攻击作用：
 
@@ -2725,7 +2683,7 @@ tcache攻击作用：
 - RCE
   - 利用任意内存读写修改函数指针，free_hook, malloc_hook, got表
 
-malloc/free过程：
+malloc / free procedure:
 
 - [malloc](https://elixir.bootlin.com/glibc/glibc-2.26.9000/source/malloc/malloc.c#L3585): 第一次malloc时先malloc一块内存存放`tcache_perthread_struct`。size在tcache范围内时找对应链表：
   1. tcache有合适的：直接从链表拿出一个chunk返回
@@ -2735,7 +2693,13 @@ malloc/free过程：
   2. 该链没被填满(default: 7)：将chunk放进去
   3. 该链被填满(size=7)：将chunk放到fastbin或unsorted bin
 
+**安全检查**
 
+- 从 tcache 拿 chunk: malloc
+  1. ...
+- 往 tcache 放 chunk: free
+  1. 检查当前chunk是否与头节点为同一个chunk(防止连续double free)
+  2. chunk入链时会计算一个magic num并与bk域对比，如果相同，遍历整个链表检查是否存在double free，然后将magic num存在bk域。(高版本)
 
 
 
@@ -2801,23 +2765,135 @@ int main(){ // gcc a.cpp -o a -fpermissive       -Wno-conversion-null -w
 
 
 
-### Fastbin & Fastbin Attack
+### Fast Bin & Fast Bin Attack
 
-在glibc中存在了很久的时间，类似于tcache，是对小内存块的缓存，但是进程唯一。
+> https://paper.seebug.org/445/
 
-- 存储在全局数据结构`main_arean`，在进程内唯一
+在glibc中存在了很久的时间，类似于tcache，是对小内存块的缓存，但是进程唯一，next指针指向位置不同。
+
+- 存储在全局数据结构`main_arean`，在进程内唯一。
 - 存储小于等于`0x80`的chunk
-- 单链表维护，链表指针指向`pre_size`字段。(tcache指向的是user data首地址)
+- 链表头数组 + 单链表，链表指针指向`pre_size`字段。(tcache指向的是`user data`首地址 / fd)
+- malloc时有安全检查
 
 
 
-pic here!!!
+![](https://raw.githubusercontent.com/hex-16/pictures/master/CTF_pic/fastbin.png)
 
 
+
+malloc / free procedure:
 
 - malloc: 如果tcache中没有chunk，则到fastbin找
 - free: tcache满了时，则会把小chunk放入fastbin
 - calloc: 不经过tcache，直接从fastbin拿chunk
+
+**安全检查**
+
+- 从 fast bin 的链拿chunk: malloc
+  1. 检查chunk的size是否正确
+  2. 检查下一个chunk的size是否正确(高版本)
+- 向 fast bin 的链放 chunk: free
+  1. 放入前，检查后一个chunk的size是否大于0x20
+  2. 查看链表头节点，检查size是否与链表的size一致(size域低4bit是标志bit，不影响比较)
+  3. 检查当前chunk是否与头节点为同一个chunk(防止连续double free)
+
+
+
+#### Fast Bin Poisoning: UAF
+
+类似于tcache poisoning，利用UAF修改fd指针指向目标地址，但是需要保证链入的假chunk的size域正确。
+
+
+
+
+
+#### Fast Bin Dup: Double Free
+
+类似于tcache dup，通过多次free构成环。但free时会检查链表头指针是否与free的chunk地址相同，故不能连续double free放入fastbin，但可以间隔free
+
+```cpp
+free(p1); // p1进入fastbin成为头节点 // e->p1
+free(p1); // p2进入fastbin成为头节点 // e->p2->p1
+free(p1); // p1再次进入fastbin 成环 //  e->p1->p2->p1(loop)  成环
+```
+
+![](https://raw.githubusercontent.com/hex-16/pictures/master/CTF_pic/fastbin_dup.png)
+
+```cpp
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include "malloc.h"
+int main() {
+    char s[100]; long long *p1, *p2;
+    for (int i = (0); i < 7; i++) {  // 填满tcache
+        p1 = calloc(0x50, 1);   free(p1);
+    }
+    scanf("%s", s); // 仅用于debug
+    p1 = calloc(0x50, 1); 
+    p2 = calloc(0x50, 1);
+    free(p1); // e->p1
+    free(p2); // e->p2->p1
+    free(p1); // e->p1->p2->p1(loop) 成环
+    scanf("%s", s);
+}
+```
+
+
+
+### Unsorted Bin
+
+
+
+- 使用**双向链表**存chunk，有两个方向的指针
+- 可以视为空闲 chunk 回归其所属 bin 之前的缓冲区
+- 
+
+malloc / free procedure:
+
+- malloc: 在tcache 和 fast bin找不到大小合适的chunk，则到unsorted bin找
+  1. 找到：用unsorted bin中大小合适的chunk尽可能地填满tcache。然后再返回结果
+  2. 找不到：从中找一个稍大的chunk，从中切割出想要的chunk并返回
+
+
+
+
+
+
+
+
+
+**安全检查**
+
+- 从 unsorted bin 的链拿chunk: malloc
+  1. .
+- 向 unsorted bin 的链放 chunk: free
+  1. 
+
+
+
+#### Leak libc
+
+
+
+### Heap Overflow
+
+> 堆溢出
+
+
+
+### Use After Free
+
+> Use After Free, UAF问题 
+
+当一个内存块被释放之后再次被使用，有以下几种情况：
+
+- 内存块被释放后，其对应的指针被设置为 NULL ， 然后再次使用，程序崩溃。
+- 内存块被释放后，其对应的指针没有被设置为 NULL ，然后在它下一次被使用之前，没有代码对这块内存块进行修改，那么**程序很有可能可以正常运转**。
+- 内存块被释放后，其对应的指针没有被设置为NULL，但是在它下一次使用之前，有代码对这块内存进行了修改，那么当程序再次使用这块内存时，**就很有可能会出现奇怪的问题**。
+
+一般所指的 **Use After Free** 漏洞主要是后两种。一般称被释放后没有被设置为NULL的内存指针为**dangling pointer**。
 
 
 
