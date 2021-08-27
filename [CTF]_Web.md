@@ -288,7 +288,16 @@ Web Server基本机制：从服务器中读取代码、资源文件，把代码�
 
 文件读：
 
+```php
+file_get_contents() file() fopen() fread() fgets()
+```
+
 文件包含：
+
+```php
+include() require() include_once() require_once()
+system() exec()
+```
 
 
 

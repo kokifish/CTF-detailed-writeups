@@ -295,6 +295,7 @@ from pwn import *   # ROP_double_leave_tiny_rop_GKCTF2021_checkin # truncated
 
 context.log_level = "DEBUG"
 context.binary = './login'
+# process(['ld', 'pwn'], env={'LD_PRELOAD':'libc'})
 # sh = process("./login")  # , env={'LD_PRELOAD': './libc.so.6'}
 # process(['ld.so','pwn'],env=xxx)
 sh = remote("node3.buuoj.cn", 27490)
@@ -1040,7 +1041,9 @@ int func(int para);
 
 ## libc / ld Versions
 
-> 本节主要记录如何获取题目要求的libc.so ld.so版本
+> 本节主要记录如何获取题目要求的libc.so ld.so版本。分docker拉取对应大版本，archive.ubuntu拉取对应小版本
+
+**docker拉取对应大版本**
 
 - 首先需要安装docker，使用`sudo systemctl start docker`启动，`docker version`查看版本。
 
@@ -1055,13 +1058,40 @@ sudo docker container ls # 然后在输出中复制 ubuntu:16.04 的 CONTAINER I
 sudo docker cp 3198a81a976d:/lib/x86_64-linux-gnu/libc-2.23.so /home/kali/libc-2.23.so 
 # 复制 ubuntu:16.04 的 /lib/x86_64-linux-gnu/ld-2.23.so 到 /home/kali/ld-2.23.so
 sudo docker cp 3198a81a976d:/lib/x86_64-linux-gnu/ld-2.23.so /home/kali/ld-2.23.so
+sudo docker cp ./libc6_2.27-3ubuntu1_i386.deb 934a8c26021e:/root # 把deb复制到docker: /root
 ```
 
+**archive.ubuntu拉取对应小版本**
 
+> 以找 GNU C Library (Ubuntu GLIBC 2.27-3ubuntu1) stable release version 2.27. 对应的ld.so为例
 
+1. 确定libc.so的具体版本: `strings libc.so.6 | grep GLIBC`
 
+```bash
+strings libc.so.6 | grep GLIBC # 最后一行显示glibc的具体版本
+# GNU C Library (Ubuntu GLIBC 2.27-3ubuntu1) stable release version 2.27.  # 最后一行显示的内容
+```
 
+2. 然后在 http://archive.ubuntu.com/ubuntu/pool/main/g/glibc/  找到 **libc6_2.27-3ubuntu1_i386.deb**  下载下来
 
+> 注意不能下 libc6-amd64_2.27-3ubuntu1_i386.deb  也不要下成source 更不要小版本错误 libc-bin 没有bin
+>
+> It doesn't work. why? libc6_2.27-3ubuntu1_i386.deb work, why? how it works?
+
+3. 提取 deb 里面的文件到文件夹 extr: `sudo dpkg -X libc6_2.27-3ubuntu1_amd64.deb ./extr`
+4. 找到 `ld-2.27.so`: `find ./extr -name ld*      # Output: ./extr/lib/x86_64-linux-gnu/ld-2.27.so`
+5. 把ld-2.27.so复制到当前目录命名为ld.so: `cp ./extr/lib/x86_64-linux-gnu/ld-2.27.so ./ld.so`
+6. 尝试在bash指定libc.so ld.so运行程序
+
+```bash
+LD_PRELOAD=./libc.so.6 ./ld.so ./ciscn_final_3 # LD_PRELOAD=./libc.so ./ld.so ./elf
+```
+
+> 找到 archive.ubuntu.com 的方法：
+>
+> https://pkgs.org/download/libc-bin 找libc
+>
+> https://ubuntu.pkgs.org/18.04/ubuntu-main-amd64/libc-bin_2.27-3ubuntu1_amd64.deb.html Binary Package那有deb下载链接，链接删去最后的文件名，就是 archive.ubuntu 的 FTP
 
 
 
@@ -2751,10 +2781,6 @@ e -> fd1 // malloc: 1. 拿出头指针 e 指向的 fd1_ 2. e指向下一个chunk
 - 此时手里的`fd1_`其实就是tcache上的`fd1`，编辑手上的`chunk fd1_`即可修改tcache上的`chunk fd1`指针
 
 ```cpp
-#include<stdio.h>
-#include<stdlib.h>
-#include<string.h>
-#include "malloc.h"
 int main(){ // gcc a.cpp -o a -fpermissive       -Wno-conversion-null -w
     long long * p1;
     p1 = malloc(0x50);
@@ -2830,10 +2856,6 @@ free(p1); // p1再次进入fastbin 成环 //  e->p1->p2->p1(loop)  成环
 ![](https://raw.githubusercontent.com/hex-16/pictures/master/CTF_pic/fastbin_dup.png)
 
 ```cpp
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include "malloc.h"
 int main() {
     char s[100]; long long *p1, *p2;
     for (int i = (0); i < 7; i++) {  // 填满tcache
