@@ -1,6 +1,8 @@
 - writer: github.com/hex-16   data: from 2020   contact: hexhex16@outlook.com  recommended viewer/editor: Typora
 - 未加说明时，默认系统为kali 20.04(64bit), python3.7或以上, 其余套件为2021前后的最新版
-- 部分内容与 Reverse.md 有重叠/交叉，会有注明。其中动态调试如何使用优先记录在 Reverse.md 
+- 部分内容与 Reverse.md 有重叠/交叉，以下内容优先记录在 Reverse.md 
+  - 动态调试
+  - 汇编指令，机器码
 
 # Pwn
 
@@ -1041,7 +1043,7 @@ int func(int para);
 
 ## libc / ld Versions
 
-> 本节主要记录如何获取题目要求的libc.so ld.so版本。分docker拉取对应大版本，archive.ubuntu拉取对应小版本
+> 记录如何获取对应版本的 libc.so ld.so。docker拉取对应大版本，archive.ubuntu拉取对应小版本
 
 **docker拉取对应大版本**
 
@@ -1074,12 +1076,11 @@ strings libc.so.6 | grep GLIBC # 最后一行显示glibc的具体版本
 
 2. 然后在 http://archive.ubuntu.com/ubuntu/pool/main/g/glibc/  找到 **libc6_2.27-3ubuntu1_i386.deb**  下载下来
 
-> 注意不能下 libc6-amd64_2.27-3ubuntu1_i386.deb  也不要下成source 更不要小版本错误 libc-bin 没有bin
->
+> 注意不能下 libc6-amd64_2.27-3ubuntu1_i386.deb，也不要下成source，dev dbg等也不行，更不要小版本错误。libc-bin 就没有bin (指ld.so)
 > It doesn't work. why? libc6_2.27-3ubuntu1_i386.deb work, why? how it works?
 
 3. 提取 deb 里面的文件到文件夹 extr: `sudo dpkg -X libc6_2.27-3ubuntu1_amd64.deb ./extr`
-4. 找到 `ld-2.27.so`: `find ./extr -name ld*      # Output: ./extr/lib/x86_64-linux-gnu/ld-2.27.so`
+4. 找到 `ld-2.27.so`: `find ./extr -name "ld*"      # Output: ./extr/lib/x86_64-linux-gnu/ld-2.27.so`
 5. 把ld-2.27.so复制到当前目录命名为ld.so: `cp ./extr/lib/x86_64-linux-gnu/ld-2.27.so ./ld.so`
 6. 尝试在bash指定libc.so ld.so运行程序
 
@@ -1088,9 +1089,7 @@ LD_PRELOAD=./libc.so.6 ./ld.so ./ciscn_final_3 # LD_PRELOAD=./libc.so ./ld.so ./
 ```
 
 > 找到 archive.ubuntu.com 的方法：
->
 > https://pkgs.org/download/libc-bin 找libc
->
 > https://ubuntu.pkgs.org/18.04/ubuntu-main-amd64/libc-bin_2.27-3ubuntu1_amd64.deb.html Binary Package那有deb下载链接，链接删去最后的文件名，就是 archive.ubuntu 的 FTP
 
 
@@ -2238,6 +2237,17 @@ libumem   – Solaris
 >
 > 内存分配，使用莞城中，Linux的基本内存管理思想：**只有当真正访问一个地址的时候，系统才会建立虚拟页面与物理页面的映射关系**。OS虽然给程序分配了很大一块内存，但只是虚拟内存，只有当用户使用到相应的内存时，OS才会真正分配物理页面给用户使用。
 
+```bash
+# gdb gef 与堆有关的常见指令 
+heap # 查看 heap xxx 有关的可用指令
+heap bins
+heap chunks
+```
+
+
+
+
+
 #### malloc and free
 
 > 在glibc 的 [malloc.c](https://github.com/iromise/glibc/blob/master/malloc/malloc.c#L448) 中有响应的说明
@@ -2361,9 +2371,9 @@ int main(){
 
 
 
-#### malloc_chunk
+#### chunk
 
-- **chunk**: 称由 malloc 申请的内存为 chunk。
+- **chunk**: 称由 malloc 申请的内存为 chunk。malloc_chunk
 - **malloc_chunk**: 无论大小，分配 / 释放状态，chunk都使用一个结构体 malloc_chunk 来表示。但根据是否被释放，malloc_chunk 表现形式有不同。
 
 ```cpp
@@ -2373,7 +2383,7 @@ struct chunk{ // chunk一般结构
     union{  // 注意这里是union 视使用与否有区别 // malloc返回的就是这部分内存
         char buf[size-0x10];
         struct content{ // 未使用时有效，使用时这里就是user data所属的前 2 x 32/64 bit
-            chunk* fd;
+            chunk* fw;
             chunk* bk; 
         }
     }
@@ -2392,13 +2402,13 @@ struct chunk{ // chunk使用时的结构
 struct chunk{ // chunk释放后的结构
 	size_t prev_size;
 	size_t size; // size最低位为0
-	chunk* fd;
+	chunk* fw;
 	chunk* bk;
 }
 ```
 
 ```cpp
-// chunk在内存中的布局 // 一个接一个按序存放  // 存疑，0x21后为什么是fd bk?
+// chunk在内存中的布局 // 一个接一个按序存放
 | in used | 0x21   |
 |   fd    |   bk   |
 |  0x20   |  0xa0  |  // 0xa0 0结尾表示未使用，则0x20处有效，指前一个chunk大小为0x20
