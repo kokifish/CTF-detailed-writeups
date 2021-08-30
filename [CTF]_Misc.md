@@ -33,6 +33,8 @@ Misc 在国外的比赛中其实又被具体划分为各个小块，有
 ![](https://raw.githubusercontent.com/hex-16/pictures/master/CTF_pic/Misc_morse.jpg)
 
 > 莫尔斯编码在线转换 http://www.zhongguosou.com/zonghe/moErSiCodeConverter.aspx
+>
+> 音频morse解码 https://morsecode.world/international/decoder/audio-decoder-adaptive.html
 
 **字母**
 

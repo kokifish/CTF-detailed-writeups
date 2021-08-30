@@ -960,7 +960,9 @@ int main(int argc, char *argv[]){
 > 1. 参数自右向左进栈
 > 2. 由**主调函数caller负责清除栈中的参数**(参数出栈)
 >
-> 参数按照从右向左的顺序压栈，则参数列表最左边(第一个)的参数最接近栈顶位置。所有参数距离帧基指针的偏移量都是常数，而不必关心已入栈的参数数目。只要不定的参数的数目能根据第一个已明确的参数确定，就可使用不定参数。例如`printf`函数，第一个参数即格式化字符串可作为后继参数指示符。通过它们就可得到后续参数的类型和个数，进而知道所有参数的尺寸。当传递的参数过多时，以帧基指针为基准，获取适当数目的参数，其他忽略即可。若函数参数自左向右进栈，则第一个参数距离栈帧指针的偏移量与已入栈的参数数目有关，需要计算所有参数占用的空间后才能精确定位。当实际传入的参数数目与函数期望接受的参数数目不同时，偏移量计算会出错
+> 参数从右向左压栈，则参数列表最左边(第一个)的参数最接近栈顶(高地址)位置。所有参数距离帧基指针RBP的偏移量都是常数，而不必关心已入栈的参数数目。只要不定的参数的数目能根据第一个已明确的参数确定，就可使用不定参数。e.g.`printf`函数，第一个参数即format string可作为后继参数指示符。通过format string就可得到后续参数的类型和个数。当传递的参数过多时，以帧基指针RBP为基准，获取适当数目的参数，其他忽略即可。
+>
+> 若函数参数自左向右进栈，则第一个参数距离栈帧指针的偏移量与已入栈的参数数目有关，需要计算所有参数占用的空间后才能精确定位。当实际传入的参数数目与函数期望接受的参数数目不同时，偏移量计算会出错
 >
 > caller将参数压栈，只有caller知道栈中的参数数目和尺寸，因此caller可安全地清栈。而callee永远也不能事先知道将要传入函数的参数信息，难以对栈顶指针进行调整
 >
@@ -2439,9 +2441,9 @@ struct malloc_chunk { // default: define INTERNAL_SIZE_T size_t
   - NON_MAIN_ARENA，记录当前 chunk 是否不属于主线程，1 表示不属于，0 表示属于。
   - IS_MAPPED，记录当前 chunk 是否是由 **mmap** 分配的。
   - **PREV_INUSE**，记录前一个 chunk 块是否被分配。一般来说，堆中第一个被分配的内存块的 size 字段的 P 位都会被设置为 **1**，以便于防止访问前面的非法内存。当一个 chunk 的 size 的 P 位为 **0** 时，我们能通过 prev_size 字段来获取上一个 chunk 的大小以及地址。这也方便进行空闲 chunk 之间的合并。
-- **fd, bk**:  chunk 处于分配状态时，从 fd 字段开始是用户的数据。chunk 空闲时，会被添加到对应的空闲管理链表中，其字段的含义如下
-  - fd 指向下一个（非物理相邻）空闲的 chunk
-  - bk 指向上一个（非物理相邻）空闲的 chunk
+- **fw, bk**:  chunk 处于分配状态时，fd域是user data首地址。chunk 空闲时，fw, bk域有效
+  - fw: 指向下一个（非物理相邻）空闲的 chunk
+  - bk: 指向上一个（非物理相邻）空闲的 chunk
   - 通过 fd 和 bk 可以将空闲的 chunk 块加入到空闲的 chunk 块链表进行统一管理
 - **fd_nextsize, bk_nextsize**: 也是只有 chunk 空闲的时候才使用，不过其用于较大的 chunk（large chunk）。
   - fd_nextsize 指向前一个与当前 chunk 大小不同的第一个空闲块，不包含 bin 的头指针。
@@ -2638,16 +2640,16 @@ chunk-> +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
 ptmalloc 采用**分箱式**方法对空闲的 chunk 进行管理。根据空闲的 chunk 的大小以及使用状态将 chunk 初步分为 4 类：
 
-1. unsorted bin: 是第一个，没有排序，存储的chunk较杂
-2. small bins: 索引2\~63，同一个small bin链表中的chunk大小相同。两个相邻索引的 small bin 链表中的 chunk 大小相差的字节数为 **2 个机器字长**，即 32 位相差 8 字节，64 位相差 16 字节(0x10B)。
-3. large bins: small bins 后面的 bin 被称作 **large bins**。large bins 中的每一个 bin 都**包含一定范围内的 chunk**，其中的 chunk **按 fd 指针的顺序从大到小排列**。相同大小的 chunk 同样按照最近使用顺序排列。
+1. [1] unsorted bin: 第一个，没有排序，存储的chunk较杂，双向链表。
+2. [2\~63] small bins: 同一个small bin链表中的chunk大小相同。两个相邻索引的 small bin 链表中的 chunk 大小相差的字节数为 **2 个机器字长**，即 32 位相差 8 字节，64 位相差 16 字节(0x10B)。
+3. [64\~126] large bins: large bins 中的每一个 bin 都**包含一定范围内的 chunk**，chunk **按 fd 指针的顺序从大到小排列**。相同大小的 chunk 同样按照最近使用顺序排列。
 4. fast bins: 并不是所有的 chunk 被释放后就立即被放到 bin 中。ptmalloc 为了提高分配的速度，会把一些小的 chunk **先**放到 fast bins 的容器内。**而且，fastbin 容器中的 chunk 的使用标记总是被置位的，所以不满足上面的原则。**
 
 每类中仍然有更细的划分，相似大小的 chunk 会用**双向链表**链接起来。aka. 在每类 bin 内部会有多个互不相关的链表来保存不同大小的 chunk。
 
 > 上述这些 bin 的排布都会遵循一个原则：**任意两个物理相邻的空闲 chunk 不能在一起**
 
-对于 small bins，large bins，unsorted bin 来说，ptmalloc 将它们维护在同一个数组中。这些 bin 对应的数据结构在 malloc_state 中:
+ptmalloc 将small bins，large bins，unsorted bin维护在同一个数组中。这些 bin 对应的数据结构在 malloc_state 中:
 
 ```c
 #define NBINS 128
@@ -2657,13 +2659,13 @@ mchunkptr bins[ NBINS * 2 - 2 ]; // 254
 
 `bins` 主要用于索引不同 bin 的 fd 和 bk。以 32 位系统为例，bins 前 4 项的含义如下
 
-| 含义      | bin1 fd / bin2 prev_size | bin1 bk / bin2 size | bin2 fd / bin3 prev_size | bin2 bk / bin3 size |
-| --------- | ------------------------ | ------------------- | ------------------------ | ------------------- |
-| bin index | 0                        | 1                   | 2                        | 3                   |
+| 含义      | bin1 fw / bin2 prev_size | bin1 bk / bin2 size | bin2 fw/ bin3 prev_size | bin2 bk / bin3 size |
+| --------- | ------------------------ | ------------------- | ----------------------- | ------------------- |
+| bin index | 0                        | 1                   | 2                       | 3                   |
 
 bin2 prev_size与bin1 fd重合，bin2 size与bin1 bk重合。只使用fd, bk索引链表，故该重合部分记录的实际是bin1 fd, bk。也就是说，虽然后一个bin和前一个bin公用部分数据，但是其实记录的仍然是前一个bin的链表数据。通过这样复用节省空间。
 
-> fd 指向下一个（非物理相邻）空闲的 chunk，
+> 
 
 
 
@@ -2688,12 +2690,6 @@ typedef struct malloc_chunk *mbinptr;
 // 获取 bin 的位于链表尾的 chunk
 #define last(b) ((b)->bk)
 ```
-
-
-
-
-
-> 
 
 
 
@@ -2885,21 +2881,32 @@ int main() {
 
 ### Unsorted Bin
 
+> https://wooyun.js.org/drops/Linux%E5%A0%86%E5%86%85%E5%AD%98%E7%AE%A1%E7%90%86%E6%B7%B1%E5%85%A5%E5%88%86%E6%9E%90(%E4%B8%8B%E5%8D%8A%E9%83%A8).html
 
-
-- 使用**双向链表**存chunk，有两个方向的指针
+- 使用**双向链表**存chunk，有两个方向的指针。unsorted bin只有一个
 - 可以视为空闲 chunk 回归其所属 bin 之前的缓冲区
-- 
+- Chunk size: unsorted bin对chunk的大小没有限制，任何大小的chunk都可以归属到unsorted bin中
+- FIFO，插入时插入到unsorted bin头部，取出时从链表尾取
 
 malloc / free procedure:
 
-- malloc: 在tcache 和 fast bin找不到大小合适的chunk，则到unsorted bin找
+- malloc: 在tcache, fast bin, small bin找不到大小合适的chunk，则到unsorted bin找
   1. 找到：用unsorted bin中大小合适的chunk尽可能地填满tcache。然后再返回结果
-  2. 找不到：从中找一个稍大的chunk，从中切割出想要的chunk并返回
+  2. 找不到：从unsorted bin找一个稍大的chunk，从中切割出想要的chunk并返回
+- free:
+  1. 较大的chunk被分割成后，如果剩余的大于MINSIZE则放入unsorted bin
+  2. free不属于fast bin的chunk，且该chunk不与top chunk紧邻，首先放入unsorted bin
+  3. 进行malloc_consolidate时，可能把合并后的chunk放入unsorted bin（不与top chunk紧邻时）
 
 
 
+- unsorted bin为空时
 
+![](https://raw.githubusercontent.com/hex-16/pictures/master/CTF_pic/unsorted_bin_empty.png)
+
+- unsorted bin有一个大小为0xa1的chunk时
+
+![](https://raw.githubusercontent.com/hex-16/pictures/master/CTF_pic/unsorted_bin_size%3Da1.png)
 
 
 
@@ -2910,17 +2917,28 @@ malloc / free procedure:
 - 从 unsorted bin 的链拿chunk: malloc
   1. .
 - 向 unsorted bin 的链放 chunk: free
-  1. 
+  1. 检查下一个chunk的size域是否合法，可能还检查下下个size域是否合法(大于等于0x21)
 
 
 
-#### Leak libc
+#### Unsorted Bin: Leak
+
+
 
 
 
 ### Heap Overflow
 
 > 堆溢出
+
+向某个chunk写入的字节数超过chunk本身可用的字节数(不是用户申请的字节数，chunk本身可用的字节数大于等于用户申请数)，导致数据溢出，覆盖高地址方向上物理相邻的下一个chunk
+
+Trigger Conditions:
+
+1. 向堆写入数据
+2. 写入数据长度没有被良好控制
+
+
 
 
 
