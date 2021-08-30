@@ -31,7 +31,8 @@ _rdtsc() // 检测程序运行需要多少个CPU周期
 
 `checksec` Installation
 
-- 实际上有些app, module已经包含`checksec`, e.g. miniconda3, pwntools
+- 实际上pwntools已经包含`checksec`, 如果不起作用是因为不在PATH中，'/home/kali/.local/bin' which is not on PATH，在安装完pwntools时会有这个warning提示
+- includes checksec: e.g. miniconda3, pwntools
 
 ```bash
 git clone https://github.com/slimm609/checksec.sh
@@ -55,8 +56,8 @@ checksec --file=filename  # 新版
 - Installation: 
 
 ```bash
-sudo apt install ruby
-gem install one_gadget # gem: ruby 包管理
+sudo apt install ruby -y
+sudo gem install one_gadget # gem: ruby 包管理
 one_gadget libc-2.27.so
 one_gadget libc-2.27.so --near exit,mkdir # Reorder gadgets according to the distance of given functions.
 one_gadget /lib/x86_64-linux-gnu/libc.so.6 --near 'write.*' --raw # Regular expression is acceptable.
@@ -129,7 +130,7 @@ Installation:
 > docs: https://docs.pwntools.com/en/latest/
 
 - pwn工具集. `pwntools` is a CTF framework and exploit development library. CTF框架，python包
-- WARNING: 网上很多使用pwntools的脚本是基于python2的，需要注意str byte转换，以及可能存在的API名称/行为改变
+- WARNING: 网上很多使用pwntools的脚本是基于python2的，需要注意str byte转换，以及可能存在的API名称/行为改变。pwntools会顺带安装很多有用的工具如checksec 放在 /home/kali/.local/bin ，要添加到PATH，安装pwntools后会有warning提示
 
 ```python
 from pwn import *
@@ -332,7 +333,9 @@ sh.interactive()
 ```bash
 sudo pip install capstone
 pip install ropgadget
-# 添加至$PATH :  /usr/local/lib/python3.9/dist-packages/bin # 路径的可能值
+# 添加至$PATH :  
+# /usr/local/lib/python3.9/dist-packages/bin # 路径的可能值
+# /home/kali/.local/bin/ROPgadget
 ROPgadget --help # 选项及使用案例
 ROPgadget -v
 Version:        ROPgadget v6.5 # 测试时的最新版
