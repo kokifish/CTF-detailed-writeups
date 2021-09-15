@@ -1,6 +1,8 @@
 - writer: github.com/hex-16   data: from 2020   contact: hexhex16@outlook.com  recommended viewer/editor: Typora
 - 未加说明时，默认系统为kali 20.04(64bit), python3.7或以上, 其余套件为2021前后的最新版
-- 部分内容与 Reverse.md 有重叠/交叉，会有注明。其中动态调试如何使用优先记录在 Reverse.md 
+- 部分内容与 Reverse.md 有重叠/交叉，以下内容优先记录在 Reverse.md 
+  - 动态调试
+  - 汇编指令，机器码
 
 # Pwn
 
@@ -29,7 +31,8 @@ _rdtsc() // 检测程序运行需要多少个CPU周期
 
 `checksec` Installation
 
-- 实际上有些app, module已经包含`checksec`, e.g. miniconda3, pwntools
+- 实际上pwntools已经包含`checksec`, 如果不起作用是因为不在PATH中，'/home/kali/.local/bin' which is not on PATH，在安装完pwntools时会有这个warning提示
+- includes checksec: e.g. miniconda3, pwntools
 
 ```bash
 git clone https://github.com/slimm609/checksec.sh
@@ -53,8 +56,8 @@ checksec --file=filename  # 新版
 - Installation: 
 
 ```bash
-sudo apt install ruby
-gem install one_gadget # gem: ruby 包管理
+sudo apt install ruby -y
+sudo gem install one_gadget # gem: ruby 包管理
 one_gadget libc-2.27.so
 one_gadget libc-2.27.so --near exit,mkdir # Reorder gadgets according to the distance of given functions.
 one_gadget /lib/x86_64-linux-gnu/libc.so.6 --near 'write.*' --raw # Regular expression is acceptable.
@@ -127,7 +130,7 @@ Installation:
 > docs: https://docs.pwntools.com/en/latest/
 
 - pwn工具集. `pwntools` is a CTF framework and exploit development library. CTF框架，python包
-- WARNING: 网上很多使用pwntools的脚本是基于python2的，需要注意str byte转换，以及可能存在的API名称/行为改变
+- WARNING: 网上很多使用pwntools的脚本是基于python2的，需要注意str byte转换，以及可能存在的API名称/行为改变。pwntools会顺带安装很多有用的工具如checksec 放在 /home/kali/.local/bin ，要添加到PATH，安装pwntools后会有warning提示
 
 ```python
 from pwn import *
@@ -295,6 +298,7 @@ from pwn import *   # ROP_double_leave_tiny_rop_GKCTF2021_checkin # truncated
 
 context.log_level = "DEBUG"
 context.binary = './login'
+# process(['ld', 'pwn'], env={'LD_PRELOAD':'libc'})
 # sh = process("./login")  # , env={'LD_PRELOAD': './libc.so.6'}
 # process(['ld.so','pwn'],env=xxx)
 sh = remote("node3.buuoj.cn", 27490)
@@ -329,7 +333,9 @@ sh.interactive()
 ```bash
 sudo pip install capstone
 pip install ropgadget
-# 添加至$PATH :  /usr/local/lib/python3.9/dist-packages/bin # 路径的可能值
+# 添加至$PATH :  
+# /usr/local/lib/python3.9/dist-packages/bin # 路径的可能值
+# /home/kali/.local/bin/ROPgadget
 ROPgadget --help # 选项及使用案例
 ROPgadget -v
 Version:        ROPgadget v6.5 # 测试时的最新版
@@ -957,7 +963,9 @@ int main(int argc, char *argv[]){
 > 1. 参数自右向左进栈
 > 2. 由**主调函数caller负责清除栈中的参数**(参数出栈)
 >
-> 参数按照从右向左的顺序压栈，则参数列表最左边(第一个)的参数最接近栈顶位置。所有参数距离帧基指针的偏移量都是常数，而不必关心已入栈的参数数目。只要不定的参数的数目能根据第一个已明确的参数确定，就可使用不定参数。例如`printf`函数，第一个参数即格式化字符串可作为后继参数指示符。通过它们就可得到后续参数的类型和个数，进而知道所有参数的尺寸。当传递的参数过多时，以帧基指针为基准，获取适当数目的参数，其他忽略即可。若函数参数自左向右进栈，则第一个参数距离栈帧指针的偏移量与已入栈的参数数目有关，需要计算所有参数占用的空间后才能精确定位。当实际传入的参数数目与函数期望接受的参数数目不同时，偏移量计算会出错
+> 参数从右向左压栈，则参数列表最左边(第一个)的参数最接近栈顶(高地址)位置。所有参数距离帧基指针RBP的偏移量都是常数，而不必关心已入栈的参数数目。只要不定的参数的数目能根据第一个已明确的参数确定，就可使用不定参数。e.g.`printf`函数，第一个参数即format string可作为后继参数指示符。通过format string就可得到后续参数的类型和个数。当传递的参数过多时，以帧基指针RBP为基准，获取适当数目的参数，其他忽略即可。
+>
+> 若函数参数自左向右进栈，则第一个参数距离栈帧指针的偏移量与已入栈的参数数目有关，需要计算所有参数占用的空间后才能精确定位。当实际传入的参数数目与函数期望接受的参数数目不同时，偏移量计算会出错
 >
 > caller将参数压栈，只有caller知道栈中的参数数目和尺寸，因此caller可安全地清栈。而callee永远也不能事先知道将要传入函数的参数信息，难以对栈顶指针进行调整
 >
@@ -1040,7 +1048,9 @@ int func(int para);
 
 ## libc / ld Versions
 
-> 本节主要记录如何获取题目要求的libc.so ld.so版本
+> 记录如何获取对应版本的 libc.so ld.so。docker拉取对应大版本，archive.ubuntu拉取对应小版本
+
+**docker拉取对应大版本**
 
 - 首先需要安装docker，使用`sudo systemctl start docker`启动，`docker version`查看版本。
 
@@ -1055,13 +1065,37 @@ sudo docker container ls # 然后在输出中复制 ubuntu:16.04 的 CONTAINER I
 sudo docker cp 3198a81a976d:/lib/x86_64-linux-gnu/libc-2.23.so /home/kali/libc-2.23.so 
 # 复制 ubuntu:16.04 的 /lib/x86_64-linux-gnu/ld-2.23.so 到 /home/kali/ld-2.23.so
 sudo docker cp 3198a81a976d:/lib/x86_64-linux-gnu/ld-2.23.so /home/kali/ld-2.23.so
+sudo docker cp ./libc6_2.27-3ubuntu1_i386.deb 934a8c26021e:/root # 把deb复制到docker: /root
 ```
 
+**archive.ubuntu拉取对应小版本**
 
+> 以找 GNU C Library (Ubuntu GLIBC 2.27-3ubuntu1) stable release version 2.27. 对应的ld.so为例
 
+1. 确定libc.so的具体版本: `strings libc.so.6 | grep GLIBC`
 
+```bash
+strings libc.so.6 | grep GLIBC # 最后一行显示glibc的具体版本
+# GNU C Library (Ubuntu GLIBC 2.27-3ubuntu1) stable release version 2.27.  # 最后一行显示的内容
+```
 
+2. 然后在 http://archive.ubuntu.com/ubuntu/pool/main/g/glibc/  找到 **libc6_2.27-3ubuntu1_i386.deb**  下载下来
 
+> 注意不能下 libc6-amd64_2.27-3ubuntu1_i386.deb，也不要下成source，dev dbg等也不行，更不要小版本错误。libc-bin 就没有bin (指ld.so)
+> It doesn't work. why? libc6_2.27-3ubuntu1_i386.deb work, why? how it works?
+
+3. 提取 deb 里面的文件到文件夹 extr: `sudo dpkg -X libc6_2.27-3ubuntu1_amd64.deb ./extr`
+4. 找到 `ld-2.27.so`: `find ./extr -name "ld*"      # Output: ./extr/lib/x86_64-linux-gnu/ld-2.27.so`
+5. 把ld-2.27.so复制到当前目录命名为ld.so: `cp ./extr/lib/x86_64-linux-gnu/ld-2.27.so ./ld.so`
+6. 尝试在bash指定libc.so ld.so运行程序
+
+```bash
+LD_PRELOAD=./libc.so.6 ./ld.so ./ciscn_final_3 # LD_PRELOAD=./libc.so ./ld.so ./elf
+```
+
+> 找到 archive.ubuntu.com 的方法：
+> https://pkgs.org/download/libc-bin 找libc
+> https://ubuntu.pkgs.org/18.04/ubuntu-main-amd64/libc-bin_2.27-3ubuntu1_amd64.deb.html Binary Package那有deb下载链接，链接删去最后的文件名，就是 archive.ubuntu 的 FTP
 
 
 
@@ -2170,6 +2204,8 @@ cases:
 
 > 主要是 Glibc Heap: ptmalloc2 利用
 >
+> 阅读/复习建议：Heep Overview里面的很详细的e.g. bins 可以跳过，先看后面三级标题的结构
+>
 > https://zhuanlan.zhihu.com/p/352445428 ptmalloc内存管理器 设计假设 malloc/free流程
 >
 > https://www.bilibili.com/read/cv5280184/ 二进制安全之堆溢出（系列） 堆基础 & 结构（一)
@@ -2205,6 +2241,17 @@ libumem   – Solaris
 > 目前 Linux 标准发行版中使用的堆分配器是 glibc 中的堆分配器：ptmalloc2。ptmalloc2 主要是通过 malloc/free 函数来分配和释放内存块
 >
 > 内存分配，使用莞城中，Linux的基本内存管理思想：**只有当真正访问一个地址的时候，系统才会建立虚拟页面与物理页面的映射关系**。OS虽然给程序分配了很大一块内存，但只是虚拟内存，只有当用户使用到相应的内存时，OS才会真正分配物理页面给用户使用。
+
+```bash
+# gdb gef 与堆有关的常见指令 
+heap # 查看 heap xxx 有关的可用指令
+heap bins
+heap chunks
+```
+
+
+
+
 
 #### malloc and free
 
@@ -2329,20 +2376,20 @@ int main(){
 
 
 
-#### malloc_chunk
+#### chunk
 
-- **chunk**: 称由 malloc 申请的内存为 chunk。
+- **chunk**: 称由 malloc 申请的内存为 chunk。malloc_chunk
 - **malloc_chunk**: 无论大小，分配 / 释放状态，chunk都使用一个结构体 malloc_chunk 来表示。但根据是否被释放，malloc_chunk 表现形式有不同。
 
 ```cpp
-struct chunk{ 
+struct chunk{ // chunk一般结构
     size_t prev_size;
     size_t size; // size最低位为1标识chunk在使用中
     union{  // 注意这里是union 视使用与否有区别 // malloc返回的就是这部分内存
         char buf[size-0x10];
-        struct content{
-            chunk* fwd;
-            chunk* bwk; // 
+        struct content{ // 未使用时有效，使用时这里就是user data所属的前 2 x 32/64 bit
+            chunk* fw;
+            chunk* bk; 
         }
     }
 }
@@ -2360,13 +2407,13 @@ struct chunk{ // chunk使用时的结构
 struct chunk{ // chunk释放后的结构
 	size_t prev_size;
 	size_t size; // size最低位为0
-	chunk* fd;
+	chunk* fw;
 	chunk* bk;
 }
 ```
 
 ```cpp
-// chunk在内存中的布局 // 一个接一个按序存放  // 存疑，0x21后为什么是fd bk?
+// chunk在内存中的布局 // 一个接一个按序存放
 | in used | 0x21   |
 |   fd    |   bk   |
 |  0x20   |  0xa0  |  // 0xa0 0结尾表示未使用，则0x20处有效，指前一个chunk大小为0x20
@@ -2397,9 +2444,9 @@ struct malloc_chunk { // default: define INTERNAL_SIZE_T size_t
   - NON_MAIN_ARENA，记录当前 chunk 是否不属于主线程，1 表示不属于，0 表示属于。
   - IS_MAPPED，记录当前 chunk 是否是由 **mmap** 分配的。
   - **PREV_INUSE**，记录前一个 chunk 块是否被分配。一般来说，堆中第一个被分配的内存块的 size 字段的 P 位都会被设置为 **1**，以便于防止访问前面的非法内存。当一个 chunk 的 size 的 P 位为 **0** 时，我们能通过 prev_size 字段来获取上一个 chunk 的大小以及地址。这也方便进行空闲 chunk 之间的合并。
-- **fd, bk**:  chunk 处于分配状态时，从 fd 字段开始是用户的数据。chunk 空闲时，会被添加到对应的空闲管理链表中，其字段的含义如下
-  - fd 指向下一个（非物理相邻）空闲的 chunk
-  - bk 指向上一个（非物理相邻）空闲的 chunk
+- **fw, bk**:  chunk 处于分配状态时，fd域是user data首地址。chunk 空闲时，fw, bk域有效
+  - fw: 指向下一个（非物理相邻）空闲的 chunk
+  - bk: 指向上一个（非物理相邻）空闲的 chunk
   - 通过 fd 和 bk 可以将空闲的 chunk 块加入到空闲的 chunk 块链表进行统一管理
 - **fd_nextsize, bk_nextsize**: 也是只有 chunk 空闲的时候才使用，不过其用于较大的 chunk（large chunk）。
   - fd_nextsize 指向前一个与当前 chunk 大小不同的第一个空闲块，不包含 bin 的头指针。
@@ -2473,26 +2520,7 @@ chunk-> +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
 **一般情况下**，物理相邻的两个空闲 chunk 会被合并为一个 chunk 。堆管理器会通过 prev_size 字段以及 size 字段合并两个物理相邻的空闲 chunk 块
 
-```
-一些关于堆的约束:
-The three exceptions to all this are:
-     1. The special chunk `top' doesn't bother using the
-    trailing size field since there is no next contiguous chunk
-    that would have to index off it. After initialization, `top'
-    is forced to always exist.  If it would become less than
-    MINSIZE bytes long, it is replenished.
-     2. Chunks allocated via mmap, which have the second-lowest-order
-    bit M (IS_MMAPPED) set in their size fields.  Because they are
-    allocated one-by-one, each must contain its own trailing size
-    field.  If the M bit is set, the other bits are ignored
-    (because mmapped chunks are neither in an arena, nor adjacent
-    to a freed chunk).  The M bit is also used for chunks which
-    originally came from a dumped heap via malloc_set_state in
-    hooks.c.
-     3. Chunks in fastbins are treated as allocated chunks from the
-    point of view of the chunk allocator.  They are consolidated
-    with their neighbors only in bulk, in malloc_consolidate.
-```
+
 
 ##### chunk MACRO
 
@@ -2578,12 +2606,20 @@ The three exceptions to all this are:
 
 程序可能向OS申请很小的内存，但OS可能会把很大的内存分配给程序，以避免多次内核态 \<-\>用户态 切换，提高效率。称这一块连续的内存区域为 **arena**。arena 空间不足时，可通过增加 brk 来增加堆的空间；可通过减小 brk 来缩小 arena 空间。
 
-- **main_arena**: 由主线程申请的内存。管理所有堆块的结构体
-- **arena**: 对应多线程的子线程。存在于线程的控制块plt中
 
+
+**main_arena**:
+
+- main_arena 是一个全局变量，在 libc.so 的数据段
+- 由主线程申请的内存。管理所有堆块的结构体
+- 子线程的堆和主线程的堆不一样，每个线程会预分配一个堆空间
+
+**arena**:
+
+- 属于某个子线程。存在于线程的控制块plt中
 - chunk_size的倒数第三个标志位NON_MAIN_ARENA，多线程时为1，主线程为0
-- 子线程的堆和主线程的堆不一样
-- 每个线程会预分配一个堆空间
+
+
 
 
 
@@ -2603,19 +2639,20 @@ The three exceptions to all this are:
 
 #### bins
 
-- 程序运行时使用bins结构 管理 释放的堆块(chunk)。以避免频繁系统调用，降低内存分配开销
-- ptmalloc 采用**分箱式**方法对空闲的 chunk 进行管理。
-- 根据空闲的 chunk 的大小以及使用状态将 chunk 初步分为 4 类：
-1. unsorted bin: 是第一个，没有排序，存储的chunk较杂
-2. small bins: 索引2\~63，同一个small bin链表中的chunk大小相同。两个相邻索引的 small bin 链表中的 chunk 大小相差的字节数为 **2 个机器字长**，即 32 位相差 8 字节，64 位相差 16 字节(0x10B)。
-3. large bins: small bins 后面的 bin 被称作 **large bins**。large bins 中的每一个 bin 都**包含一定范围内的 chunk**，其中的 chunk **按 fd 指针的顺序从大到小排列**。相同大小的 chunk 同样按照最近使用顺序排列。
+存储 unstored bin，small bins 和 large bins 的 chunk 链表头以管理释放的chunk。以避免频繁系统调用，降低内存分配开销
+
+ptmalloc 采用**分箱式**方法对空闲的 chunk 进行管理。根据空闲的 chunk 的大小以及使用状态将 chunk 初步分为 4 类：
+
+1. [1] unsorted bin: 第一个，没有排序，存储的chunk较杂，双向链表。
+2. [2\~63] small bins: 同一个small bin链表中的chunk大小相同。两个相邻索引的 small bin 链表中的 chunk 大小相差的字节数为 **2 个机器字长**，即 32 位相差 8 字节，64 位相差 16 字节(0x10B)。
+3. [64\~126] large bins: large bins 中的每一个 bin 都**包含一定范围内的 chunk**，chunk **按 fd 指针的顺序从大到小排列**。相同大小的 chunk 同样按照最近使用顺序排列。
 4. fast bins: 并不是所有的 chunk 被释放后就立即被放到 bin 中。ptmalloc 为了提高分配的速度，会把一些小的 chunk **先**放到 fast bins 的容器内。**而且，fastbin 容器中的 chunk 的使用标记总是被置位的，所以不满足上面的原则。**
 
 每类中仍然有更细的划分，相似大小的 chunk 会用**双向链表**链接起来。aka. 在每类 bin 内部会有多个互不相关的链表来保存不同大小的 chunk。
 
 > 上述这些 bin 的排布都会遵循一个原则：**任意两个物理相邻的空闲 chunk 不能在一起**
 
-对于 small bins，large bins，unsorted bin 来说，ptmalloc 将它们维护在同一个数组中。这些 bin 对应的数据结构在 malloc_state 中:
+ptmalloc 将small bins，large bins，unsorted bin维护在同一个数组中。这些 bin 对应的数据结构在 malloc_state 中:
 
 ```c
 #define NBINS 128
@@ -2625,13 +2662,13 @@ mchunkptr bins[ NBINS * 2 - 2 ]; // 254
 
 `bins` 主要用于索引不同 bin 的 fd 和 bk。以 32 位系统为例，bins 前 4 项的含义如下
 
-| 含义      | bin1 fd / bin2 prev_size | bin1 bk / bin2 size | bin2 fd / bin3 prev_size | bin2 bk / bin3 size |
-| --------- | ------------------------ | ------------------- | ------------------------ | ------------------- |
-| bin index | 0                        | 1                   | 2                        | 3                   |
+| 含义      | bin1 fw / bin2 prev_size | bin1 bk / bin2 size | bin2 fw/ bin3 prev_size | bin2 bk / bin3 size |
+| --------- | ------------------------ | ------------------- | ----------------------- | ------------------- |
+| bin index | 0                        | 1                   | 2                       | 3                   |
 
 bin2 prev_size与bin1 fd重合，bin2 size与bin1 bk重合。只使用fd, bk索引链表，故该重合部分记录的实际是bin1 fd, bk。也就是说，虽然后一个bin和前一个bin公用部分数据，但是其实记录的仍然是前一个bin的链表数据。通过这样复用节省空间。
 
-> fd 指向下一个（非物理相邻）空闲的 chunk，
+> 
 
 
 
@@ -2661,31 +2698,9 @@ typedef struct malloc_chunk *mbinptr;
 
 
 
-- 1. 
 
 
 
-### Heap Overflow
-
-
-
-
-
-
-
-
-
-### Use After Free
-
-> Use After Free, UAF问题 
-
-当一个内存块被释放之后再次被使用，有以下几种情况：
-
-- 内存块被释放后，其对应的指针被设置为 NULL ， 然后再次使用，程序崩溃。
-- 内存块被释放后，其对应的指针没有被设置为 NULL ，然后在它下一次被使用之前，没有代码对这块内存块进行修改，那么**程序很有可能可以正常运转**。
-- 内存块被释放后，其对应的指针没有被设置为NULL，但是在它下一次使用之前，有代码对这块内存进行了修改，那么当程序再次使用这块内存时，**就很有可能会出现奇怪的问题**。
-
-一般所指的 **Use After Free** 漏洞主要是后两种。一般称被释放后没有被设置为NULL的内存指针为**dangling pointer**。
 
 
 
@@ -2695,10 +2710,9 @@ typedef struct malloc_chunk *mbinptr;
 
 glibc 2.26(ubuntu 17.10)之后引入的技术，用于缓存各个线程释放的内存，用于加速多线程下内存申请。每个线程都有自己的Tcache，因此从tcache中malloc内存时不需要加锁。但欠缺安全检查。
 
-- 使用简单单链表管理free后的内存，相同大小的放同一条链上。next指针指向下一个大小相同的chunk的user data(fd指针)
-- 用一个数组存储各个链表的根节点
-- 有另一个数组存储链表长度
-- 第`i`个根节点存储大小为 `0x10*(i+2)` 的chunk. 0x21, 0x31,0x41...
+- 使用简单单链表管理free后的chunk，相同大小的放同一条链上。next指针指向下一个大小相同的chunk的user data(fd指针)
+- 用一个数组存储各链表头，另一个数组存储链表长度
+- 第`i`个根节点存储大小为 `0x10*(i+2)` 的chunk. 0x20, 0x30,0x40... 0x650
 
 ```cpp
 # define TCACHE_MAX_BINS  64
@@ -2709,7 +2723,7 @@ typedef struct tcache_perthread_struct{
 static __thread tcache_perthread_struct *tcache = NULL;
 ```
 
-
+![](https://raw.githubusercontent.com/hex-16/pictures/master/CTF_pic/tcache.png)
 
 tcache攻击作用：
 
@@ -2717,17 +2731,23 @@ tcache攻击作用：
 - RCE
   - 利用任意内存读写修改函数指针，free_hook, malloc_hook, got表
 
-malloc/free过程：
+malloc / free procedure:
 
-- malloc:
+- [malloc](https://elixir.bootlin.com/glibc/glibc-2.26.9000/source/malloc/malloc.c#L3585): 第一次malloc时先malloc一块内存存放`tcache_perthread_struct`。size在tcache范围内时找对应链表：
   1. tcache有合适的：直接从链表拿出一个chunk返回
-  2. tcache没有合适的：调 `_int_malloc`分配
-- free:
-  1. 找对应大小的链表，检查链表节点数
-  2. 节点数小于7：将chunk放进去
-  3. 节点数等于7：将chunk放到其他地方（TBD）
+  2. tcache为空：从bin找。(最终可能调 `_int_malloc`分配
+- [free](https://elixir.bootlin.com/glibc/glibc-2.26.9000/source/malloc/malloc.c#L4173):
+  1. 找大小对应的链表，检查链表节点数
+  2. 该链没被填满(default: 7)：将chunk放进去
+  3. 该链被填满(size=7)：将chunk放到fastbin或unsorted bin
 
+**安全检查**
 
+- 从 tcache 拿 chunk: malloc
+  1. ...
+- 往 tcache 放 chunk: free
+  1. 检查当前chunk是否与头节点为同一个chunk(防止连续double free)
+  2. chunk入链时会计算一个magic num并与bk域对比，如果相同，遍历整个链表检查是否存在double free，然后将magic num存在bk域。(高版本)
 
 
 
@@ -2770,10 +2790,6 @@ e -> fd1 // malloc: 1. 拿出头指针 e 指向的 fd1_ 2. e指向下一个chunk
 - 此时手里的`fd1_`其实就是tcache上的`fd1`，编辑手上的`chunk fd1_`即可修改tcache上的`chunk fd1`指针
 
 ```cpp
-#include<stdio.h>
-#include<stdlib.h>
-#include<string.h>
-#include "malloc.h"
 int main(){ // gcc a.cpp -o a -fpermissive       -Wno-conversion-null -w
     long long * p1;
     p1 = malloc(0x50);
@@ -2793,7 +2809,153 @@ int main(){ // gcc a.cpp -o a -fpermissive       -Wno-conversion-null -w
 
 
 
+### Fast Bin & Fast Bin Attack
 
+> https://paper.seebug.org/445/
+
+在glibc中存在了很久的时间，类似于tcache，是对小内存块的缓存，但是进程唯一，next指针指向位置不同。
+
+- 存储在全局数据结构`main_arean`，在进程内唯一。
+- 存储小于等于`0x80`的chunk
+- 链表头数组 + 单链表，链表指针指向`pre_size`字段。(tcache指向的是`user data`首地址 / fd)
+- malloc时有安全检查
+
+
+
+![](https://raw.githubusercontent.com/hex-16/pictures/master/CTF_pic/fastbin.png)
+
+
+
+malloc / free procedure:
+
+- malloc: 如果tcache中没有chunk，则到fastbin找
+- free: tcache满了时，则会把小chunk放入fastbin
+- calloc: 不经过tcache，直接从fastbin拿chunk
+
+**安全检查**
+
+- 从 fast bin 的链拿chunk: malloc
+  1. 检查chunk的size是否正确
+  2. 检查下一个chunk的size是否正确(高版本)
+- 向 fast bin 的链放 chunk: free
+  1. 放入前，检查后一个chunk的size是否大于0x20
+  2. 查看链表头节点，检查size是否与链表的size一致(size域低4bit是标志bit，不影响比较)
+  3. 检查当前chunk是否与头节点为同一个chunk(防止连续double free)
+
+
+
+#### Fast Bin Poisoning: UAF
+
+类似于tcache poisoning，利用UAF修改fd指针指向目标地址，但是需要保证链入的假chunk的size域正确。
+
+
+
+
+
+#### Fast Bin Dup: Double Free
+
+类似于tcache dup，通过多次free构成环。但free时会检查链表头指针是否与free的chunk地址相同，故不能连续double free放入fastbin，但可以间隔free
+
+```cpp
+free(p1); // p1进入fastbin成为头节点 // e->p1
+free(p1); // p2进入fastbin成为头节点 // e->p2->p1
+free(p1); // p1再次进入fastbin 成环 //  e->p1->p2->p1(loop)  成环
+```
+
+![](https://raw.githubusercontent.com/hex-16/pictures/master/CTF_pic/fastbin_dup.png)
+
+```cpp
+int main() {
+    char s[100]; long long *p1, *p2;
+    for (int i = (0); i < 7; i++) {  // 填满tcache
+        p1 = calloc(0x50, 1);   free(p1);
+    }
+    scanf("%s", s); // 仅用于debug
+    p1 = calloc(0x50, 1); 
+    p2 = calloc(0x50, 1);
+    free(p1); // e->p1
+    free(p2); // e->p2->p1
+    free(p1); // e->p1->p2->p1(loop) 成环
+    scanf("%s", s);
+}
+```
+
+
+
+### Unsorted Bin
+
+> https://wooyun.js.org/drops/Linux%E5%A0%86%E5%86%85%E5%AD%98%E7%AE%A1%E7%90%86%E6%B7%B1%E5%85%A5%E5%88%86%E6%9E%90(%E4%B8%8B%E5%8D%8A%E9%83%A8).html
+
+- 使用**双向链表**存chunk，有两个方向的指针。unsorted bin只有一个
+- 可以视为空闲 chunk 回归其所属 bin 之前的缓冲区
+- Chunk size: unsorted bin对chunk的大小没有限制，任何大小的chunk都可以归属到unsorted bin中
+- FIFO，插入时插入到unsorted bin头部，取出时从链表尾取
+
+malloc / free procedure:
+
+- malloc: 在tcache, fast bin, small bin找不到大小合适的chunk，则到unsorted bin找
+  1. 找到：用unsorted bin中大小合适的chunk尽可能地填满tcache。然后再返回结果
+  2. 找不到：从unsorted bin找一个稍大的chunk，从中切割出想要的chunk并返回
+- free:
+  1. 较大的chunk被分割成后，如果剩余的大于MINSIZE则放入unsorted bin
+  2. free不属于fast bin的chunk，且该chunk不与top chunk紧邻，首先放入unsorted bin
+  3. 进行malloc_consolidate时，可能把合并后的chunk放入unsorted bin（不与top chunk紧邻时）
+
+
+
+- unsorted bin为空时
+
+![](https://raw.githubusercontent.com/hex-16/pictures/master/CTF_pic/unsorted_bin_empty.png)
+
+- unsorted bin有一个大小为0xa1的chunk时
+
+![](https://raw.githubusercontent.com/hex-16/pictures/master/CTF_pic/unsorted_bin_size%3Da1.png)
+
+
+
+
+
+**安全检查**
+
+- 从 unsorted bin 的链拿chunk: malloc
+  1. .
+- 向 unsorted bin 的链放 chunk: free
+  1. 检查下一个chunk的size域是否合法，可能还检查下下个size域是否合法(大于等于0x21)
+
+
+
+#### Unsorted Bin: Leak
+
+
+
+
+
+### Heap Overflow
+
+> 堆溢出
+
+向某个chunk写入的字节数超过chunk本身可用的字节数(不是用户申请的字节数，chunk本身可用的字节数大于等于用户申请数)，导致数据溢出，覆盖高地址方向上物理相邻的下一个chunk
+
+Trigger Conditions:
+
+1. 向堆写入数据
+2. 写入数据长度没有被良好控制
+
+
+
+
+
+### Use After Free
+
+> Use After Free, UAF问题 
+
+当一个内存块被释放之后再次被使用，有以下几种情况：
+
+- 内存块被释放后，其对应的指针被设置为 NULL ， 然后再次使用，程序崩溃。
+- 内存块被释放后，其对应的指针没有被设置为 NULL ，然后在它下一次被使用之前，没有代码对这块内存块进行修改，那么**程序很有可能可以正常运转**。
+- 内存块被释放后，其对应的指针没有被设置为NULL，但是在它下一次使用之前，有代码对这块内存进行了修改，那么当程序再次使用这块内存时，**就很有可能会出现奇怪的问题**。
+
+一般所指的 **Use After Free** 漏洞主要是后两种。一般称被释放后没有被设置为NULL的内存指针为**dangling pointer**。
 
 
 

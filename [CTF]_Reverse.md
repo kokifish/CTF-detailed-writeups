@@ -1,6 +1,14 @@
 - writer: github.com/hex-16   data: from 2020   contact: hexhex16@outlook.com
 > **Tips** : Highly recommend open with markdown editor **Typora**, and enable all *syntax support* and sidebar *Outline*.
 
+
+
+![](https://raw.githubusercontent.com/hex-16/pictures/master/CTF_pic/program_virtual_address_memory_space.png)
+
+![](https://raw.githubusercontent.com/hex-16/pictures/master/CTF_pic/program_virtual_address_memory_space_32bit.png)
+
+
+
 # To-Do List
 
 - [ ] 疑似用python生成的exe文件 可以直接运行 文件较大的 急需补充背景知识(shadowCTF secure protocol)
