@@ -435,6 +435,27 @@ print(de_text)
 * 代码参考 https://blog.csdn.net/ayang1986/article/details/112714749
 * ***具体python2代码见``crypto/code/Known_ed_factor_N_V2.py``*** 
 
+##### 1.3 Pollard $p-1$
+* 攻击前提：$p-1$或者$q-1$只有小的素因子，假设其素因子都不大于$B$。
+* 攻击原理：这种情况下必然有  $$(p-1)|B!$$  因此有$2^{p-1} | 2^{B!}$。 令$a=2$， 因为$a^{p-1}\equiv 1\ mod\ p$， 因此有$a^{B!}\equiv 1\ mod\ n$。则有$$2^{B!}-1 = kp$$，因此只要计算$gcd(2^{B!}-1, n) = p$。
+
+##### 1.4 William $p+1$
+攻击条件与1.3节的相同这里直接给出代码。
+* 代码参考 https://0xdktb.top/2020/02/28/Summary-of-Crypto-in-CTF-RSA/
+* ***具体python2代码见``crypto/code/William_p_plus_1.py``*** 
+
+**理论上1.3和1.4节的整数的分解使用大数分解工具都能进行分解。**
+
+##### 1.5 Batch GCD
+在得知 **成千上万对rsa的公钥$N$** 的时候，有可能会出现某些私钥$p,q$相同的情况，这个时候就可以使用gcd来求出私钥$N$。但是直接对两两的$N$求最大公约数会非常的耗时。因此使用Batch GCD的方法可以快速求出每个$N$关于其它所有$N$的公约数，即可以求出      $$\exists i, gcd(N_0,N_i)\neq 0$$ 参考：
+* https://github.com/therealmik/batchgcd
+* https://protonmail.com/blog/batch-gcd/
+* https://facthacks.cr.yp.to/batchgcd.html
+* https://windowsontheory.org/2012/05/15/979/
+
+例题见`crypto\2021_RCTF\2021_RCTF_Uncommon_Factors_I`
+
+
 #### 二、基本攻击
 ##### 2.1. N不互素
 给定两个N1，N2，若不互素，则其gcd(N1,N2)就是其中一个p或q。因此直接被破解。
@@ -1062,8 +1083,7 @@ print(cmac)
     3. **扩散**：因为只有异或运算，此hash函数的扩散性质可通过XOR-folding减轻。
 
 #### 2018 网鼎杯 hashcoll
-这道题目并不是标准的FNV哈希，而是有一点小的变动。该问题可以分析得到是：**给出
-$n$个数，求解它们的整线性组合使得线性组合所得到的结果为0**。一种求解的方法是使用格中的LLL算法进行求解。
+这道题目并不是标准的FNV哈希，而是有一点小的变动。该问题可以分析得到是：**给出$n$个数，求解它们的整线性组合使得线性组合所得到的结果为0**。一种求解的方法是使用格中的LLL算法进行求解。
 
 * **算法原理：**
 * 输入：给定$n$个(实/有理)数$a_1,a_2,...,a_n$
@@ -1100,9 +1120,42 @@ HashCat 工具 : https://hashcat.net/hashcat/
 ### 哈希长度拓展攻击（hash length extension attacks）
 * 应用场景：MD5 和 SHA-1 等基于 Merkle–Damgård 构造的算法均对此类攻击显示出脆弱性。MD5, SHA1, SHA256, SHA512都可以。该攻击适用于在消息与密钥的长度已知的情形下，所有采取了 $H(key || message)$ 此类构造的散列函数。
 
+* 攻击前提（hash算法的脆弱性）：MD5和SHA-1等哈希算法在运算的时候会对需要进行hash的消息进行分块，然后 **使用上一个块的运算结果作为下一个块的运算的初始向量** ，类似于AES的CBC模式，这是最关键的一点。
+    * SHA-1: 参考https://www.cnblogs.com/gwind/p/8025130.html
+    * MD5：参考https://blog.csdn.net/qq_35078631/article/details/70941204
+
 * 攻击原理：最核心在于此等式成立$$h_K(x||x')=compress(h_K(x)||x')$$ 其中$h_K$需要每个输入消息的长度是$t$的倍数，然后$x'$是任意长度为$t$的倍数的比特串。
 
+* 攻击流程：现在已知进行hash运算前会附加未知比特串salt记为$k$。已知$h(k)$的值和$k$的长度。就可以根据MD5或者SHA-1的填充规则进行填充，使得$$
+h(k) = h(k||padding)
+$$ 因此我们构造$x'=padding||m$，这样一来有 $$
+h(k||x') = h(k||padding||x')$$  然后通过因为刚好在对$k||padding$进行hash的时候与$x'$的运算是分开两块的，因此$h(k||padding)$的输出会作为对$x'$进行hash运算的初始向量。因此有 $$ h(k||x') = h_{h(k)作为初始向量}(m)$$
+
 * **工具 hashpump**：  https://github.com/bwall/HashPump
+    * python中`hashpump`库有点难装，因此可以直接下载源码然后安装再运行。
+    ```
+    $ hashpump -h
+        HashPump [-h help] [-t test] [-s signature] [-d data] [-a additional] [-k keylength]
+        HashPump generates strings to exploit signatures vulnerable to the Hash Length Extension Attack.
+        -h --help          Display this message.
+        -t --test          Run tests to verify each algorithm is operating properly.
+        -s --signature     The signature from known message.
+        -d --data          The data from the known message.
+        -a --additional    The information you would like to add to the known message.
+        -k --keylength     The length in bytes of the key being used to sign the original message with.
+        Version 1.2.0 with CRC32, MD5, SHA1, SHA256 and SHA512 support.
+    ```
+    只有少许的几个参数，然后不需要指定用的是哪个算法，因为长度都不一样，会自动识别。
+    例子,可以加参数，也可以不加参数根据提示给数据：
+    ``` bash
+    > hashpump
+    Input Signature: 571580b26c65f306376d4f64e53cb5c7
+    Input Data: 123456
+    Input Key Length: 20
+    Input Data to Add: 654321
+    af6f2842729baea20f2984f424897365
+    123456\x80\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xd0\x00\x00\x00\x00\x00\x00\x00654321
+    ```
 
 ### hash 算法设计有误
 一些自定义的 hash 算法可能是可逆的。通过分析出其逆函数，然后实现得到结果。
@@ -1214,9 +1267,12 @@ $$ 因此有 $$
 \newline
 \delta_2 k \equiv H(x_2) + a\gamma
 $$ 两式相减得 $$
-k(\delta_1 - \delta_2) \equiv H(x_1)-H(x_2)\ mod\ q
-$$ 
-从而解出随机数$k$。然后使用第一个攻击方法恢复出私钥$a$。
+k(\delta_1 - \delta_2) \equiv H(x_1)-H(x_2)\ mod\ q$$  从而解出随机数$k$。然后使用第一个攻击方法恢复出私钥$a$。
+
+
+
+
+
 
 
 # 常见近世代数求解
@@ -1244,6 +1300,29 @@ $$
 
 ### $x^2+y^2=p$
 > 待完成
+
+## 近似最大公约数(Approximate Greatest Common Divisor)
+给定两个整数$n_1 = q_1p$，$n_2 = q_2p$，则两者的最大公约数为$p = gcd(n_1,n_2)$。
+
+若$n_1 = q_1p+r_1$，$n_2 = q_2p+r_2$，则求$n_1$与$n_2$的近似最大公约数$p$是有一定难度的。在普遍情况下是一个困难问题，但是当$r_i$比较小的时候是可以用过LLL等算法进行求解。
+
+**参考例题：2021年RCTF—— Crypto —— Uncommon_Factors_II**
+writeup见`crypto\2021_RCTF\2021_RCTF_Uncommon_Factors_II`
+
+参考资料：
+* https://martinralbrecht.wordpress.com/2020/03/21/the-approximate-gcd-problem/
+* https://eprint.iacr.org/2016/215.pdf
+
+常用求解方法（不同的方法对应着一定的约束条件，不满足条件则无法完成）：
+* Simultaneous Diophantine approximation approach (SDA)
+* Orthogonal based approach (OL)
+* Multivariate polynomial approach (MP)
+
+
+
+
+
+
 
 # 常见Crypto攻击思想
 
@@ -1275,6 +1354,19 @@ from Crypto.PublicKey import RSA
 with open("certificate.pem","r") as f:
     key = RSA.import_key(f.read())
     print(key.n)
+```
+生成公钥和私钥：
+```python
+from Crypto.PublicKey import RSA
+x = RSA.generate(2048)              # 里面有(n,e,d,p,q)
+
+privatekey = x.exportKey("PEM")     # 私钥
+pubkey = x.publickey().exportKey()  # 公钥
+
+with open('publicKey.pem', 'wb') as f:
+    f.write(pubkey)
+with open('privateKey.pem', 'wb') as f:
+    f.write(privatekey)
 ```
 PEM密钥的例子：
 ```
@@ -1323,3 +1415,40 @@ openssl x509 -inform der -in certificate.cer -out certificate.pem
 # 解题技巧
 
 遇到密文是乱七八糟的字符串而明文是正常的英文字符+数字+括号的情况的时候，可以使用这种特性缩小明文和密钥的取值。参考`crypto/2021_Mtctf/RSA_2021_MTctf_easy_RSA`这道题。
+
+
+# 近年来比较热的密码技术
+
+### 差分隐私
+> 最好多看几篇文章，这里就做简单叙述
+* reference: 
+    * https://blog.csdn.net/shangsongwww/article/details/105121386
+    * https://zhuanlan.zhihu.com/p/48534275
+    * https://www.zhihu.com/question/47492648/answer/194047182
+
+差分隐私（Differential Privacy）是密码学中的一种手段，旨在提供一种当从统计数据库查询时，最大化数据查询的准确性，同时最大限度减少识别其记录的机会。简单地说，就是在**保留统计学特征的前提下去除个体特征以保护用户隐私**。
+
+这里说的数据查询不能是针对单个用户的数据查询，因为如果要直接查询单个用户的信息的话就没有隐私可言。因为隐私这种东西有很多中定义的方法，因此在讨论到差分隐私的时候这里使用的是一种**新的隐私定义**暂且称作**差分隐私**。
+
+差分隐私说的是一种防止差分攻击的方法。攻击者对数据库的查询操作只能是批量进行查询然后获取查询后的统计数据，没有单个用户的查询功能。
+
+举个简单的例子：它想做的事情就是即使你小子知道我发布的100个人的信息，以及另外99个人的信息，你也绝对没办法把这两个信息比对之后获取第100个人的信息。怎么才能做到这一点呢？**差分隐私于是定义：如果你能找出一种方法让攻击者用某种方式查询100个信息和查询那99个信息得到的结果是一致的，那攻击者就没办法找出那第100个人的信息了。** 但这个“一致” 怎么做到呢？那就加入随机性吧。如果查询100个记录和查询99个记录，输出同样值的概率是一样的，攻击者就无法进行差分攻击。这里我们就得到了**差分隐私的核心思想：对于差别只有一条记录的两个数据集，查询它们获得相同值的概率非常非常的接近。**
+
+* 因此差分隐私的核心思想就是在查询的结果中加入随机性。差分隐私主要有两种机制： **拉普拉斯机制（Laplace Machanism）和指数机制（Exponential Mechanism）** 来实现差分隐私保护。其中，拉普拉斯机制用于数值型结果的保护，指数机制用于离散型结果的保护。
+
+#### 非形式化定义
+
+* **Laplace机制** ：在查询结果里加入Laplace分布的噪音，适用于数值型输出。例如：zhihu里有多少人是985大学毕业的？ 假如结果是2000人，那么每一次查询得到的结果都会稍稍有些区别，比如有很高的概率输出2001，也有较高概率输出2010， 较低概率输出1990，等等，然后统计输出的结果，会发现结果服从拉普拉斯分布。
+
+* **指数机制**： 在查询结果里用指数分布来调整概率，适用于非数值型输出。例如：中国top 3大学是哪一所。很高概率输出 浙江大学，较高概率输出上海交大，较低概率输出武汉大学，很低概率输出蓝翔技校，等等。
+
+* **敏感度**： 差分隐私保护可以通过在查询函数的返回值中加入噪声来实现，但是噪声的大小同样会影响数据的安全性和可用性。通常使用敏感性作为噪声量大小的参数，表示删除数据集中某一记录对查询结果造成的影响。
+
+#### 形式化定义
+
+* **$\epsilon$-差分隐私**： 给定数据集$D$,给定$D$的邻近数据集$D'$,可以理解为$||D|-|D'|| = 1$。给定一个随机函数$f:D\rightarrow S$，$S$表示函数$f$输出的值域，可能是$D$的一个抽样，也可能是统计特性。然后我们有
+$$
+Pr[f(D)=s]\leq Pr[f(D')=s]\times e^{\epsilon}
+$$ 其中$e\approx 2.718281828459$是自然对数，且$s\in S$。
+
+拉普拉斯机制和敏感度机制暂时不提及，有兴趣可以自己研究或补充。
