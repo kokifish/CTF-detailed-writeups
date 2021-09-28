@@ -235,6 +235,10 @@ https://www.fileformat.info/format/cloud.htm
 # Audio Steganography
 
 > 音频隐写
+>
+> https://www.sqlsec.com/2018/01/ctfwav.html
+>
+> https://ctf-wiki.org/misc/audio/introduction/
 
 与音频相关的 CTF 题目主要使用了隐写的策略，主要分为：
 
@@ -246,7 +250,64 @@ https://www.fileformat.info/format/cloud.htm
 
 
 
-# Traffic Packet Analysis
+
+
+# Compressed Package Analysis
+
+> 压缩包分析
+
+## ZIP
+
+CTF中ZIP压缩包的考察一般都是把压缩包进行加密，然后尝试把ZIP的加密给破解。
+
+> 主要攻击
+
+* 爆破
+  * Windows下的神器 **ARCHPR** http://www.downcc.com/soft/130539.html
+  * Linux 下的命令行工具 **fcrackzip** https://github.com/hyc/fcrackzip
+  * **Advanced Zip Password Recovery** http://down.40huo.cn/misc/AZPR_4.0.zip
+* CRC32
+  * 表示的是冗余校验码，长为32bit，在png和zip文件中常见。然而在zip文件中的crc32使用的是明文做的校验码，因此当zip文件的（明文非常短，密码非常长）的时候可以直接爆破求解zip的明文。
+* 已知明文攻击
+  * 要求：一个加密的压缩文件；已知压缩工具及加密算法；**已知压缩包里某个文件的部分连续内容 (至少 12 字节)**
+  * 攻击步骤：首先获得已知明文的信息，其次确定压缩算法，然后使用下述工具进行明文攻击。
+  * 工具：
+    * Windows： **ARCHPR** http://www.downcc.com/soft/130539.html
+    * Linux：**PKCrack** http://www.unix-ag.uni-kl.de/~conrad/krypto/pkcrack.html
+* 伪加密
+  * 原理：在上文 ZIP 格式中的核心目录区中，有个通用位标记 (General purpose bit flag) 的 2 字节，不同比特位有着不同的含义。有些zip文件没有加密但是把这个标记设置成加密，这就是伪加密。
+  * 破解
+    * 16 进制下修改通用位标记
+    * ``binwalk -e`` 无视伪加密
+    * 在 Mac OS 及部分 Linux(如 Kali ) 系统中，可以直接打开伪加密的 ZIP 压缩包
+    * 检测伪加密的小工具 ``ZipCenOp.jar``
+    * 有时候用 ``WinRar`` 的修复功能（此方法有时有奇效，不仅针对伪加密）
+
+## RAR
+
+RAR 文件主要由标记块，压缩文件头块，文件头块，结尾块组成。详细格式见：https://forensicswiki.xyz/wiki/index.php?title=RAR
+
+> 主要攻击
+
+* 爆破
+  * Linux 下的 **RarCrack** http://rarcrack.sourceforge.net/
+  * **Advanced Rar Password Recovery** http://down.40huo.cn/misc/AdvancedRARPassword.zip
+* 伪加密
+  * 在RAR文件的``File Header``中，第三个字段为``HEAD_FLAGS``，有2字节，这两个字节中的第三个bit表示的是是否加密。有时候RAR文件没有加密但会把此bit设置为加密，这就是伪加密。破解伪加密只要把字段去除即可。
+
+
+
+# Office: Docx, Xlsx, Pdf, etc
+
+- xctf-2020-huaweictf misc:s34hunka: 一个xls以单元格背景颜色保存的图片，看起来像是图像隐写，实际上主要是信息检索，使用网上的原版与给出的、转为图片后的版本进行对照，像素差异处则为flag。
+
+
+
+# Network
+
+> 网址查IP: https://www.ipaddress.com/   改host时可以在这里查ip。还有Whois Lookup等
+
+## Traffic Packet Analysis
 
 通常比赛中会提供一个包含流量数据的 PCAP 文件，有时候也会需要选手们先进行修复或重构传输文件后，再进行分析。
 
@@ -258,7 +319,7 @@ https://www.fileformat.info/format/cloud.htm
     * tshark （tshark 作为 wireshark 的命令行版, 高效快捷是它的优点, 配合其余命令行工具 (awk,grep) 等灵活使用, 可以快速定位, 提取数据从而省去了繁杂的脚本编写）
     * PcapPlusPlus (后面有介绍)
 
-## USB Traffic Analysis
+### USB Traffic Analysis
 
 > https://blog.csdn.net/qq_43625917/article/details/107723635 USB流量，含键盘鼠标
 
@@ -364,71 +425,6 @@ print ('output :' + "".join(output))
 
 
 
-
-
-
-
-
-# Compressed Package Analysis
-
-> 压缩包分析
-
-## ZIP
-
-CTF中ZIP压缩包的考察一般都是把压缩包进行加密，然后尝试把ZIP的加密给破解。
-
-> 主要攻击
-
-* 爆破
-    * Windows下的神器 **ARCHPR** http://www.downcc.com/soft/130539.html
-    * Linux 下的命令行工具 **fcrackzip** https://github.com/hyc/fcrackzip
-    * **Advanced Zip Password Recovery** http://down.40huo.cn/misc/AZPR_4.0.zip
-* CRC32
-    * 表示的是冗余校验码，长为32bit，在png和zip文件中常见。然而在zip文件中的crc32使用的是明文做的校验码，因此当zip文件的（明文非常短，密码非常长）的时候可以直接爆破求解zip的明文。
-* 已知明文攻击
-    * 要求：一个加密的压缩文件；已知压缩工具及加密算法；**已知压缩包里某个文件的部分连续内容 (至少 12 字节)**
-    * 攻击步骤：首先获得已知明文的信息，其次确定压缩算法，然后使用下述工具进行明文攻击。
-    * 工具：
-        * Windows： **ARCHPR** http://www.downcc.com/soft/130539.html
-        * Linux：**PKCrack** http://www.unix-ag.uni-kl.de/~conrad/krypto/pkcrack.html
-* 伪加密
-    * 原理：在上文 ZIP 格式中的核心目录区中，有个通用位标记 (General purpose bit flag) 的 2 字节，不同比特位有着不同的含义。有些zip文件没有加密但是把这个标记设置成加密，这就是伪加密。
-    * 破解
-        * 16 进制下修改通用位标记
-        * ``binwalk -e`` 无视伪加密
-        * 在 Mac OS 及部分 Linux(如 Kali ) 系统中，可以直接打开伪加密的 ZIP 压缩包
-        * 检测伪加密的小工具 ``ZipCenOp.jar``
-        * 有时候用 ``WinRar`` 的修复功能（此方法有时有奇效，不仅针对伪加密）
-
-## RAR
-
-RAR 文件主要由标记块，压缩文件头块，文件头块，结尾块组成。详细格式见：https://forensicswiki.xyz/wiki/index.php?title=RAR
-
-> 主要攻击
-
-* 爆破
-    * Linux 下的 **RarCrack** http://rarcrack.sourceforge.net/
-    * **Advanced Rar Password Recovery** http://down.40huo.cn/misc/AdvancedRARPassword.zip
-* 伪加密
-    * 在RAR文件的``File Header``中，第三个字段为``HEAD_FLAGS``，有2字节，这两个字节中的第三个bit表示的是是否加密。有时候RAR文件没有加密但会把此bit设置为加密，这就是伪加密。破解伪加密只要把字段去除即可。
-
-
-
-
-
----
-
-* 
-
-参考：
-1. https://www.sqlsec.com/2018/01/ctfwav.html
-2. https://ctf-wiki.org/misc/audio/introduction/
-
-
-
-# Docx, Xlsx, Pdf, etc
-
-- xctf-2020-huaweictf misc:s34hunka: 一个xls以单元格背景颜色保存的图片，看起来像是图像隐写，实际上主要是信息检索，使用网上的原版与给出的、转为图片后的版本进行对照，像素差异处则为flag。
 
 # Disk Memory Analysis
 

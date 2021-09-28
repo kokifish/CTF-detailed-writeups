@@ -2632,15 +2632,15 @@ chunk-> +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 ptmalloc 采用**分箱式**方法对空闲的 chunk 进行管理。根据空闲的 chunk 的大小以及使用状态将 chunk 初步分为 4 类：
 
 1. [1] unsorted bin: 第一个，没有排序，存储的chunk较杂，双向链表。
-2. [2\~63] small bins: 同一个small bin链表中的chunk大小相同。两个相邻索引的 small bin 链表中的 chunk 大小相差的字节数为 **2 个机器字长**，即 32 位相差 8 字节，64 位相差 16 字节(0x10B)。
+2. [2\~63] small bins: 单个small bin链表的chunk大小相同。64bit libc: 0x20, 0x30, ... 0x3f0
 3. [64\~126] large bins: large bins 中的每一个 bin 都**包含一定范围内的 chunk**，chunk **按 fd 指针的顺序从大到小排列**。相同大小的 chunk 同样按照最近使用顺序排列。
-4. fast bins: 并不是所有的 chunk 被释放后就立即被放到 bin 中。ptmalloc 为了提高分配的速度，会把一些小的 chunk **先**放到 fast bins 的容器内。**而且，fastbin 容器中的 chunk 的使用标记总是被置位的，所以不满足上面的原则。**
+4. fast bins (10个): 并不是所有的 chunk 被释放后就立即被放到 bin 中。ptmalloc 为了提高分配的速度，会把一些小的 chunk **先**放到 fast bins 的容器内。**fastbin 中的 chunk 的`PREV_INUSE`总是被置位，chunks不会被合并。**
 
 每类中仍然有更细的划分，相似大小的 chunk 会用**双向链表**链接起来。aka. 在每类 bin 内部会有多个互不相关的链表来保存不同大小的 chunk。
 
 > 上述这些 bin 的排布都会遵循一个原则：**任意两个物理相邻的空闲 chunk 不能在一起**
 
-ptmalloc 将small bins，large bins，unsorted bin维护在同一个数组中。这些 bin 对应的数据结构在 malloc_state 中:
+ptmalloc 将unsorted bin, small bins, large bins 维护在同一个数组中。这些 bin 对应的数据结构在 malloc_state 中:
 
 ```c
 #define NBINS 128
@@ -2655,10 +2655,6 @@ mchunkptr bins[ NBINS * 2 - 2 ]; // 254
 | bin index | 0                        | 1                   | 2                       | 3                   |
 
 bin2 prev_size与bin1 fd重合，bin2 size与bin1 bk重合。只使用fd, bk索引链表，故该重合部分记录的实际是bin1 fd, bk。也就是说，虽然后一个bin和前一个bin公用部分数据，但是其实记录的仍然是前一个bin的链表数据。通过这样复用节省空间。
-
-> 
-
-
 
 bin 通用的宏如下
 
@@ -2724,7 +2720,7 @@ typedef struct tcache_entry { // libc 2.29的 tcache_entry 结构体
 
 
 
-**malloc / free procedure**
+**malloc / free procedure:**
 
 - [malloc](https://elixir.bootlin.com/glibc/glibc-2.26.9000/source/malloc/malloc.c#L3585): 第一次malloc时命中 **MAYBE_INIT_TCACHE**, malloc一块内存存放`tcache_perthread_struct` 。size在tcache范围内时在tcache中找：
   1. tcache有合适的：直接从链表拿出一个chunk返回
@@ -2734,7 +2730,7 @@ typedef struct tcache_entry { // libc 2.29的 tcache_entry 结构体
   2. 该链没被填满(default: 7)：将chunk放进去
   3. 该链被填满(size=7)：将chunk放到fastbin或unsorted bin
 
-**Security Check**
+**Security Check:**
 
 - malloc: 从 tcache 拿 chunk
   1. ...
@@ -2742,7 +2738,7 @@ typedef struct tcache_entry { // libc 2.29的 tcache_entry 结构体
   1. `tcache_entry`在next域后新增key域(在bk域)，检查是否为`tcache_perthread_struct`地址，然后遍历tcache检查该chunk是否在tcache中，有则触发 `double free detected in tcache 2` ([libc2.29新增](https://elixir.bootlin.com/glibc/glibc-2.29.9000/source/malloc/malloc.c#L4209))
   2. 检查当前chunk是否与头节点为同一个chunk(防止连续double free)
 
-**Security Bypass**
+**Security Bypass:**
 
 绕过对e->key / bk 域的检查：
 
@@ -2817,8 +2813,8 @@ int main(){ // gcc a.cpp -o a -fpermissive       -Wno-conversion-null -w
 
 - 存储在全局数据结构`main_arean`，在进程内唯一。
 - 存储小于等于`0x80`的chunk
-- 链表头数组 + 单链表，链表指针指向`pre_size`字段。(tcache指向的是`user data`首地址 / fd)
-- malloc时有安全检查
+- 链表头数组 + 单链表，链表指针指向`pre_size` field，插入删除都对链表尾节点操作。(tcache指向的是`user data`首地址 / fd)
+- 不会对free chunk进行合并。鉴于fastbin设计初衷是快速小内存分配释放，故fastbin chunk `PREV_INUSE`总为1，这样即使当fastbin中某个chunk与一个freechunk相邻时，系统也不会自动合并，而是保留两者。
 
 
 
@@ -2826,13 +2822,13 @@ int main(){ // gcc a.cpp -o a -fpermissive       -Wno-conversion-null -w
 
 
 
-**malloc / free procedure**
+**malloc / free procedure:**
 
 - malloc: 如果tcache中没有chunk，则到fastbin找
-- free: tcache满了时，则会把小chunk放入fastbin
+- free: tcache满了时，则会把size属于fastbin的chunk放入fastbin
 - calloc: 不经过tcache，直接从fastbin拿chunk
 
-**Security Check**
+**Security Check:**
 
 - 从 fast bin 的链拿chunk: malloc
   1. 检查chunk的size是否正确
@@ -2886,10 +2882,10 @@ int main() {
 
 > https://wooyun.js.org/drops/Linux%E5%A0%86%E5%86%85%E5%AD%98%E7%AE%A1%E7%90%86%E6%B7%B1%E5%85%A5%E5%88%86%E6%9E%90(%E4%B8%8B%E5%8D%8A%E9%83%A8).html
 
-- 使用**双向链表**存chunk，有两个方向的指针。unsorted bin只有一个
-- 可以视为空闲 chunk 回归其所属 bin 之前的缓冲区
+- 使用**双向链表**存chunk，有两个方向的指针。进程中unsorted bin只有一个
+- 可以视为空闲 chunk 回归其所属 bin 之前的缓冲区。
 - Chunk size: unsorted bin对chunk的大小没有限制，任何大小的chunk都可以归属到unsorted bin中
-- FIFO，插入时插入到unsorted bin头部，取出时从链表尾取
+- FIFO，插入时插入到unsorted bin头部，取出时从链表尾取。类似队列。
 
 **malloc / free procedure:**
 
@@ -2898,7 +2894,7 @@ int main() {
   2. 找不到：从unsorted bin找一个稍大的chunk，从中切割出想要的chunk并返回
 - free:
   1. 较大的chunk被分割成后，如果剩余的大于MINSIZE则放入unsorted bin
-  2. free不属于fast bin的chunk，且该chunk不与top chunk紧邻，首先放入unsorted bin
+  2. free不属于fast bin的chunk，且**该chunk不与top chunk紧邻**，首先放入unsorted bin
   3. 进行malloc_consolidate时，可能把合并后的chunk放入unsorted bin（不与top chunk紧邻时）
 
 
@@ -2936,6 +2932,53 @@ int main() {
 > - CISCN_2019_final_3: 构造fake chunk，既放入tcache也放入unsorted bin，然后从tcache中取出得到libc基址，double free改`__free_hook`
 
 
+
+### Small Bins
+
+小于1024B (0x400) 的chunk称为small chunk，small bin用于管理small chunk
+
+- index: [2\~63]  共62个，指针数组+循环双链表
+- 单个small bin链表中的chunk大小相同，32bit libc: 0x10, 0x18 ... 0x1f8; 64bit libc: 0x20, 0x30, ... 0x3f0
+- 内存分配/释放速度：small bin比large bin快，比fast bin慢
+- FIFO队列式管理，free时将新释放的chunk添加到链表头，malloc时从链表尾取
+- 会进行合并操作
+
+
+
+**malloc / free procedure:**
+
+**malloc:**
+
+1. (size合适时) 先到tcache, fastbin中找，然后到small bin找，最后到unsorted bin找。
+2. 
+
+**free:**
+
+1. 属于tcache的，先放tcache，满了或不属于tache的 。。。 TBD
+
+**Security Check:**
+
+
+
+
+
+### Large Bins
+
+大于等于1024B(0x400)的chunk称为large chunk，large bins用于管理large chunk
+
+- index: [64\~126] 63个，分为6组，
+- largechunk使用fd_nextsize、bk_nextsize连接
+
+
+
+| Group | Count | Tolerance公差 |
+| ----- | ----- | ------------- |
+| 1     | 32    | 64B           |
+| 2     | 16    | 512           |
+| 3     | 8     | 4096          |
+| 4     | 4     | 32768         |
+| 5     | 2     | 2662144B      |
+| 6     | 1     | infinite      |
 
 
 
