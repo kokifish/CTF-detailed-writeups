@@ -8,11 +8,11 @@
 writeup开头通常包含以下信息(可选)：
 
 1. 赛事名称、年份、链接
-2. 题目名称
-3. 题目描述
-4. 题目给予的文件
+2. challenge name: 题目名称
+3. description: 题目描述
+4. file: 题目给予的文件
 5. writeup文件夹下提供的额外文件，一般为IDA的`.i64`文件
-6. writeup writer
+6. writeup writer: 
 7. refer writeup: links or writer name/homepage
 
 然后简要描述题目逻辑，pwn的思路，需要注意的地方，重要的知识点等。

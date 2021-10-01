@@ -1287,9 +1287,9 @@ for i in range(182): # 182为judege函数的总长度
 
 
 
-### Cases
-
-- 使用了多种花指令   `mathematic_sage_starctf_2021_wherekey`:  https://github.com/hex-16/CTF-detailed-writeups/tree/main/reverse/mathematic_sage_starctf_2021_wherekey 
+> # Cases
+>
+> - 使用了多种花指令   `mathematic_sage_starctf_2021_wherekey`:  https://github.com/hex-16/CTF-detailed-writeups/tree/main/reverse/mathematic_sage_starctf_2021_wherekey 
 
 
 

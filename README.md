@@ -55,3 +55,6 @@ updating
 - https://github.com/CHYbeta/Web-Security-Learning   web
 - https://github.com/CHYbeta/Software-Security-Learning  pwn
 - https://github.com/Audi-1/sqli-labs sqli challenges
+- https://buuoj.cn/
+- viristotal.com
+
