@@ -122,7 +122,7 @@ https://lingojam.com/WingDing
 
 
 #### 猪圈密码
-![猪圈密码](crypto/images/pifdfdp_sty.PNG)
+![猪圈密码](crypto/images/pip_sty.PNG)
 #### 舞动的小人密码
 这些密码本质上是以一些符号代替英文字母，只要把英文字母替换上去就可解密，实质上可以使用词频分析
 
@@ -262,6 +262,7 @@ python中的random库使用的是**Mersenne Twister 算法作为核心生成器*
 - DES 加密
 - AES 加密
 - ARX 加密
+- TEA 加密
 - Simon and Speck 加密
 
 还有许多对称加密方案，这里只列出常见的几种，每一种方法网上资料都比较多，这里就不一一列举。
@@ -345,6 +346,44 @@ print(de_text)
 * 差分错误分析(Differential Fault Analysis)在AES的第八轮添加1个byte的错误信息，则可以恢复出AES的密钥，见``crypto/2021_CSISC/AES_2021_oddaes``。
 
 
+### TEA加密
+TEA算法由剑桥大学计算机实验室的David Wheeler和Roger Needham于1994年发明。它是一种分组密码算法，其明文密文块为64比特，密钥长度为128比特。TEA算法利用不断增加的Delta(黄金分割率)值作为变化，使得每轮的加密是不同，该加密算法的迭代次数可以改变，建议的迭代次数为32轮。
+
+参考资料：
+* https://blog.csdn.net/gsls200808/article/details/48243019
+* https://github.com/iweizime/StepChanger/wiki/%E8%85%BE%E8%AE%AFTEA%E5%8A%A0%E5%AF%86%E7%AE%97%E6%B3%95
+
+最明显的是`delta=0x9e3779b9`这个特殊的设定吗，**遇到加密或解密文件里面有特殊的字符时，直接搜索这串字符有很大概率能找到相应的加密解密算法**。
+```python
+def TEA_encryption(vs, ks):
+    delta = 0x9E3779B9
+    v0, v1 = map(uint32, unpack('>2I', vs))
+    k0, k1, k2, k3 = map(uint32, unpack('>4I', ks))
+    sm, delta = uint32(0), uint32(delta)
+
+    for i in range(32):
+        sm.value += delta.value
+        v0.value += ((v1.value << 4) + k0.value) ^ (v1.value + sm.value) ^ ((v1.value >> 5) + k1.value)
+        v1.value += ((v0.value << 4) + k2.value) ^ (v0.value + sm.value) ^ ((v0.value >> 5) + k3.value)
+
+    return pack('>2I', v0.value, v1.value)
+
+
+def TEA_decryption(vs, ks):
+    delta = 0x9E3779B9
+    v0, v1 = map(uint32, unpack('>2I', vs))
+    k0, k1, k2, k3 = map(uint32, unpack('>4I', ks))
+    sm, delta = uint32(delta * 32), uint32(delta)
+
+    for i in range(32):
+        v1.value -= ((v0.value << 4) + k2.value) ^ (v0.value + sm.value) ^ ((v0.value >> 5) + k3.value)
+        v0.value -= ((v1.value << 4) + k0.value) ^ (v1.value + sm.value) ^ ((v1.value >> 5) + k1.value)
+        sm.value -= delta.value
+
+    return pack('>2I', v0.value, v1.value)
+```
+
+
 ### 分组模式
 分组加密会将明文消息划分为固定大小的块，每块明文分别在密钥控制下加密为密文。当然并不是每个消息都是相应块大小的整数倍，所以我们可能需要进行填充。常见的分组模式：
 - ECB：密码本模式（Electronic codebook）
@@ -364,6 +403,54 @@ print(de_text)
 - **null**：Pad with zero characters（零填充）
 - **Pad with spaces**：空格填充
 
+
+### 块加密攻击方法
+#### 差分攻击
+差分攻击一般应用于块加密函数中非线性函数（比如说s盒或某些轮函数）设计缺陷导致差分信息较为明显，从而构造相应的输入对密码系统进行攻击。一般来说是选择明文攻击。
+
+差分攻击适用许多块加密系统如DES, Blowfish, FEAL, and RC5
+
+* AES的差分攻击可见密码学课本
+* 对FEAL的攻击见http://www.theamazingking.com/crypto-feal.php
+
+对于没有线性变换（行移位，列混合等）的密码方案攻击会相对简单。
+
+攻击流程：
+1. 首先寻找非线性函数中最明显的差分信息。代码：
+    ```python
+    def find_differential():
+    for i in range(0x10000):
+        diffs = {}
+        for j in range(0x100):
+            input1 = random.randint(0, 0xffff)
+            input2 = input1 ^ i
+            output1 = f(input1)
+            output2 = f(input2)
+            diff = output1 ^ output2
+            if diff in diffs.keys():
+                diffs[diff] += 1
+            else:
+                diffs[diff] = 1
+        for k in diffs.keys():
+            if diffs[k] >= 60:
+                print(hex(i)[2:], hex(k)[2:], diffs[k])
+    ```
+    这里的f就表示非线性函数，代码找出的是输出差分大于等于1/4的所有输入差分。
+2. 在没有线性变换的情况下，以FEAL-4加密为例，其加密过程如下：
+    ![](crypto/images/crypto-feal2.jfif)
+    在FEAL-4加密的过程中，轮函数在差分输入为0x8080的情况下输出差分一定为0x400。即对于轮函数$f$，给定两个输入$in_1$，$in_2$其中 $in_1 = in_2 \oplus 0x8080$，则必有$f(in_1) = f(in_2) \oplus 0x400$。
+3. 每一轮加密只是一边的输入异或轮密钥后再经过轮函数f得到输出。攻击从最后一轮密钥开始进行攻击。其中有一点很重要的是**非线性函数的输入的差分不确定的情况下和输出的差分一般是均匀分布。** 因此在攻击是时候已知轮函数f输出，在轮密钥交小的情况暴力破解轮密钥模拟输入，如果轮函数f的模拟的输入的结果的差分和已知输出的差分一致，则当前轮密钥就是一个候选密钥。
+4. 得到上一轮的候选密钥就可以构造当前这一轮的轮函数f的输出，然后再暴力枚举轮密钥进行当前密钥的破解。以此类推，这样就能得到第二轮之后的轮密钥。
+5. 第一轮的轮密钥可能情况比较的多，而且也不一定需要用到差分性质，需要根据实际情况进行攻击。
+
+例题见`crypto\2021_TianYiBei\2021_TianYiBei_MyCipher`
+
+
+<!---->
+<!---->
+<!---->
+<!---->
+<!---->
 ## $\mathrm I\mathrm I$ 非对称密码
 
 ## $\mathrm I\mathrm I.\mathrm I$ RSA
@@ -615,6 +702,7 @@ c_3=m^3\ mod\ n_3$$
 已知$p$或$q$中其中一个数的高位比特，我们就有一定几率来分解 $N$。
 **这里的原理就是Theorem 10，但是原理的具体流程没有找到。这里只是使用现成的代码能做到已知p的高比特部分，代码运行之后能得到相应的$p$。**
 原理则是求解$x+p_{fake}\equiv 0\ mod\ Factor(N)$，Sage里面恰好有这样的一个函数，可以直接使用。
+* 攻击要求：一般来说需要需要已知bit最少需要占据所有bit的**56%**，然后$p$需要满足$p \geq N^{\beta}$，一般有$0.4\leq \beta\leq 0.5$。**而且这里的$p$不一定是素数，可以是$N$的某些因数的乘积。**
 
 * 代码参考：https://github.com/yifeng-lee/RSA-In-CTF/blob/master/exp6.sage
 * ***具体Sagemath9.2代码见``crypto/code/Factoring_with_High_Bits_Known.py``***
@@ -1496,6 +1584,31 @@ a^2+b^2 == 19*19*97
 2. 计算$a = g^{\frac{n}{q}}$，则$a$为环$R$的一个$q$阶元素。
 
 
+## 6. Chinese remainder theorem(CRT) 中国剩余定理python实现
+```python
+from functools import reduce
+
+def egcd(a, b):
+    if 0 == b:
+        return 1, 0, a
+    x, y, q = egcd(b, a % b)
+    x, y = y, (x - a // b * y)
+    return x, y, q
+
+def chinese_remainder(pairs):
+    mod_list, remainder_list = [p[0] for p in pairs], [p[1] for p in pairs]
+    mod_product = reduce(lambda x, y: x * y, mod_list)
+    mi_list = [mod_product//x for x in mod_list]
+    mi_inverse = [egcd(mi_list[i], mod_list[i])[0] for i in range(len(mi_list))]
+    x = 0
+    for i in range(len(remainder_list)):
+        x += mi_list[i] * mi_inverse[i] * remainder_list[i]
+        x %= mod_product
+    return x
+
+print(chinese_remainder([(3,2),(5,3),(7,4),(11,5)]))
+# 368
+```
 
 
 
