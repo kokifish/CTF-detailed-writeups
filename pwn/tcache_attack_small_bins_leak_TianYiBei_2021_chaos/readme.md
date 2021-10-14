@@ -8,7 +8,7 @@
 >
 > file: chall, libc-2.27.so
 >
-> ld277-3ubuntu1.so and .i64 with comments provided
+> ld227-3ubuntu1.so and .i64 with comments provided
 >
 > Description: try to exploit the hidden logic!
 >
@@ -46,7 +46,7 @@ GLIBC_PRIVATE
 GNU C Library (Ubuntu GLIBC 2.27-3ubuntu1.4) stable release version 2.27.
 ```
 
-ld277-3ubuntu1.so是网上下载下来的，其对应的libc的sha1值并不与题目提供的libc sha1相同，故实际版本有出入，但是本地调试时，将`system`改成`puts`时可以输出"/bin/sh"，即不影响本地调试
+ld227-3ubuntu1.so是网上下载下来的，其对应的libc的sha1值并不与题目提供的libc sha1相同，故实际版本有出入，但是本地调试时，将`system`改成`puts`时可以输出"/bin/sh"，即不影响本地调试
 
 # IDA Analysis
 
@@ -108,7 +108,7 @@ context.log_level = 'debug'
 
 libc = ELF("./libc-2.27.so")
 # sh = process(["./ld-2.27.so", "./chall"], env={"LD_PRELOAD": "./libc-2.27.so"})
-sh = process(["./ld277-3ubuntu1.so", "./chall"], env={"LD_PRELOAD": "./libc-2.27.so"})
+sh = process(["./ld227-3ubuntu1.so", "./chall"], env={"LD_PRELOAD": "./libc-2.27.so"})
 # sh = remote("8.134.97.12", 26756)
 
 
