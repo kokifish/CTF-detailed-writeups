@@ -1,4 +1,7 @@
 # Crypto
+
+> 学习密码学需要了解一定的数论知识，特别是初等数论以及群、环、域、格。
+
 密码学（Cryptography）一般可分为**古典密码学**和**现代密码学**。
 
 其中，**古典密码学**，作为一种实用性艺术存在，其编码和破译通常依赖于设计者和敌手的创造力与技巧，并没有对密码学原件进行清晰的定义。古典密码学主要包含以下几个方面：
@@ -259,6 +262,7 @@ python中的random库使用的是**Mersenne Twister 算法作为核心生成器*
 - DES 加密
 - AES 加密
 - ARX 加密
+- TEA 加密
 - Simon and Speck 加密
 
 还有许多对称加密方案，这里只列出常见的几种，每一种方法网上资料都比较多，这里就不一一列举。
@@ -342,6 +346,44 @@ print(de_text)
 * 差分错误分析(Differential Fault Analysis)在AES的第八轮添加1个byte的错误信息，则可以恢复出AES的密钥，见``crypto/2021_CSISC/AES_2021_oddaes``。
 
 
+### TEA加密
+TEA算法由剑桥大学计算机实验室的David Wheeler和Roger Needham于1994年发明。它是一种分组密码算法，其明文密文块为64比特，密钥长度为128比特。TEA算法利用不断增加的Delta(黄金分割率)值作为变化，使得每轮的加密是不同，该加密算法的迭代次数可以改变，建议的迭代次数为32轮。
+
+参考资料：
+* https://blog.csdn.net/gsls200808/article/details/48243019
+* https://github.com/iweizime/StepChanger/wiki/%E8%85%BE%E8%AE%AFTEA%E5%8A%A0%E5%AF%86%E7%AE%97%E6%B3%95
+
+最明显的是`delta=0x9e3779b9`这个特殊的设定吗，**遇到加密或解密文件里面有特殊的字符时，直接搜索这串字符有很大概率能找到相应的加密解密算法**。
+```python
+def TEA_encryption(vs, ks):
+    delta = 0x9E3779B9
+    v0, v1 = map(uint32, unpack('>2I', vs))
+    k0, k1, k2, k3 = map(uint32, unpack('>4I', ks))
+    sm, delta = uint32(0), uint32(delta)
+
+    for i in range(32):
+        sm.value += delta.value
+        v0.value += ((v1.value << 4) + k0.value) ^ (v1.value + sm.value) ^ ((v1.value >> 5) + k1.value)
+        v1.value += ((v0.value << 4) + k2.value) ^ (v0.value + sm.value) ^ ((v0.value >> 5) + k3.value)
+
+    return pack('>2I', v0.value, v1.value)
+
+
+def TEA_decryption(vs, ks):
+    delta = 0x9E3779B9
+    v0, v1 = map(uint32, unpack('>2I', vs))
+    k0, k1, k2, k3 = map(uint32, unpack('>4I', ks))
+    sm, delta = uint32(delta * 32), uint32(delta)
+
+    for i in range(32):
+        v1.value -= ((v0.value << 4) + k2.value) ^ (v0.value + sm.value) ^ ((v0.value >> 5) + k3.value)
+        v0.value -= ((v1.value << 4) + k0.value) ^ (v1.value + sm.value) ^ ((v1.value >> 5) + k1.value)
+        sm.value -= delta.value
+
+    return pack('>2I', v0.value, v1.value)
+```
+
+
 ### 分组模式
 分组加密会将明文消息划分为固定大小的块，每块明文分别在密钥控制下加密为密文。当然并不是每个消息都是相应块大小的整数倍，所以我们可能需要进行填充。常见的分组模式：
 - ECB：密码本模式（Electronic codebook）
@@ -361,6 +403,54 @@ print(de_text)
 - **null**：Pad with zero characters（零填充）
 - **Pad with spaces**：空格填充
 
+
+### 块加密攻击方法
+#### 差分攻击
+差分攻击一般应用于块加密函数中非线性函数（比如说s盒或某些轮函数）设计缺陷导致差分信息较为明显，从而构造相应的输入对密码系统进行攻击。一般来说是选择明文攻击。
+
+差分攻击适用许多块加密系统如DES, Blowfish, FEAL, and RC5
+
+* AES的差分攻击可见密码学课本
+* 对FEAL的攻击见http://www.theamazingking.com/crypto-feal.php
+
+对于没有线性变换（行移位，列混合等）的密码方案攻击会相对简单。
+
+攻击流程：
+1. 首先寻找非线性函数中最明显的差分信息。代码：
+    ```python
+    def find_differential():
+    for i in range(0x10000):
+        diffs = {}
+        for j in range(0x100):
+            input1 = random.randint(0, 0xffff)
+            input2 = input1 ^ i
+            output1 = f(input1)
+            output2 = f(input2)
+            diff = output1 ^ output2
+            if diff in diffs.keys():
+                diffs[diff] += 1
+            else:
+                diffs[diff] = 1
+        for k in diffs.keys():
+            if diffs[k] >= 60:
+                print(hex(i)[2:], hex(k)[2:], diffs[k])
+    ```
+    这里的f就表示非线性函数，代码找出的是输出差分大于等于1/4的所有输入差分。
+2. 在没有线性变换的情况下，以FEAL-4加密为例，其加密过程如下：
+    ![](crypto/images/crypto-feal2.jfif)
+    在FEAL-4加密的过程中，轮函数在差分输入为0x8080的情况下输出差分一定为0x400。即对于轮函数$f$，给定两个输入$in_1$，$in_2$其中 $in_1 = in_2 \oplus 0x8080$，则必有$f(in_1) = f(in_2) \oplus 0x400$。
+3. 每一轮加密只是一边的输入异或轮密钥后再经过轮函数f得到输出。攻击从最后一轮密钥开始进行攻击。其中有一点很重要的是**非线性函数的输入的差分不确定的情况下和输出的差分一般是均匀分布。** 因此在攻击是时候已知轮函数f输出，在轮密钥交小的情况暴力破解轮密钥模拟输入，如果轮函数f的模拟的输入的结果的差分和已知输出的差分一致，则当前轮密钥就是一个候选密钥。
+4. 得到上一轮的候选密钥就可以构造当前这一轮的轮函数f的输出，然后再暴力枚举轮密钥进行当前密钥的破解。以此类推，这样就能得到第二轮之后的轮密钥。
+5. 第一轮的轮密钥可能情况比较的多，而且也不一定需要用到差分性质，需要根据实际情况进行攻击。
+
+例题见`crypto\2021_TianYiBei\2021_TianYiBei_MyCipher`
+
+
+<!---->
+<!---->
+<!---->
+<!---->
+<!---->
 ## $\mathrm I\mathrm I$ 非对称密码
 
 ## $\mathrm I\mathrm I.\mathrm I$ RSA
@@ -475,6 +565,44 @@ Bob有私钥<N,d>，公钥<N,e>。敌手Alice想要Bob对M进行签名，但是B
 ##### 2.4 已知$dp\equiv d\ mod\ (p-1)$
 已知$$d_p\equiv d\ mod\ (p-1)\newline ed\equiv 1\ mod\ (p-1)(q-1)$$有$$d_p=k(p-1)+d \newline ed=k'(p-1)(q-1)+1$$则有$$ed_p-1=(p-1)(ek+k'(q-1))$$因为$$0\leq ed_p-1\leq ep$$因此$$0\leq (p-1)(ek+k'(q-1))\leq ep \newline 0\leq (ek+k'(q-1))\leq e+1$$因此遍历$i\in[0,e]$若发现$N$能被$(ed_p-1)/i+1$整除，则$p=(ed_p-1)/i+1$。
 
+参考例子：
+```python
+e= 65537
+n = 9637571466652899741848142654451413405801976834328667418509217149503238513830870985353918314633160277580591819016181785300521866901536670666234046521697590230079161867282389124998093526637796571100147052430445089605759722456767679930869250538932528092292071024877213105462554819256136145385237821098127348787416199401770954567019811050508888349297579329222552491826770225583983899834347983888473219771888063393354348613119521862989609112706536794212028369088219375364362615622092005578099889045473175051574207130932430162265994221914833343534531743589037146933738549770365029230545884239551015472122598634133661853901
+c = 5971372776574706905158546698157178098706187597204981662036310534369575915776950962893790809274833462545672702278129839887482283641996814437707885716134279091994238891294614019371247451378504745748882207694219990495603397913371579808848136183106703158532870472345648247817132700604598385677497138485776569096958910782582696229046024695529762572289705021673895852985396416704278321332667281973074372362761992335826576550161390158761314769544548809326036026461123102509831887999493584436939086255411387879202594399181211724444617225689922628790388129032022982596393215038044861544602046137258904612792518629229736324827
+dp = 81339405704902517676022188908547543689627829453799865550091494842725439570571310071337729038516525539158092247771184675844795891671744082925462138427070614848951224652874430072917346702280925974595608822751382808802457160317381440319175601623719969138918927272712366710634393379149593082774688540571485214097
+for i in range(1,e+1):
+    if (dp*e-1)%i == 0:
+        if n%(((dp*e-1)/i)+1)==0:
+            p=((dp*e-1)/i)+1
+            q=n/(((dp*e-1)/i)+1)
+            phi = (p-1)*(q-1)
+            d = gmpy2.invert(e,phi)%phi
+            m = pow(c,d,n)
+            print(long_to_bytes(m))
+```
+
+##### 2.5 已知$N,e,dp,dq,p,q$的RSA快速解密
+
+* 在RSA中$dp,dq$被称为 “private CRT-exponents”，在搜论文的时候可以用这个关键词进行搜索，或者搜“RSA-CRT”。
+
+在参数很大的时候比如$N$是2048或4096比特的时候计算$m\equiv c^d\ mod\ N$计算量非常的大。因此给定$$dp\equiv d\ mod\ p$$和$$dq\equiv d\ mod\ q$$以及$p,q$，可以更快地进行解密。
+
+* 原理：已知$$c\equiv m\ mod\ N \\ m\equiv c^d\ mod\ N\\ dp\equiv d\ mod\ (p-1)\\ dq\equiv d\ mod\ (q-1)$$
+    1. 由中国剩余定理可知$$m_1\equiv c^d\ mod\ p\\ m_2\equiv c^d\ mod\ q$$
+    2. 记$c^d=kp+m_1$，则有$$(m_2-m_1)p^{-1}\equiv k\ mod\ q$$把本步的两个公式合并得到$$m\equiv c^d \equiv ((m_2-m_1)p^{-1}\ mod\ q)p+m_1 \ mod\ N$$
+    3. 由1中式可得$$m_1\equiv c^d\equiv c^{dp}\ mod\ p\\ m_2\equiv c^d\equiv c^{dq}\ mod\ q$$ 此时$m_1,m_2,p,q$都是已知的，因此可以计算出$m$
+* 参考代码
+    ```python
+    InvQ = gmpy2.invert(q, p)
+    mp = pow(enc, dp, p)
+    mq = pow(enc, dq, q)
+    m = (((mp - mq) * InvQ) % p) * q + mq
+    print(long_to_bytes(m))
+    ```
+    实际上打比赛的过程中，如果知道了$p,q$直接计算$\phi(N)$就行，没必要用这种方法。
+
+
 #### 三、小解密指数攻击
 ##### 3.1 Wiener’s attack
 * **Theorem 2 (M. WIener)：** 让$ N=pq, q<p<2q $，并且有$d<\frac{1}{3}N^{\frac{1}{4}}$。给定公钥<N,e>，则有一个有效的方法恢复出私钥d。
@@ -574,14 +702,15 @@ c_3=m^3\ mod\ n_3$$
 已知$p$或$q$中其中一个数的高位比特，我们就有一定几率来分解 $N$。
 **这里的原理就是Theorem 10，但是原理的具体流程没有找到。这里只是使用现成的代码能做到已知p的高比特部分，代码运行之后能得到相应的$p$。**
 原理则是求解$x+p_{fake}\equiv 0\ mod\ Factor(N)$，Sage里面恰好有这样的一个函数，可以直接使用。
+* 攻击要求：一般来说需要需要已知bit最少需要占据所有bit的**56%**，然后$p$需要满足$p \geq N^{\beta}$，一般有$0.4\leq \beta\leq 0.5$。**而且这里的$p$不一定是素数，可以是$N$的某些因数的乘积。**
 
 * 代码参考：https://github.com/yifeng-lee/RSA-In-CTF/blob/master/exp6.sage
 * ***具体Sagemath9.2代码见``crypto/code/Factoring_with_High_Bits_Known.py``***
 
 ##### 4.7 Partial Key Exposure attack （部分密钥泄露攻击）
 此时公钥$e$很小
-* **Theorem 9 (BDF)：** 给定私钥<$N,d$>，$N$长为$n$比特，并给出私钥d的$\lceil n/4\rceil$位最低有效位(即$d$的低位)，那么可以在时间$O(elog_2\ e)$中恢复出$d$。
-* **Theorem 10 (Coppersmith)：**$N=pq$，N为n比特。给出私钥p的高或低n/4比特，那么可以快速分解N。
+* **Theorem 9 (BDF)：** 给定私钥<$N,d$>，$N$长为$n$比特，并给出私钥$d$的$\lceil n/4\rceil$位最低有效位(即$d$的低位)，那么可以在时间$O(elog_2\ e)$中恢复出$d$。
+* **Theorem 10 (Coppersmith)：**$N=pq$，$N$为$n$比特。给出私钥$p$的高或低$n/4$比特，那么可以快速分解$N$。
 
 我们主要讨论定理10，
 
@@ -637,6 +766,62 @@ https://arxiv.org/pdf/1111.4877.pdf  **Cao Z , Sha Q , Fan X . Adleman-Manders-M
 
 * 代码参考：https://blog.csdn.net/cccchhhh6819/article/details/112766888 本质上这里的代码是参考starctf2021_Crypto_little_case题目中的writeup。
 * ***具体Sagemath9.2代码见``crypto/code/AMM.sage``***
+
+
+##### 4.11 Small private CRT-exponents $d_p, d_q$
+
+> 这一小节主要介绍Bleichenbacher-May Attack
+
+* Bleichenbacher-May Attack
+    当$q < N^{0.468}$ 且 $d_p,d_q \leq min\{(N/e)^{0.4}, N^{0.25} \}$ 时，此攻击可以对$N$进行分解。
+    * https://link.springer.com/content/pdf/10.1007%2F11745853_1
+    * D. Bleichenbacher, A. May, ”New Attacks on RSA with Small Secret CRTExponents”, Proceedings of PKC 2006, LNCS 3958 [2006], pp. 1–13.
+    * 已知式$$ed_p=k(p-1) \\ ed_q=l(q-1)$$相乘并展开得$$e^2d_pd_q+ed_p(l-1)+ed_q(k-1)-(N-1)kl=k+l-1$$我们令$$w = d_pd_q \\ x =d_p(l-1)+d_q(k-1) \\ y=kl \\ z=k+l-1$$则我们可以构造格$$L = \left[\begin{matrix}
+    1 & 0 & e\\
+    0 & 1 & 1-N\\
+    0 & 0 & e^2\\
+    \end{matrix}\right]$$ 因此我们有$[x\ y\ w]*L = [x\ y\ z]$，这里$[x\ y\ w]$是一个线性变换，通过LLL算法求出的最短向量将会是$[x\ y\ z]$的形式。我们不能直接对格$L$进行规约，因为还需要保证$[x\ y\ w]$有相同的大小，因此$L$需要有乘一个对角阵来平衡目标向量，即令$[x\ y\ w]$中的每个元素大小大致相同。
+    * 参考代码：
+    ```python
+    # Sagemath 9.2
+    e = 399995007353334843492700652707
+    n = 183656432204946278583158645163956954879148229006140604544321
+
+    m = Matrix(ZZ, 3, 3)
+    m[0,0] = 1
+    m[0,2] = e
+    m[1,1] = 1
+    m[1,2] = 1-n
+    m[2,2] = e*e
+
+    ml = m.LLL()
+    ttt = ml.rows() 
+    # print(ttt[0])
+
+    kl = abs(ttt[0][1])
+    kpl_1 = abs(ttt[0][2])
+    # x^2-(kpl_1+1)x + kl = 0
+    k = int(kpl_1+1 +((kpl_1+1)**2-4*kl)**0.5)//2
+    l = kpl_1+1-k
+
+    for i in range(0,5):
+        dp = inverse_mod(e, k)+i*k
+        for j in range(0,5):
+            dq = inverse_mod(e, l) + j*l
+            p = (e * dp - 1) // k + 1
+            q = (e * dq - 1) // l + 1
+            if is_prime(p) and is_prime(q):
+                print(p,q)
+    ```
+
+
+
+* 当$d_p,d_q < N^{0.073}$时，可以使用美密会中的一篇文章对$N$进行分解
+    * https://www.iacr.org/archive/crypto2007/46220388/46220388.pdf
+    * Jochemsz E ,  May A . A Polynomial Time Attack on RSA with Private CRT-Exponents Smaller Than N 0.073[J]. International Cryptology Conference on Advances in Cryptology, 2007.
+
+
+
 
 
 #### 五、选择明密文攻击
@@ -1275,16 +1460,16 @@ k(\delta_1 - \delta_2) \equiv H(x_1)-H(x_2)\ mod\ q$$  从而解出随机数$k$�
 
 
 
-# 常见近世代数求解
-## 二次剩余求解
+# 常见数论求解
+## 1. 二次剩余求解
 已知
 $$
-x^2\equiv n\ (mod\ p)
+x^2\equiv a\ (mod\ p)
 $$
 求$x$.
 
-### $p$是形为$4k+3$的素数
-1. 若 $x^2\equiv n\ (mod\ p)$ 有解则其解为
+### 1.1 $p$是形为$4k+3$的素数
+1. 若 $x^2\equiv a\ (mod\ p)$ 有解则其解为
 $$
 x\equiv\pm a^{\frac{p+1}{4}}(mod\ p)
 $$
@@ -1294,14 +1479,14 @@ $$
 x\equiv\pm (a^{\frac{p+1}{4}}(mod\ p))\cdot s\cdot q\pm(a^{\frac{q+1}{4}}(mod\ q))\cdot t\cdot p\ \ (mod\ pq)
 $$
 
-### $p$是一般的奇素数
+### 1.2 $p$是一般的奇素数
 代码见`crypto/code/square_root_of_quadratic_residue.py`
 参考资料：https://learnblockchain.cn/article/1520
 
 ### $x^2+y^2=p$
 > 待完成
 
-## 近似最大公约数(Approximate Greatest Common Divisor)
+## 2. 近似最大公约数(Approximate Greatest Common Divisor)
 给定两个整数$n_1 = q_1p$，$n_2 = q_2p$，则两者的最大公约数为$p = gcd(n_1,n_2)$。
 
 若$n_1 = q_1p+r_1$，$n_2 = q_2p+r_2$，则求$n_1$与$n_2$的近似最大公约数$p$是有一定难度的。在普遍情况下是一个困难问题，但是当$r_i$比较小的时候是可以用过LLL等算法进行求解。
@@ -1319,7 +1504,111 @@ writeup见`crypto\2021_RCTF\2021_RCTF_Uncommon_Factors_II`
 * Multivariate polynomial approach (MP)
 
 
+## 3. 整数开n次方根
+使用`python`中的`gmpy2.iroot(num, n)`函数。
 
+## 4. 高斯整数相关
+> 这里主要使用到的是对素数进行分解，和构造$a^2+b^2=n$
+
+* 参考资料：https://blog.csdn.net/weixin_45697774/article/details/113444562
+
+### 4.0 基础知识
+形如 $a + bi$（其中$a , b$是整数）的复数被称为高斯整数，高斯整数全体记作集合 $ Z[i] = \{ a + bi | a,b \in Z\}, \ where \ i^2 = -1$，换言之，高斯整数是实部和虚部都为整数的复数。由于高斯整数在乘法和加法下交换，它们形成了一个**交换环**。
+
+**定义1**： 若 $\epsilon\ | \ 1$，则称高斯整数 $\epsilon$ 是 **单位** ，若 $\epsilon$ 是单位，则称 $\epsilon\alpha$ 是高斯整数 $\alpha$ 的一个**相伴**，高斯整数的单位为 $1,-1,i,-i$。
+
+**定义2**： 若非零高斯整数 $\pi$ 不是单位，而且只能够被单位和它的相伴整除，则称之为高斯素数。
+
+**性质：**
+* 高斯整环是一个唯一分解域，所以每一个高斯整数都可以写为一个单位元和若干高斯素数的乘积，这种分解是唯一的（忽略共轭和相伴）
+* 两个高斯整数的最大公约数并不唯一，若$d$ 是 $a$ 与 $b$ 的最大公约数，则 $a,b$ 的最大公约数为 $d,−d,id,−id$。
+* 若$p$是一个素数，则$p$可以写成两个平方数的和，当且仅当$p=2$或$p\equiv 1(\ mod\ 4)$。
+    * 证明：![](crypto/images/Fermat_sum_of_two_squares_theorem.PNG)
+
+
+### 4.1 分解$4k+1$型素数
+已知$p$是$4k+1$型素数，如果$k^2\equiv -1\ (mod\ p)$，则有$p|(k+i)(k-i)$，因此$p=u\bar{u}$，其中$u=k+i$。
+
+因此因为有一半的数在模$p$下是平方剩余，因此烧出一个数$t$，验证$t^{\frac{p-1}{2}}\equiv -1(mod\ p)$，则有$k=t^{\frac{p-1}{2}}$。
+
+* 虽然这里讲了这么多，Sagemath里面有函数可以分解：
+```python
+# Sagemath 9.2
+K = ZZ[i]   # 声明高斯整数环
+factor(K(97))
+# (-4*I + 9) * (4*I + 9)
+```
+
+### 4.2 构造$a^2+b^2=n$
+**问题：** 已知$n$，需要构造出$a,b$满足$a^2+b^2=n$。
+
+* 流程：
+    1. 将$n$分解成$n=\prod p_m^{e_m}$
+    2. 将2分解成$(1+i)(1-i)$，将$4k+1$型素数分解为$u\bar{u}$，保留$4k+3$型素数。
+    3. 将第2步的结果分成两组，$(1+i)$分去1组，$(1-i)$分去2组；将$u$分去1组，$\bar{u}$分区2组；$4k+3$型素数一定是成对出现的，即$2|e_m$，因此每组分到$\frac{e_m}{2}$个。
+    4. 任意选一组，把改组所有的数乘起来得到$A+Bi$，则$a=A, b=B$，即满足$a^2+b^2=n$或者说$A^2+B^2=n$。
+
+* Sagemath里面可以轻松对$n$进行分解
+```python
+K = ZZ[i]   # 声明高斯整数环
+factor(K(19*19*97))
+# (-4*I + 9) * (4*I + 9) * 19^2
+
+guass_integer = (4*I + 9) * 19
+a = abs(guass_integer.imag())
+b = abs(guass_integer.real())
+a^2+b^2 == 19*19*97
+# 35017 == 35017
+```
+
+### 4.3 构造$a^2+b^2=n^k$
+根据共轭的性质，首先类似4.2节中先分解$n$。得到$A+Bi$，然后计算$$(A+Bi)^k = A'+B'i$$ 则有$A'^2+B'^2=n^k$。
+
+
+### 4.4 拉格朗日四平方定理
+> TODO
+
+**定理内容：** 每个正整数均可表示成不超过四个整数的平方之和.
+
+
+## 5. 求环上固定阶的生成元
+**本原多项式**：一个次数为$n$的$F_q$上的本原多项式，就是它在域$F_q^n$上的所有根都是本原元（**本原元**能生成域$F_q^n$上的所有元素，相当于乘法的生成元）。
+* 所有在$F_q$上的本原多项式在$F_q$上是不可约的（不可分解）。
+
+### 5.1 求环上的生成元
+求环$R$上的生成元。已知环的阶(元素个数)为$n$。则找生成元的过程为：任取$R$中的元素$g\in R$，若有$g^{\frac{n}{2}}\neq -1\in R$，则$g$为生成元。这种方式适用于$2|n$的情况。
+
+### 5.2 求环上固定阶的元素
+假设需要找的元素的阶为$q$，环$R$的阶为$n$，由环的性质可知$q|n$。
+1. 首先找出环$R$的一个生成元（对于域来说就是找出本原元）$g$。
+2. 计算$a = g^{\frac{n}{q}}$，则$a$为环$R$的一个$q$阶元素。
+
+
+## 6. Chinese remainder theorem(CRT) 中国剩余定理python实现
+```python
+from functools import reduce
+
+def egcd(a, b):
+    if 0 == b:
+        return 1, 0, a
+    x, y, q = egcd(b, a % b)
+    x, y = y, (x - a // b * y)
+    return x, y, q
+
+def chinese_remainder(pairs):
+    mod_list, remainder_list = [p[0] for p in pairs], [p[1] for p in pairs]
+    mod_product = reduce(lambda x, y: x * y, mod_list)
+    mi_list = [mod_product//x for x in mod_list]
+    mi_inverse = [egcd(mi_list[i], mod_list[i])[0] for i in range(len(mi_list))]
+    x = 0
+    for i in range(len(remainder_list)):
+        x += mi_list[i] * mi_inverse[i] * remainder_list[i]
+        x %= mod_product
+    return x
+
+print(chinese_remainder([(3,2),(5,3),(7,4),(11,5)]))
+# 368
+```
 
 
 
@@ -1403,6 +1692,11 @@ openssl x509 -inform der -in certificate.cer -out certificate.pem
     https://mystiz.hk/posts/2021-04-08-angstromctf-2021/
 
 
+
+
+
+
+
 # 练习题
 
 ## Hash相关
@@ -1412,9 +1706,28 @@ openssl x509 -inform der -in certificate.cer -out certificate.pem
 * 2019 36c3 SaV-ls-l-aaS
     * https://ctftime.org/writeup/17966
 
-# 解题技巧
+
+
+
+
+# CTF crypto中python技巧
+
+## CTF常见字符集
+```python
+import string
+print(string.printable.encode())	# 可打印字符集  
+TABLE1=ascii_letters+digits+"{}_@#\"| "  # 数字+字母+其它符号
+TABLE2=b'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ,{} '
+```
+
+# 其它解题技巧
 
 遇到密文是乱七八糟的字符串而明文是正常的英文字符+数字+括号的情况的时候，可以使用这种特性缩小明文和密钥的取值。参考`crypto/2021_Mtctf/RSA_2021_MTctf_easy_RSA`这道题。
+
+
+
+
+
 
 
 # 近年来比较热的密码技术
