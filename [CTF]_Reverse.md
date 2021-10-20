@@ -454,6 +454,9 @@ s = "ABCabc" # <class 'str'>
 arr = bytes(s, 'utf-8') # <class 'bytes'> # b'ABCabc' # for byte in arr: 65 66 67 97 98 99
 arr2 = bytes(s, 'ascii') # <class 'bytes'> # b'ABCabc' # for byte in arr: 65 66 67 97 98 99
 bytearray(str(s), "ascii") # str to bytes
+bytes(chr(0xb + 0xa + 1), "ascii") # int to chr to bytes(ascii) # 不可见字符转换时会报错
+int(b2 + 0xa + 1).to_bytes(1, "big") # a 0xff int to 1 byte # 1个byte 大端序
+(0xdeadbeef).to_bytes(4, 'little') # b'\xef\xbe\xad\xde' # 转换为小端序4B
 ```
 
 
@@ -667,7 +670,9 @@ mov %r10,(%r11) ; 将r10的值拷贝到r11寄存器中的数值指向的内存�
 
 # **Opcode Lookup Table**
 
-> 常见机器码速查，用于应对花指令
+> http://www.mathemainzel.info/files/x86asmref.html   Intel 80x86 Assembly Language OpCodes
+>
+> 常见机器码速查，用于花指令，elf patch...
 
 ```assembly
 90 nop
