@@ -454,6 +454,9 @@ s = "ABCabc" # <class 'str'>
 arr = bytes(s, 'utf-8') # <class 'bytes'> # b'ABCabc' # for byte in arr: 65 66 67 97 98 99
 arr2 = bytes(s, 'ascii') # <class 'bytes'> # b'ABCabc' # for byte in arr: 65 66 67 97 98 99
 bytearray(str(s), "ascii") # str to bytes
+bytes(chr(0xb + 0xa + 1), "ascii") # int to chr to bytes(ascii) # 不可见字符转换时会报错
+int(b2 + 0xa + 1).to_bytes(1, "big") # a 0xff int to 1 byte # 1个byte 大端序
+(0xdeadbeef).to_bytes(4, 'little') # b'\xef\xbe\xad\xde' # 转换为小端序4B
 ```
 
 
@@ -624,11 +627,52 @@ java -jar Guess-the-Number.jar 309137378 # 带参数运行.jar文件
 
 
 
+# AT&T Lookup Table
+
+x86汇编语法分Intel语法和AT&T语法，gcc的gac(GNU assembler)和llvm的汇编器默认产生的文本形式汇编指令是AT&T语法
+
+> https://zhuanlan.zhihu.com/p/54821702
+
+- `%` 寄存器
+- `$` 立即数
+- `8(%si)` 内存单元操作，用()把寄存器括起来。这里相当于Intel语法的`[si+8]`
+
+`movb $0x42, %ah`  把立即数`$0x42`放到寄存器`%ah`中，源操作数在前，目的操作数在后。与Intel语法相反
+
+操作码后缀：`l`: 32bit; `w`: 16bit; `b`: 8bit
+
+```assembly
+# 运算指令
+add %r10, %r11 ; r10 + r11，结果放到r11
+add $5, %r10 ; 5 + r10，结果放到r10
+div %r10 ; rax 除以r10，商放到rax，余数放到rdx
+inc %r10 ; r10 加1
+mul %r10 ; 将rax乘以 r10, 将结果放到rax中，溢出部分放到rdx
+
+# 拷贝指令
+mov %r10,(%r11) ; 将r10的值拷贝到r11寄存器中的数值指向的内存地址上
+```
+
+
+
+- 流程控制指令
+
+```assembly
+1:    cmp  $0,  (%si)  
+      je  1f   ; 跳转到后面的1标示的地方，也就是第6行 ; f: forward
+      movsb  
+      stosb  
+      jmp  1b  ; 跳转到前面1表示的地方，也就是第1行 ; b: backward
+1:    jmp  1b  ; 跳转到前面1表示的地方，第6行，其实是死循环
+```
+
 
 
 # **Opcode Lookup Table**
 
-> 常见机器码速查，用于应对花指令
+> http://www.mathemainzel.info/files/x86asmref.html   Intel 80x86 Assembly Language OpCodes
+>
+> 常见机器码速查，用于花指令，elf patch...
 
 ```assembly
 90 nop
@@ -677,6 +721,8 @@ int main( void ){ //  uses _fileno to obtain the file descriptor(fd) for some st
 > 静态分析
 >
 > 入门笔记 含快捷键 窗口介绍  https://www.zybuluo.com/oro-oro/note/137244
+>
+> 调试pie代码时，在IDA中更改基址  https://reverseengineering.stackexchange.com/questions/6842/how-to-rebase-ida-to-match-gdb
 
 - 查看版本号与逆编译器版本 Help => About program => `Version 7.5.201028 Windows x64 (32-bit address size)` => Addons => 32 bit: `e.g. x86 ARM PowerPC MIPS Decompiler`
 - Option:

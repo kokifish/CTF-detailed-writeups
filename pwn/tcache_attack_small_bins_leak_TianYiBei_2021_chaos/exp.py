@@ -3,7 +3,7 @@ from pwn import *
 context.log_level = "debug"
 libc = ELF("./libc-2.27.so")
 # sh = process(["./ld-2.27.so", "./chall"], env={"LD_PRELOAD": "./libc-2.27.so"})
-sh = process(["./ld277-3ubuntu1.so", "./chall"], env={"LD_PRELOAD": "./libc-2.27.so"})
+sh = process(["./ld227-3ubuntu1.so", "./chall"], env={"LD_PRELOAD": "./libc-2.27.so"})
 # sh = remote("8.134.97.12", 26756)
 
 

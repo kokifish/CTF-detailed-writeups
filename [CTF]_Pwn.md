@@ -349,6 +349,18 @@ ROPgadget --binary ret2baby  --string "/bin/sh" # 获得 /bin/sh 字符串对应
 
 
 
+## libcsearcher
+
+```python
+from LibcSearcher import *
+libc = LibcSearcher("gets",gets_real_addr)
+libcbase = gets_real_addr – obj.dump("fgets")
+system_addr = libcbase + obj.dump("system") # system 偏移
+bin_sh_addr = libcbase + obj.dump("str_bin_sh") # /bin/sh 偏移
+```
+
+
+
 # Anti-Pwn
 
 反调试：alarm 程序超时抛出SIGALRM退出。会影响本地调试，替换成isnan函数：`sed -i s/alarm/isnan/g ./ProgrammName`
@@ -691,7 +703,7 @@ PLT: Procedure Linkage Table, 程序链接表。**额外代码段**表
 
 > 地址空间配置随机加载  Address Space Layout Randomization  地址空间配置随机化  地址空间布局随机化
 >
-> OS层级的保护。一种防范内存损坏漏洞被利用的计算机安全技术。
+> OS层级的保护
 >
 
 - ASLR通过**随机放置进程关键数据区域的地址空间**来防止攻击者能可靠地跳转到内存的特定位置来利用函数。现代操作系统一般都加设这一机制，以防范恶意程序对已知地址进行**Return-to-libc**攻击
@@ -868,7 +880,9 @@ intel系统中栈是向下生长的(栈越扩大其值越小,堆恰好相反)
 5. callee中会用到的**寄存器**
 6. callee**局部变量1\~N**
 
-## Memory Layout 内存布局
+## Memory Layout
+
+> 内存布局
 
 - 函数调用栈的典型内存布局（Linux/Intel, x86-32bit）如下所示。包含caller和callee，包含寄存器和临时变量的栈帧布局。注意这里的Called-saved Registers的位置是**Linux/Intel**的
 
@@ -1082,6 +1096,8 @@ LD_PRELOAD=./libc.so.6 ./ld.so ./ciscn_final_3 # LD_PRELOAD=./libc.so ./ld.so ./
 > 找到 archive.ubuntu.com 的方法：
 > https://pkgs.org/download/libc-bin 找libc
 > https://ubuntu.pkgs.org/18.04/ubuntu-main-amd64/libc-bin_2.27-3ubuntu1_amd64.deb.html Binary Package那有deb下载链接，链接删去最后的文件名，就是 archive.ubuntu 的 FTP
+>
+> md5sum file 查看文件md5 hash
 
 
 
@@ -2186,7 +2202,7 @@ cases:
 
 ---
 
-## Heap Exploitation: Ptmalloc2
+## Heap Exp: Ptmalloc2
 
 > 主要是 Glibc Heap: ptmalloc2 利用
 >
@@ -2241,7 +2257,7 @@ heap chunks
 
 #### malloc and free
 
-> 在glibc 的 [malloc.c](https://github.com/iromise/glibc/blob/master/malloc/malloc.c#L448) 中有响应的说明
+> 在glibc 的 [malloc.c](https://github.com/iromise/glibc/blob/master/malloc/malloc.c#L448) 中有相应说明
 
 `malloc(size_t n)`: 返回对应大小字节的内存块指针
 
@@ -2627,7 +2643,11 @@ chunk-> +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
 #### bins
 
-存储 unstored bin，small bins 和 large bins 的 chunk 链表头以管理释放的chunk。以避免频繁系统调用，降低内存分配开销
+> https://blog.csdn.net/qq_41453285/article/details/96865321
+>
+> https://blog.csdn.net/aoque9909/article/details/101112812 堆之\*bin理解
+
+存储 unstored bin，small bins, large bins 的 chunk 链表头以管理释放的chunk。以避免频繁系统调用，降低内存分配开销
 
 ptmalloc 采用**分箱式**方法对空闲的 chunk 进行管理。根据空闲的 chunk 的大小以及使用状态将 chunk 初步分为 4 类：
 
@@ -2688,7 +2708,7 @@ typedef struct malloc_chunk *mbinptr;
 
 
 
-### Tcache & Tcache Attack
+### Tcache
 
 > Thread Cache Bin        libc 2.26引入  提升堆管理性能
 >
@@ -2696,7 +2716,7 @@ typedef struct malloc_chunk *mbinptr;
 >
 > https://4f-kira.github.io/2020/03/04/glibc2-29-tcache/ glibc 2.29 tcache保护机制
 
-glibc **2.26** (ubuntu 17.10)之后引入的技术，用于缓存各个线程释放的内存，用于加速多线程下内存申请。每个线程都有自己的Tcache，因此从tcache中malloc内存时不需要加锁。但欠缺安全检查。
+glibc **2.26** (ubuntu 17.10)之后引入的技术，用于缓存各个线程释放的内存，用于加速多线程下内存申请。每个线程都有自己的Tcache，因此从tcache中malloc内存时不需要加锁。但欠缺安全检查。glibc 2.29 tcahce 引入key，`tcache_get` 时清空key，`tcache_put` 时设置 key
 
 - 使用简单单链表管理free后的chunk，相同大小的放同一条链上。next指针指向下一个大小相同的chunk的user data(fd指针)
 - 用一个数组存储各链表头，另一个数组存储链表长度
@@ -2805,7 +2825,7 @@ int main(){ // gcc a.cpp -o a -fpermissive       -Wno-conversion-null -w
 
 
 
-### Fast Bin & Fast Bin Attack
+### Fast Bin
 
 > https://paper.seebug.org/445/
 
@@ -2878,6 +2898,12 @@ int main() {
 
 
 
+#### Fast Bin: global_max_fast
+
+> https://xz.aliyun.com/t/5082
+
+
+
 ### Unsorted Bin
 
 > https://wooyun.js.org/drops/Linux%E5%A0%86%E5%86%85%E5%AD%98%E7%AE%A1%E7%90%86%E6%B7%B1%E5%85%A5%E5%88%86%E6%9E%90(%E4%B8%8B%E5%8D%8A%E9%83%A8).html
@@ -2927,9 +2953,30 @@ int main() {
 
 
 
+```bash
+p &main_arena # libc-2.32.so
+$2 = (struct malloc_state *) 0x7f4fd05e3ba0 <main_arena>
+x /10xg 0x55dee262e6c0 # the user data of the only chunk in unsorted bin 
+0x55dee262e6c0: 0x00007f4fd05e3c00    0x00007f4fd05e3c00
+# unsorted_bins[0]: fw=0x55dee262e6b0, bk=0x55dee262e6b0 →  Chunk(addr=0x55dee262e6c0, size=0xb0)
+diff: 0x00007f4fd05e3c00-0x7f4fd05e3ba0 = 0x60
+```
+
+
+
 > **Cases**
 >
 > - CISCN_2019_final_3: 构造fake chunk，既放入tcache也放入unsorted bin，然后从tcache中取出得到libc基址，double free改`__free_hook`
+
+
+
+
+
+#### Unsorted Bin Attack
+
+> https://www.redhatzone.com/ask/article/2440.html 深入理解unsorted bin attack, house of roman
+
+
 
 
 
@@ -3027,37 +3074,38 @@ Trigger Conditions:
 
 
 
-## Heap Exploitation: musl-libc
+## Heap Exp: musl-libc
 
 > http://git.etalabs.net/cgit/musl/ musl官网
 >
 > https://juejin.cn/post/6844903574154002445 从一次 CTF 出题谈 musl libc 堆漏洞利用
+>
+> musl libc约等于dlmalloc(glibc堆管理器ptmalloc2前身)，故chunk unbin等与glibc十分相似
 
 musl libc: 专为嵌入式系统开发的轻量级libc库，简单、轻量、高效
 
-musl libc约等于dlmalloc(glibc堆管理器ptmalloc2前身)，故chunk unbin等与glibc十分相似
+- chunk 0x20 对齐
 
 bin由64个结构类似small bin的双向循环链表组成，使用bitmap记录每个链表是否为空，从链表首部取出chunk，尾部插入chunk。每个bin容纳的chunk大小不同，至多容纳1024种不同大小的chunk
 
-
-
 ```cpp
-struct chunk {
-    size_t psize, csize; // 相当于 glibc 的 prev size 和 size
+struct chunk { // 0x20 对齐 // 32bit对齐
+    size_t psize, csize; // 相当于 glibc 的 prev size 和 size // 最后1bit是inuse位
     struct chunk *next, *prev;
 };
 ```
 
-- chunk 之间不重用`psize`字段
-
-`psize`和`csize`字段都有标志位（glibc 只有`size`字段有），但只有一种位于最低位的标志位`INUSE`（glibc 最低三位都有标志位）。若设置`INUSE`标志位（最低位为1），表示 chunk 正在被使用；若没有设置`INUSE`标志位（最低位为0），表示 chunk 已经被释放或者通过`mmap`分配的，需要通过`psize`的标志位来进一步判断 chunk 的状态
+- chunk 之间**不重用**`psize`字段
+- `psize`和`csize`字段都有标志位（glibc 只有`size`字段有），但只有一种位于最低位的标志位`INUSE`（glibc 最低三位都有标志位）
+- 若`INUSE`=1（最低位为1），表示 chunk 正在被使用；若`INUSE`=0（最低位为0），表示 chunk 已经被释放或者通过`mmap`分配的，需要通过`psize`的标志位来进一步判断 chunk 的状态
 
 ```cpp
-static struct {
-    volatile uint64_t binmap;
-    struct bin bins[64];
-    volatile int free_lock[2];
-} mal; // mal结构体类似于 glibc 中的arena
+static struct { // mal结构体类似于 glibc 中的arena // 记录堆的状态
+    volatile uint64_t binmap; // 记录每个bin是否为空 某个bit=1表示对应bin非空，即链中有chunk
+    struct bin bins[64]; // 链表头数组
+    volatile int free_lock[2]; // 锁
+} mal; 
+
 struct bin { // 用循环链表来记录
     volatile int lock[2];
     struct chunk *head; // point to head chunk
@@ -3078,6 +3126,9 @@ struct bin { // 用循环链表来记录
 | 60-62     | 1024             | 0x20020 – 0x38000 | (0x20020+(i-60) \*0x8000) ~ (0x28000+(i-60)\* 0x8000) |
 | 63        | unlimited        | 0x38000 above     | 0x38000 <                                             |
 
+> 前32个bin类似fast bin, small bin，每个bin
+
+### malloc and free
 
 
 
@@ -3085,7 +3136,379 @@ struct bin { // 用循环链表来记录
 
 ## **IO\_FILE** Utilization
 
-> https://xz.aliyun.com/t/5579#toc-1
+> https://xz.aliyun.com/t/5579#toc-1 IO FILE 之vtable check 以及绕过 glibc 2.24引入vtable check
+>
+> https://xz.aliyun.com/t/5508
+
+
+
+### FILE Structure: `_IO_FILE`, `plus`
+
+> `_IO_FILE_plus: _IO_FILE file; + IO_jump_t *vtable;`
+
+- 链表头部用全局变量`_IO_list_all`表示，进程内FILE结构通过`struct _IO_FILE._chain` 彼此链接成链表
+- 标准IO库中，每个程序自动打开三个文件流：stdin, stdout, stderr。故初始状态下`_IO_list_all`指向stdin, stdout, stderr构成的链表
+- stdin, stdout, stderr位于libc.so的数据段。程序使用fopen创建的文件流是分配在堆内存上
+- libc.so中stdin, stdout, stderr符号是指向FILE结构的指针，真正结构的符号是
+
+```c
+_IO_2_1_stderr_
+_IO_2_1_stdout_
+_IO_2_1_stdin_
+```
+
+```c
+struct _IO_FILE_plus { // _IO_FILE_plus 包裹 _IO_FILE
+    _IO_FILE    file; // _IO_FILE结构
+    IO_jump_t   *vtable; // IO_jump_t型指针(在后面劫持vtable节讲) // vtable指向一系列函数指针
+}
+```
+
+
+
+```c
+struct _IO_FILE {  // FILE结构定义在libio.h中
+    int _flags;    /* High-order word is _IO_MAGIC; rest is flags. */
+#define _IO_file_flags _flags
+
+    /* The following pointers correspond to the C++ streambuf protocol. */
+    /* Note:  Tk uses the _IO_read_ptr and _IO_read_end fields directly. */
+    char* _IO_read_ptr;   /* Current read pointer */
+    char* _IO_read_end;   /* End of get area. */
+    char* _IO_read_base;  /* Start of putback+get area. */
+    char* _IO_write_base; /* Start of put area. */
+    char* _IO_write_ptr;  /* Current put pointer. */
+    char* _IO_write_end;  /* End of put area. */
+    char* _IO_buf_base;   /* Start of reserve area. */
+    char* _IO_buf_end;    /* End of reserve area. */
+    /* The following fields are used to support backing up and undo. */
+    char* _IO_save_base;   // Pointer to start of non-current get area.
+    char* _IO_backup_base; /* Pointer to first valid character of backup area */
+    char* _IO_save_end;    /* Pointer to end of non-current get area. */
+
+    struct _IO_marker* _markers;
+
+    struct _IO_FILE* _chain;  // 进程中的FILE结构通过 _chain 域彼此连接成链表
+
+    int _fileno;
+#if 0
+  int _blksize;
+#else
+    int _flags2;
+#endif
+    _IO_off_t _old_offset; /* This used to be _offset but it's too small.  */
+
+#define __HAVE_COLUMN /* temporary */
+    /* 1+column number of pbase(); 0 is unknown. */
+    unsigned short _cur_column;
+    signed char _vtable_offset;
+    char _shortbuf[1];
+
+    /*  char* _save_gptr;  char* _save_egptr; */
+
+    _IO_lock_t* _lock;
+#ifdef _IO_USE_OLD_IO_FILE
+};
+struct _IO_FILE_complete {
+    struct _IO_FILE _file;  // _IO_FILE_complete 包裹 _IO_FILE
+#endif
+#if defined _G_IO_IO_FILE_VERSION && _G_IO_IO_FILE_VERSION == 0x20001
+    _IO_off64_t _offset;
+#if defined _LIBC || defined _GLIBCPP_USE_WCHAR_T
+    /* Wide character stream stuff.  */
+    struct _IO_codecvt* _codecvt;
+    struct _IO_wide_data* _wide_data;
+    struct _IO_FILE* _freeres_list;
+    void* _freeres_buf;
+#else
+    void* __pad1;
+    void* __pad2;
+    void* __pad3;
+    void* __pad4;
+
+    size_t __pad5;
+    int _mode;
+    /* Make sure we don't get into trouble again.  */
+    char _unused2[15 * sizeof(int) - 4 * sizeof(void*) - sizeof(size_t)];
+#endif
+};
+```
+
+
+
+
+
+#### IO\_FILE: fopen
+
+> https://ray-cp.github.io/archivers/IO_FILE_fopen_analysis   IO FILE之fopen详解
+
+调用链: `fopen -> _IO_new_fopen -> __fopen_internal  (in /libio/iofopen.c)`
+
+`__fopen_internal` main process:
+
+1. `malloc`: 分配内存空间`*new_f = (struct locked_FILE *) malloc (sizeof (struct locked_FILE));`
+2. `_IO_no_init`: (`/libio/genops.c`) 对file结构体进行`null`初始化 : 最主要的功能是初始化`locked_FILE`里面的`_IO_FILE_plus`结构体，基本所有都初置null / 默认值，同时将`_wide_data`字段赋值并初始化
+3. `_IO_file_init`: (`/libio/fileops.c`) 将结构体链接进`_IO_list_all`链表头。
+4. `_IO_file_fopen`: (`libio/fileops.c`) 执行系统调用打开文件
+
+```cpp
+#include <stdio.h>  // fopen 测试代码
+int main() {
+    FILE* fp = fopen("test", "wb");
+    char* ptr = malloc(0x20);
+}
+```
+
+```cpp
+_IO_FILE* __fopen_internal(const char* filename, const char* mode, int is32) {  // fopen 的逻辑实际上在这里实现
+    struct locked_FILE {          // 定义一个结构体 locked_FILE // 64bit OS中为0x230 B
+        struct _IO_FILE_plus fp;  // 使用的 IO_FILE 的结构体
+#ifdef _IO_MTSAFE_IO
+        _IO_lock_t lock;
+#endif
+        struct _IO_wide_data wd;
+    }* new_f = (struct locked_FILE*)malloc(sizeof(struct locked_FILE));  // step-1 分配内存
+                                                                         // ...
+    _IO_no_init(&new_f->fp.file, 0, 0, &new_f->wd,
+                &_IO_wfile_jumps);            // step-2 null初始化结构体数据
+                                              // ...
+    _IO_JUMPS(&new_f->fp) = &_IO_file_jumps;  // 设置 vtable 为 _IO_file_jumps
+    _IO_file_init(&new_f->fp);                // step-3 将file结构体链接进去_IO_list_all
+                                              // ...
+    if (_IO_file_fopen((_IO_FILE*)new_f, filename, mode, is32) != NULL)  // step 4 打开文件
+        return __fopen_maybe_mmap(&new_f->fp.file);
+}
+```
+
+Step-3 `_IO_file_init`把结构体链接进`_IO_list_all`链表时：
+
+`_IO_file_init`实际调用`_IO_new_file_init`，主要逻辑在`_IO_link_in`。主要检查`_IO_FILE_plus->file._flags`的`_IO_LINKED`是否置位，为0表示这个结构体没有进入`_IO_list_all`，则后续链接进`_IO_list_all`，`_IO_list_all`指向刚链入的`_IO_FILE_plus *fp`，即新链入的在链表头。在程序没有执行`_IO_file_init`之前，`_IO_list_all`指向stderr
+
+```cpp
+void _IO_new_file_init(struct _IO_FILE_plus* fp) {
+    fp->file._offset = _IO_pos_BAD;
+    fp->file._IO_file_flags |= CLOSED_FILEBUF_FLAGS;
+    _IO_link_in(fp);        // 调用_IO_link_in  // 主体逻辑
+    fp->file._fileno = -1;  // 设置_fileno
+}
+libc_hidden_ver(_IO_new_file_init, _IO_file_init)  // _IO_file_init -> _IO_new_file_init
+
+    void _IO_link_in(struct _IO_FILE_plus* fp) {
+    if ((fp->file._flags & _IO_LINKED) == 0) {  // 检查flag的标志位是否是_IO_LINKED
+        fp->file._flags |= _IO_LINKED;          // 设置_IO_LINKED标志位
+        // ...
+        fp->file._chain = (_IO_FILE*)_IO_list_all;  // 设置 _chain 字段为之前的链表的值
+        _IO_list_all = fp;                          // _IO_list_all为新链入的_IO_FILE_plus
+        ++_IO_list_all_stamp;
+        // ...
+    }  // 如果_IO_FILE_plus->file._flags置位则不做任何操作
+}
+libc_hidden_def(_IO_link_in)
+```
+
+Step-4 `_IO_file_fopen` 打开文件句柄时：
+
+1. 进入`_IO_new_file_fopen`函数中，检查文件是否已打开，未打开则继续
+2. 设置文件打开模式
+3. 调用`_IO_file_open`函数(`/libio/fileops.c`)：
+   1. 执行系统调用`open`打开文件
+   2. 将文件描述符赋值给FILE结构体的`_fileno `字段
+   3. 再次调用 `_IO_link_in` 确保结构体链进 `_IO_list_all`
+
+```cpp
+_IO_FILE* _IO_new_file_fopen(_IO_FILE* fp, const char* filename, const char* mode, int is32not64) {
+    if (_IO_file_is_open(fp))  // 检查文件是否已打开，打开则返回
+        return 0;
+    switch (*mode) {  // 设置文件打开模式
+        case 'r':
+            omode = O_RDONLY;
+            read_write = _IO_NO_WRITES;
+            break;
+            // ...
+    }
+    // ...
+    // 调用_IO_file_open函数
+    result = _IO_file_open(fp, filename, omode | oflags, oprot, read_write, is32not64);
+    // ...
+}
+libc_hidden_ver(_IO_new_file_fopen, _IO_file_fopen)
+// /libio/fileops.c :
+_IO_FILE* _IO_file_open(_IO_FILE* fp, const char* filename, int posix_mode, int prot, int read_write, int is32not64) {
+    int fdesc;
+    //...
+    // 调用系统函数open打开文件
+    fdesc = open(filename, posix_mode | (is32not64 ? 0 : O_LARGEFILE), prot); 
+    // ...
+    fp->_fileno = fdesc; // 将文件描述符设置到 FILE 结构体 _fileno 里
+    // ...
+    _IO_link_in((struct _IO_FILE_plus*)fp); // 再次调用_IO_link_in // 确保结构体链进 _IO_list_all
+    return fp;
+}
+libc_hidden_def(_IO_file_open)
+```
+
+
+
+#### IO\_FILE: fread
+
+
+
+
+
+
+
+
+
+#### `_IO_2_1_stdout_`
+
+> http://blog.eonew.cn/archives/1190 利用 `_IO_2_1_stdout_` 泄露信息
+
+- `_flags`高2B由libc固定，低2B为flags
+
+ [glibc-2.31 libio/fileops.c `_IO_new_file_xsputn`](https://elixir.bootlin.com/glibc/glibc-2.31.9000/source/libio/fileops.c#L1197)
+
+```cpp
+gef➤  p stdout
+$4 = (FILE *) 0x7f4fd05e46c0 <_IO_2_1_stdout_>
+gef➤  p _IO_2_1_stdout_
+$5 = {
+  file = {
+    _flags = 0xfbad2887, // 高2B由libc固定, 低2B:flags // High-order word is _IO_MAGIC; rest is flags
+    _IO_read_ptr = 0x7f4fd05e4743 <_IO_2_1_stdout_+131> "\n",
+    _IO_read_end = 0x7f4fd05e4743 <_IO_2_1_stdout_+131> "\n",
+    _IO_read_base = 0x7f4fd05e4743 <_IO_2_1_stdout_+131> "\n",
+    _IO_write_base = 0x7f4fd05e4743 <_IO_2_1_stdout_+131> "\n",
+    _IO_write_ptr = 0x7f4fd05e4743 <_IO_2_1_stdout_+131> "\n",
+    _IO_write_end = 0x7f4fd05e4743 <_IO_2_1_stdout_+131> "\n",
+    _IO_buf_base = 0x7f4fd05e4743 <_IO_2_1_stdout_+131> "\n",
+    _IO_buf_end = 0x7f4fd05e4744 <_IO_2_1_stdout_+132> "",
+    _IO_save_base = 0x0,
+    _IO_backup_base = 0x0,
+    _IO_save_end = 0x0,
+    _markers = 0x0,
+    _chain = 0x7f4fd05e39a0 <_IO_2_1_stdin_>,
+    _fileno = 0x1, // stdin=0, stdout=1, stderr=2
+    _flags2 = 0x0,
+    _old_offset = 0xffffffffffffffff,
+    _cur_column = 0x0,
+    _vtable_offset = 0x0,
+    _shortbuf = "\n",
+    _lock = 0x7f4fd05e6690 <_IO_stdfile_1_lock>,
+    _offset = 0xffffffffffffffff,
+    _codecvt = 0x0,
+    _wide_data = 0x7f4fd05e38a0 <_IO_wide_data_1>,
+    _freeres_list = 0x0,
+    _freeres_buf = 0x0,
+    __pad5 = 0x0,
+    _mode = 0xffffffff,
+    _unused2 = '\000' <repeats 19 times>
+  },
+  vtable = 0x7f4fd05e54c0 <_IO_file_jumps>
+}
+```
+
+- `stdout->_flags`含义：`/usr/include/x86_64-linux-gnu/bits/libio.h`
+
+```cpp
+#define _IO_MAGIC 0xFBAD0000 /* Magic number */  // /usr/include/x86_64-linux-gnu/bits/libio.h
+#define _OLD_STDIO_MAGIC 0xFABC0000 /* Emulate old stdio. */
+#define _IO_MAGIC_MASK 0xFFFF0000 // High-order word(2B) is _IO_MAGIC; rest is flags 
+#define _IO_USER_BUF 1 /* User owns buffer; don't delete it on close. */
+#define _IO_UNBUFFERED 2
+#define _IO_NO_READS 4 /* Reading not allowed */
+#define _IO_NO_WRITES 8 /* Writing not allowd */
+#define _IO_EOF_SEEN 0x10
+#define _IO_ERR_SEEN 0x20
+#define _IO_DELETE_DONT_CLOSE 0x40 /* Don't call close(_fileno) on cleanup. */
+#define _IO_LINKED 0x80 // Set if linked (using _chain) to streambuf::_list_all. // default
+#define _IO_IN_BACKUP 0x100
+#define _IO_LINE_BUF 0x200
+#define _IO_TIED_PUT_GET 0x400 /* Set if put and get pointer logicly tied. */
+#define _IO_CURRENTLY_PUTTING 0x800
+#define _IO_IS_APPENDING 0x1000
+#define _IO_IS_FILEBUF 0x2000 // _IO_2_1_stdout_ default
+#define _IO_BAD_SEEN 0x4000
+#define _IO_USER_LOCK 0x8000
+```
+
+> ```cpp
+> // _IO_2_1_stdout_ 一般为 0xfbad2087
+> _IO_MAGIC|_IO_IS_FILEBUF|_IO_CURRENTLY_PUTTING|_IO_LINKED|_IO_NO_READS | _IO_UNBUFFERED |_IO_USER_BUF
+> ```
+
+```cpp
+#include <stdio.h> // gcc stdout_overlapping.cpp -o a
+int main() {
+    setbuf(stdout, NULL);
+    printf("flags: 0x%x\n", stdout->_flags);
+    stdout->_flags = 0xfbad2087 | 0x1000 | 0x800;
+    printf("modified_flag: 0x%x\n", stdout->_flags);
+    stdout->_IO_write_base -= 8;
+    printf("modified_flag: 0x%x\n", stdout->_flags);
+}// Output:
+flags: 0xfbad2087    // _IO_2_1_stdout_ 默认的 _flags
+modified_flag: 0xfbad3887  // 经过修改之后的
+�����modified_flag: 0xfbad3887  // stdout->_IO_write_base -= 8 后 泄露出libc addr
+```
+
+
+
+
+
+### Hijack vtable
+
+> 伪造vtable劫持程序流程
+
+libc 2.23及之前的libc上可实施，libc2.24之后加入了vtable check机制，无法再构造vtable
+
+vtable: `struct _IO_FILE_plus`的字段，函数表指针，存储着许多和IO相关的函数
+
+```cpp
+struct _IO_FILE_plus {
+    _IO_FILE file;
+    const struct _IO_jump_t* vtable;
+};
+struct _IO_jump_t {
+    JUMP_FIELD(size_t, __dummy);
+    JUMP_FIELD(size_t, __dummy2);
+    JUMP_FIELD(_IO_finish_t, __finish);
+    JUMP_FIELD(_IO_overflow_t, __overflow);
+    JUMP_FIELD(_IO_underflow_t, __underflow);
+    JUMP_FIELD(_IO_underflow_t, __uflow);
+    JUMP_FIELD(_IO_pbackfail_t, __pbackfail);
+    /* showmany */
+    JUMP_FIELD(_IO_xsputn_t, __xsputn);
+    JUMP_FIELD(_IO_xsgetn_t, __xsgetn);
+    JUMP_FIELD(_IO_seekoff_t, __seekoff);
+    JUMP_FIELD(_IO_seekpos_t, __seekpos);
+    JUMP_FIELD(_IO_setbuf_t, __setbuf);
+    JUMP_FIELD(_IO_sync_t, __sync);
+    JUMP_FIELD(_IO_doallocate_t, __doallocate);
+    JUMP_FIELD(_IO_read_t, __read);
+    JUMP_FIELD(_IO_write_t, __write);
+    JUMP_FIELD(_IO_seek_t, __seek);
+    JUMP_FIELD(_IO_close_t, __close);
+    JUMP_FIELD(_IO_stat_t, __stat);
+    JUMP_FIELD(_IO_showmanyc_t, __showmanyc);
+    JUMP_FIELD(_IO_imbue_t, __imbue);
+#if 0
+    get_column;
+    set_column;
+#endif
+};
+```
+
+
+
+### FSOP
+
+> File Stream Oriented Programming   关键在于`_IO_list_all`指针
+>
+> https://xz.aliyun.com/t/5508  IO FILE 之劫持vtable及FSOP
+
+
+
+
 
 ## Race Condition
 

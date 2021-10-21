@@ -26,7 +26,9 @@
 
 在kali 18.04, python 3.6.6, pwntools 4.5.0, 可以使用Exploit下的脚本getshell
 
-在Ubuntu 1804, python 3.6.9, pwntools 4.5.1, 可以使用Exploit下的脚本getshell。后续分析在Ubuntu 1804上完成。
+在Ubuntu 1804, python 3.6.9, pwntools 4.5.1, 可以使用Exploit下的脚本getshell。后续分析在Ubuntu 1804上完成
+
+> 后记：也可能与pwntools版本有关，实测pwntools 4.6.0版本有多个bug，包含无法attach gdb 10.1.2
 
 # checksec
 

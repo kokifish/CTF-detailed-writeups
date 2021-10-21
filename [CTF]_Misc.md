@@ -24,6 +24,10 @@ Misc 在国外的比赛中其实又被具体划分为各个小块，有
 
 > 编码有关的分析
 
+- 核心价值观编码： http://www.hiencode.com/cvencode.html
+
+
+
 ## Coding in the Communication
 
 电话拨号编码：1-9 分别使用 1-9 个脉冲，0 则表示使用 10 个脉冲

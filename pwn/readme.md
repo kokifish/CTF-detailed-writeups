@@ -23,3 +23,25 @@ Exploit 放出带有注释的exp
 
 可能含有用gdb的Post Analysis，一般用于分析栈、寄存器变化
 
+
+
+# wp header demo
+
+> 2021 第二届祥云杯网络安全大赛 pwn
+>
+> challenge name: xxx
+>
+> file: chall, libc-2.27.so
+>
+> ld227-3ubuntu1.so and .i64 with comments provided
+>
+> Description: just solve it
+>
+> writeup writer: hexhex16@outlook.com    https://github.com/hex-16
+
+
+
+# 赛题合并
+
+- 用于理解某一知识点的入门级题目放在  `[Simple_Cases]_xxx` 中
+- 同一比赛若有赛题过程相似，知识点相似的，合并赛题文件夹
