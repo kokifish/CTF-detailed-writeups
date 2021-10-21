@@ -92,7 +92,8 @@ Misc 在国外的比赛中其实又被具体划分为各个小块，有
 
 > 转码  https://gchq.github.io/CyberChef/
 
-
+### 核心价值观编码
+http://www.hiencode.com/cvencode.html
 
 ### 霍夫曼编码
 

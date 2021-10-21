@@ -419,28 +419,28 @@ def TEA_decryption(vs, ks):
 1. 首先寻找非线性函数中最明显的差分信息。代码：
     ```python
     def find_differential():
-    for i in range(0x10000):
-        diffs = {}
-        for j in range(0x100):
-            input1 = random.randint(0, 0xffff)
-            input2 = input1 ^ i
-            output1 = f(input1)
-            output2 = f(input2)
-            diff = output1 ^ output2
-            if diff in diffs.keys():
-                diffs[diff] += 1
-            else:
-                diffs[diff] = 1
-        for k in diffs.keys():
-            if diffs[k] >= 60:
-                print(hex(i)[2:], hex(k)[2:], diffs[k])
+        for i in range(0x10000):
+            diffs = {}
+            for j in range(0x100):
+                input1 = random.randint(0, 0xffff)
+                input2 = input1 ^ i
+                output1 = f(input1)
+                output2 = f(input2)
+                diff = output1 ^ output2
+                if diff in diffs.keys():
+                    diffs[diff] += 1
+                else:
+                    diffs[diff] = 1
+            for k in diffs.keys():
+                if diffs[k] >= 60:
+                    print(hex(i)[2:], hex(k)[2:], diffs[k])
     ```
     这里的f就表示非线性函数，代码找出的是输出差分大于等于1/4的所有输入差分。
 2. 在没有线性变换的情况下，以FEAL-4加密为例，其加密过程如下：
     ![](crypto/images/crypto-feal2.jfif)
     在FEAL-4加密的过程中，轮函数在差分输入为0x8080的情况下输出差分一定为0x400。即对于轮函数$f$，给定两个输入$in_1$，$in_2$其中 $in_1 = in_2 \oplus 0x8080$，则必有$f(in_1) = f(in_2) \oplus 0x400$。
 3. 每一轮加密只是一边的输入异或轮密钥后再经过轮函数f得到输出。攻击从最后一轮密钥开始进行攻击。其中有一点很重要的是**非线性函数的输入的差分不确定的情况下和输出的差分一般是均匀分布。** 因此在攻击是时候已知轮函数f输出，在轮密钥交小的情况暴力破解轮密钥模拟输入，如果轮函数f的模拟的输入的结果的差分和已知输出的差分一致，则当前轮密钥就是一个候选密钥。
-4. 得到上一轮的候选密钥就可以构造当前这一轮的轮函数f的输出，然后再暴力枚举轮密钥进行当前密钥的破解。以此类推，这样就能得到第二轮之后的轮密钥。
+4. 得到上一轮的候选密钥就可以构造当前这一轮的轮函数f的输出，然后再暴力枚举轮密钥进行当前密钥的破解。以这样就能得到第二轮之后的轮密钥。
 5. 第一轮的轮密钥可能情况比较的多，而且也不一定需要用到差分性质，需要根据实际情况进行攻击。
 
 例题见`crypto\2021_TianYiBei\2021_TianYiBei_MyCipher`
@@ -707,6 +707,12 @@ c_3=m^3\ mod\ n_3$$
 * 代码参考：https://github.com/yifeng-lee/RSA-In-CTF/blob/master/exp6.sage
 * ***具体Sagemath9.2代码见``crypto/code/Factoring_with_High_Bits_Known.py``***
 
+##### 4.6.2 Improve Factoring with High Bits Konwn
+这里试4.6节的变种，就是现在已知$p$或$q$的高位比特和低位比特，只有中间的bit不知道，而且高位bit和低位bit占所有bit的56%或以上。如果不足则可以暴力枚举某些比特使得已知比特的数量大于56%，从而实用该攻击
+* 攻击原理：求解$$2^lx + p_{low} + p_{high} \equiv 0\ mod\ N$$ 同样是使用sagemath中的`small_root`函数。就是需要加上`f = f.monic()`一句保证多项式`f`是首一的。
+* 攻击要求与4.6节的一致。
+* 具体代码同样见4.6节的代码。
+
 ##### 4.7 Partial Key Exposure attack （部分密钥泄露攻击）
 此时公钥$e$很小
 * **Theorem 9 (BDF)：** 给定私钥<$N,d$>，$N$长为$n$比特，并给出私钥$d$的$\lceil n/4\rceil$位最低有效位(即$d$的低位)，那么可以在时间$O(elog_2\ e)$中恢复出$d$。
@@ -721,7 +727,7 @@ c_3=m^3\ mod\ n_3$$
 * ***具体Sagemath9.2代码见``crypto/code/Partial_Key_Exposure_attack.py``***
 
 ##### 4.8 Boneh and Durfee attack
-当 $d$ 较小时，满足 $d < N0.292$ 时，我们可以利用该攻击，比 Wiener's Attack 要强一些。
+当 $d$ 较小时，满足 $d < N^{0.292}$ 时，我们可以利用该攻击，比 Wiener's Attack 要强一些。
 
 * 注意：4.2~4.7节的公钥指数$e$都是非常小(一般为3)。而本节仅仅是私钥指数$d$比较的小，而一般假设$e$非常的大。
 
@@ -974,10 +980,22 @@ x^{p-1}\equiv 1\ mod\ p
 $$
 因此$x = y^{a^{-1}}\ mod\ p$，**前提条件**必须是$gcd(a,p-1)=1$，否则不能使用这种方法去求解。当不满足前提条件的时候，求解$n$次剩余的问题可以归结为求解离散对数问题，在计算上是困难的。
 
+
+
+
+
+
+
 ### 一 ElGamal
 **密码体制**
 ![ElGamal](crypto/images/ElGamal.PNG)
 一般来说，$p$至少是160位的十进制素数，**并且$p-1$有大的素因子**。
+
+
+
+
+
+
 
 ### 二 ECC 椭圆曲线加密
 ECC 全称为椭圆曲线加密，EllipseCurve Cryptography，是一种基于椭圆曲线数学的公钥密码。与传统的基于大质数因子分解困难性的加密方法不同，ECC 依赖于解决椭圆曲线离散对数问题的困难性。它的优势主要在于相对于其它方法，它可以在使用较短密钥长度的同时保持相同的密码强度。ECC密码体制在区块链等多种领域中都有应用。
@@ -1002,7 +1020,7 @@ ECC 全称为椭圆曲线加密，EllipseCurve Cryptography，是一种基于椭
 
 **椭圆曲线的阶：** 如果椭圆曲线上一点$P$，存在最小的正整数$n$使得数乘$nP = O_{\infty}$，则将$n$成为点$P$的阶。若$n$不存在，则$P$是无限阶的。
 
-#### ECC中的ElGammal方案
+#### 1 ECC中的ElGammal方案
 * 假设用户B要把消息加密后传输给用户A
 
 * 密钥生成：用户A选择椭圆曲线$E$，令$P$是椭圆曲线$E$上的点，点$P$的阶为$n$，并把点$P$作为基点。随机选取一个正整数$m,m < n$有$Q = mP$。则$E,P,Q,n$是**公钥**，$m$是私钥。
@@ -1016,16 +1034,159 @@ ECC 全称为椭圆曲线加密，EllipseCurve Cryptography，是一种基于椭
 
 原理：$$C_1-mC_2\newline=M+rQ-m(rP)\newline = M+rmP-mrP\newline=M$$
 
-#### 常见ECC攻击方法
+#### 2 常见ECC攻击方法
 * 分布式Pollard Rho算法
 * Pohlig-Hellman攻击(同样用于基点$P$的阶是可被分解成比较小的质因数的情景)
 * 暴力枚举私钥
 * 常见曲线（理论上需要使用特定的方法把该曲线转换成Weierstrass曲线的形式）：https://www.hyperelliptic.org/EFD/index.html
 
-#### 一些额外的攻击方法
+#### 3 一些额外的攻击方法
 * 椭圆曲线中弱曲线的破解：
     1. https://wstein.org/edu/2010/414/projects/novotney.pdf
     2. https://link.springer.com/content/pdf/10.1007/s001459900052.pdf **原文**
+
+#### 4 整环上的椭圆曲线
+* (理论上数域知识扎实的话是能够自己推出的)
+
+一般来说，椭圆曲线的构件都是在有限域上的。但是有些时候题目会出在整环上构造的椭圆曲线。一般来说，在Sagemath中椭圆曲线的构建一般是
+```python
+EllipticCurve(GF(p), [0, 0, 0, A, B])
+```
+但是有些时候会出成
+```python
+N = p * q   # usually we should factor N
+EllipticCurve(Zmod(N), [0, 0, 0, A, B])
+# given
+P = (Px, Py)
+```
+我们把椭圆曲线看成两条椭圆曲线构成，先把点映射到两条在$GF(p)$和$GF(q)$上椭圆曲线中，因为点是由椭圆曲线方程$y^2=x^3+ax+b\ mod\ N$构成，因此只要把点的坐标模$p$和模$q$就可以映射到相应的椭圆曲线上。
+```python
+E1 = EllipticCurve(GF(p), [0, 0, 0, A, B])
+E2 = EllipticCurve(GF(q), [0, 0, 0, A, B])
+#  map point P to E1 and E2 to get E1P and E2P
+E1P = E1(P) # where E1Px == Px % q, E1Py == Py % q
+E2P = E2(P) # where E2Px == Px % p, E2Py == Py % p
+```
+根据题目要求求出两条椭圆曲线的离散对数后，通过中国剩余定理求出模$N$下椭圆曲线的离散对数。注意模数实用的是点P1q和点P1p的阶，不是用椭圆曲线E1,E2的阶
+```python
+# 前一个列表是余数， 后一个列表是模数
+d1 = crt([d1p, d1q], [P1p.order(), P1q.order()])    
+```
+
+#### 5 MOV攻击
+
+* **攻击原理**：使用双线性对进行攻击，本质上是构造一个双线性映射，将椭圆曲线$E(F_q)$的两个点映射到有限域$F_{q^k}$的一个元素，其中$k$是该曲线的**嵌入度**。设曲线$E$的阶为$n$，且$n,q$互素，我们要构造映射$$f:E[n]\times E[n]\rightarrow F_{q^k}$$ 嵌入度$k$满足关系$$n \mid q^k-1$$ 
+这里的双线性对一般使用Weil对或者Tate对。其中双线性对有双线性性，即：对于椭圆曲线上的点$P,Q$和整数$r,s$，有 $$f(rP,sQ) = f(P,Q)rs$$ 因此若要计算离散对数问题 $P' = rP$ 中的$r$。有 $$u = f(P,Q) \\ v = f(P',Q) = f(rP,Q) = f(P,Q)r \\ v = ru$$ 其中$u,v\in F_{q^k}$ 此时变成求解$ F_{q^k}$上的离散对数。
+
+* **攻击条件**：嵌入度$k$需要足够小，对于超奇异曲线(supersingular curve)，其嵌入度足够小，一般$k\leq 6$，此时可以使用MOV攻击。非超奇异曲线的嵌入度一般会非常大。
+
+* **计算复杂度**： TODO
+
+* **Sagemath调包**：首先构造曲线；然后给出离散对数问题；接下来选择$Q$为曲线中生成元的倍点，其中倍数根据定理D.1. 或Table D.1 选择；然后生成Weil对；最后求解离散对数问题。
+**定理D.1. (Theorem)**：令$E(F_q)$是一个超奇异曲线，其阶为$q+1-t$，其中$q=p^m$，$p$为素数，则曲线$E$有以下6种类型。
+    ![](crypto/images/Struct_in_supersingular_curves.PNG)
+```python
+# This is data for an example of
+# a mov reduction using a super-
+# singular curve over F{q}
+
+p = 887421071545180331
+
+assert(p+1 == E1.order())
+
+k = 2 # decided by Table D.1.
+F1 = GF(p)
+E1=EllipticCurve(F1, [0,0,1,0,0])
+F2 = GF(p^k)
+phi = Hom(F1, F2)(F1.gen().minpoly().roots(F2)[0][0])
+E2 = EllipticCurve(F2, [0, 0, 1, 0,0])
+
+n = E1.order()
+
+#random a point
+P1 = E1.random_point()
+R1 = 45*P1
+P2 = E2(phi(P1.xy()[0]), phi(P1.xy()[1]))
+R2 = E2(phi(R1.xy()[0]), phi(R1.xy()[1]))
+
+# Choose Q in the group generated by P1 from Table D.1
+# 选择一个Q点，保证它在椭圆曲线E2（E(F_{q^k})）的子群E[p+1]中，需要根据表Talbe D.1.进行选取
+cn1 = p+1
+coeff = ZZ(cn1 / n)
+print(coeff)
+
+Q = coeff * E2.random_point()
+alpha = P2.weil_pairing(Q, n)
+beta = R2.weil_pairing(Q, n)
+d = beta.log(alpha)
+
+print(d)
+# 45
+```
+
+* 参考资料：
+    * https://crypto.stanford.edu/pbc/thesis.pdf  双线性对
+    * https://www.sagemath.org/files/thesis/hansen-thesis-2009.pdf sagemath求解MOV攻击
+    * Elliptic_Curves_in_Cryptography 书
+    * https://www.zhihu.com/people/ZM_________J/posts 大佬的笔记
+
+
+
+##### 6 Smart攻击
+
+* ***攻击条件：椭圆曲线$E(F_q)$的阶为$q$，$q$是素数***
+
+* **攻击原理**：已知$Q=kP$其中$P,Q\in E(F_p)$。首先把在$E(F_p)$中的点提升(lift)到$E(Q_p)$这个椭圆曲线中，其中$Q_p$表示的是 **$p$进域**。然后通过**P进制椭圆对数$\psi_p$**把$E_1(Q_p)$上的点映射到$pZ_p$这个**群**中。最后在群$pZ_p$中求出离散对数$k$。
+    * 这里的$Z_p$不是整数模$p$所构成有限域，而是用来表示$p$进制的整数，而$Q_p$则表示$p$进制的有理数，$p$的幂可以是负数。
+    * 容易得知把曲线$E(Q_p)$的系数模$p$之后就得到了$E(F_p)$上的曲线，点同样也可以根据模$p$得到。这样一来就得到了$E(Q_p)\rightarrow E(F_p)$的一个同态映射。然后我们令$E_1(Q_p)$表示的是这个同态的kernel，即$E_1(Q_p)$包含了所有映射到$E(F_p)$无穷远点的点。
+    * **( P-Adic Elliptic Log) P进制椭圆对数$\psi_p: E_1(Q_p) \rightarrow pZ_p$**：对于点$S(x_S,y_S) \in E_1(Q_p)$ 有 $$\psi_p(S) = -\frac{x_S}{y_S}$$
+
+* **攻击流程**：
+    1. 把点升格lift到$E(Q_p)$中，可使用Hensel's Lemma，得到点$P',Q'$。则有$$Q'-kP' \in E_1(Q_p)$$。
+    2. 把点$P',Q'$升格到$E_1(Q_p)$中，由于椭圆曲线$E(F_p)$的阶为$p$，因此有$pP',pQ' \in E_1(Q_p)$，有$$pQ'-k(pP')\in E_2(Q_p)$$。
+    3. 用P进制椭圆对数把点映射到$pZ_p$中，因此有$$\psi_p(pQ'), \psi_p(pP') \in pZ_p \\ \psi_p(pQ') - k\psi_p(pP') \in pZ_p$$。
+    4. 因此有$$k = \frac{\psi_p(pQ')}{\psi_p(pP')} \in pZ_p$$ 最后计算$k = k\ mod\ p$。
+
+* **Sagemath代码**：
+```python
+def SmartAttack(P,Q,p):
+    E = P.curve()
+    Eqp = EllipticCurve(Qp(p, 2), [ ZZ(t) + randint(0,p)*p for t in E.a_invariants() ])
+
+    P_Qps = Eqp.lift_x(ZZ(P.xy()[0]), all=True)
+    for P_Qp in P_Qps:
+        if GF(p)(P_Qp.xy()[1]) == P.xy()[1]:
+            break
+
+    Q_Qps = Eqp.lift_x(ZZ(Q.xy()[0]), all=True)
+    for Q_Qp in Q_Qps:
+        if GF(p)(Q_Qp.xy()[1]) == Q.xy()[1]:
+            break
+
+    p_times_P = p*P_Qp
+    p_times_Q = p*Q_Qp
+
+    x_P,y_P = p_times_P.xy()
+    x_Q,y_Q = p_times_Q.xy()
+
+    phi_P = -(x_P/y_P)
+    phi_Q = -(x_Q/y_Q)
+    k = phi_Q/phi_P
+    return ZZ(k)
+
+E = EllipticCurve(GF(43), [0,-4,0,-128, -432])
+P = E([0,16])
+Q = 39 * P
+SmartAttack(P,Q,43)
+```
+
+* 参考资料
+    https://zhuanlan.zhihu.com/p/40898123 $p$进域
+    https://wstein.org/edu/2010/414/projects/novotney.pdf  Smart攻击
+    https://zhuanlan.zhihu.com/p/421202600
+
+
+
 
 
 ### 三 超椭圆曲线
@@ -1070,7 +1231,17 @@ $$(ax^2+bx+c)^2 = x^7 +x$$，解出参数$a,b,c$得到$v(x)$，然后就可以�
 
 参考write up：https://ctftime.org/writeup/25448
 
+
+
+
+
+
+
+
 ## $\mathrm I\mathrm I.\mathrm I\mathrm V$ 格密码 
+
+
+
 
 ### 格的基本定义
 
@@ -1257,6 +1428,12 @@ print(cmac)
 #################################
 ```
 
+
+
+
+
+
+
 ## Fowler–Noll–Vo hash function (FNV)
 参考：https://en.wikipedia.org/wiki/Fowler%E2%80%93Noll%E2%80%93Vo_hash_function
 
@@ -1301,6 +1478,13 @@ $n$个数，求解它们的整线性组合使得线性组合所得到的结果�
 ### 暴力攻击
 HashCat 工具 : https://hashcat.net/hashcat/
 (没有尝试使用)
+
+
+
+
+
+
+
 
 ### 哈希长度拓展攻击（hash length extension attacks）
 * 应用场景：MD5 和 SHA-1 等基于 Merkle–Damgård 构造的算法均对此类攻击显示出脆弱性。MD5, SHA1, SHA256, SHA512都可以。该攻击适用于在消息与密钥的长度已知的情形下，所有采取了 $H(key || message)$ 此类构造的散列函数。
