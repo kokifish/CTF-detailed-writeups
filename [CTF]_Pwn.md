@@ -3080,6 +3080,8 @@ Trigger Conditions:
 >
 > https://juejin.cn/post/6844903574154002445 从一次 CTF 出题谈 musl libc 堆漏洞利用
 >
+> https://xz.aliyun.com/t/10326 musl 1.2.2 总结+源码分析 One
+>
 > musl libc约等于dlmalloc(glibc堆管理器ptmalloc2前身)，故chunk unbin等与glibc十分相似
 
 musl libc: 专为嵌入式系统开发的轻量级libc库，简单、轻量、高效
@@ -3139,6 +3141,8 @@ struct bin { // 用循环链表来记录
 > https://xz.aliyun.com/t/5579#toc-1 IO FILE 之vtable check 以及绕过 glibc 2.24引入vtable check
 >
 > https://xz.aliyun.com/t/5508
+>
+> https://b0ldfrev.gitbook.io/note/pwn/iofile-li-yong-si-lu-zong-jie
 
 
 
