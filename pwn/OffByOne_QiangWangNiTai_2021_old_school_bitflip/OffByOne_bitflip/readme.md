@@ -2,7 +2,7 @@
 
 > challenge name: `bitflip`
 >
-> file: `old_school`, libc-2.27.so
+> file: `bitflip`, libc-2.27.so
 >
 > ld.so and .i64 with comments provided
 >
