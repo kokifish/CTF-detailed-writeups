@@ -361,6 +361,18 @@ bin_sh_addr = libcbase + obj.dump("str_bin_sh") # /bin/sh 偏移
 
 
 
+## seccomp
+
+
+
+```bash
+sudo apt install gcc ruby-dev
+sudo gem install seccomp-tools
+sudo seccomp-tools dump "./ld-2.23.so ./pwn"
+```
+
+
+
 # Anti-Pwn
 
 反调试：alarm 程序超时抛出SIGALRM退出。会影响本地调试，替换成isnan函数：`sed -i s/alarm/isnan/g ./ProgrammName`
@@ -2832,7 +2844,7 @@ int main(){ // gcc a.cpp -o a -fpermissive       -Wno-conversion-null -w
 在glibc中存在了很久的时间，类似于tcache，是对小内存块的缓存，但是进程唯一，next指针指向位置不同。
 
 - 存储在全局数据结构`main_arean`，在进程内唯一。
-- 存储小于等于`0x80`的chunk
+- 存储小于等于`0x80`的chunk，chunk大小在 [0x20, 0x80] 
 - 链表头数组 + 单链表，链表指针指向`pre_size` field，插入删除都对链表尾节点操作。(tcache指向的是`user data`首地址 / fd)
 - 不会对free chunk进行合并。鉴于fastbin设计初衷是快速小内存分配释放，故fastbin chunk `PREV_INUSE`总为1，这样即使当fastbin中某个chunk与一个freechunk相邻时，系统也不会自动合并，而是保留两者。
 
@@ -3042,6 +3054,8 @@ Trigger Conditions:
 
 
 
+### Chunk Extend and Overlapping
+
 
 
 ### Use After Free
@@ -3050,15 +3064,31 @@ Trigger Conditions:
 
 当一个内存块被释放之后再次被使用，有以下几种情况：
 
-- 内存块被释放后，其对应的指针被设置为 NULL ， 然后再次使用，程序崩溃。
-- 内存块被释放后，其对应的指针没有被设置为 NULL ，然后在它下一次被使用之前，没有代码对这块内存块进行修改，那么**程序很有可能可以正常运转**。
-- 内存块被释放后，其对应的指针没有被设置为NULL，但是在它下一次使用之前，有代码对这块内存进行了修改，那么当程序再次使用这块内存时，**就很有可能会出现奇怪的问题**。
+- chunk释放后，ptr 置 NULL：再次使用，程序崩溃。
+- chunk释放后，ptr 没有置 NULL，下次使用前没有修改这块chunk：可能正常运行、编辑、输出、double free，UAF
+- chunk释放后，ptr 没有置 NULL，下次使用前修改了这块chunk：可能会出现奇怪的问题
 
-一般所指的 **Use After Free** 漏洞主要是后两种。一般称被释放后没有被设置为NULL的内存指针为**dangling pointer**。
-
-
+**Use After Free** 漏洞一般指free后未置NULL。一般称free后没置NULL的内存指针为**dangling pointer**。
 
 
+
+### Off-By-One
+
+
+
+
+
+> case: 第四届强网拟态 `old_school`, vul: edit时，可能多写1B，导致修改下一chunk的size域最低1B为任意值。
+
+
+
+### Off-By-NULL
+
+
+
+
+
+> case: 第四届强网拟态 `old_school_revenge`，vul: edit时，可能多写1B，导致下一chunk的size域最低1B被改为0。
 
 
 
@@ -3143,6 +3173,8 @@ struct bin { // 用循环链表来记录
 > https://xz.aliyun.com/t/5508
 >
 > https://b0ldfrev.gitbook.io/note/pwn/iofile-li-yong-si-lu-zong-jie
+>
+> 综合case: 祥云杯 quietbaby 考察tcache, unsorted bin leak, stdout leak libc
 
 
 

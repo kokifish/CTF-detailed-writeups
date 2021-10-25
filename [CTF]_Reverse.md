@@ -452,11 +452,11 @@ print(type(h_key), h_key) # <class 'str'> 39343437
 # class bytes to str # and class str to bytes
 s = "ABCabc" # <class 'str'>
 arr = bytes(s, 'utf-8') # <class 'bytes'> # b'ABCabc' # for byte in arr: 65 66 67 97 98 99
-arr2 = bytes(s, 'ascii') # <class 'bytes'> # b'ABCabc' # for byte in arr: 65 66 67 97 98 99
+arr2 = bytes(s, "ascii") # <class 'bytes'> # b'ABCabc' # for byte in arr: 65 66 67 97 98 99
 bytearray(str(s), "ascii") # str to bytes
 bytes(chr(0xb + 0xa + 1), "ascii") # int to chr to bytes(ascii) # 不可见字符转换时会报错
-int(b2 + 0xa + 1).to_bytes(1, "big") # a 0xff int to 1 byte # 1个byte 大端序
-(0xdeadbeef).to_bytes(4, 'little') # b'\xef\xbe\xad\xde' # 转换为小端序4B
+int(b2 + 0xa + 1).to_bytes(1, "big") # int to bytes # a 0xff int to 1 byte # 1个byte 大端序
+(0xdeadbeef).to_bytes(4, 'little') # int to bytes # b'\xef\xbe\xad\xde' # 转换为小端序4B
 ```
 
 
