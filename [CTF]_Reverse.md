@@ -716,7 +716,7 @@ int main( void ){ //  uses _fileno to obtain the file descriptor(fd) for some st
 
 ---
 
-# **IDA Pro** Cheat Sheet
+# **IDA Pro**
 
 > 静态分析
 >
@@ -848,7 +848,9 @@ Then, on local windows:
 
 ## IDA Python
 
-> 主要记录如何使用python与IDA交互
+> 记录IDA与Python有关的一切
+
+- 切换python版本：IDAPro7.6中，命令行执行`idapyswitch.exe --help`, 例如IDA文件夹中有python文件夹`python38`，则可以使用`idapyswitch.exe --force-path D:\OneDrive\CTF\IDAPro7.6\python38\`使用这个文件夹里面的python。直接运行`idapyswitch.exe`会检测不出来IDA里面的python，编辑了PATH也没用，原因未知。
 
 在IDA中使用python的两种方式
 

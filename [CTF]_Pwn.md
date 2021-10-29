@@ -363,10 +363,11 @@ bin_sh_addr = libcbase + obj.dump("str_bin_sh") # /bin/sh 偏移
 
 ## seccomp
 
-
+规则一旦被set，后续不可通过重复set来取消之前的规则。
 
 ```bash
 sudo apt install gcc ruby-dev
+sudo apt install libseccomp-dev libseccomp2 seccomp
 sudo gem install seccomp-tools
 sudo seccomp-tools dump "./ld-2.23.so ./pwn"
 ```
@@ -2422,7 +2423,7 @@ struct chunk{ // chunk使用时的结构
 ```cpp
 struct chunk{ // chunk释放后的结构
 	size_t prev_size;
-	size_t size; // size最低位为0
+	size_t size;
 	chunk* fw;
 	chunk* bk;
 }
@@ -2455,11 +2456,11 @@ struct malloc_chunk { // default: define INTERNAL_SIZE_T size_t
 };
 ```
 
-- **prev_size**: 如果该 chunk 的**物理相邻的前一地址 chunk（两个指针的地址差值为前一 chunk 大小）**是空闲的话，那该字段记录的是前一个 chunk 的大小 (包括 chunk 头)。否则，该字段可以用来存储物理相邻的前一个 chunk 的数据。**这里的前一 chunk 指的是较低地址的 chunk** 。
+- **prev_size**: 如果该 chunk 的**物理相邻的前一 chunk（两个指针的地址差值为前一 chunk 大小）**是空闲的话，那该字段记录的是前一个 chunk 的大小 (含 chunk 头)。否则，该字段可以用来存储物理相邻的前一 chunk 的数据。**这里的前一 chunk 指的是较低地址的 chunk** 
 - **size**: 该 chunk 的大小，大小必须是 2 * SIZE_SZ 的整数倍(32bit OS: 8B, 64bit OS: 16B)。如果申请的内存大小不是 2 * SIZE_SZ 的整数倍，会被转换满足大小的最小的 2 * SIZE_SZ 的倍数。32 位系统中，SIZE_SZ 是 4；64 位系统中，SIZE_SZ 是 8。 该字段的低三个比特位对 chunk 的大小没有影响，它们从高到低分别表示
   - NON_MAIN_ARENA，记录当前 chunk 是否不属于主线程，1 表示不属于，0 表示属于。
   - IS_MAPPED，记录当前 chunk 是否是由 **mmap** 分配的。
-  - **PREV_INUSE**，记录前一个 chunk 块是否被分配。一般来说，堆中第一个被分配的内存块的 size 字段的 P 位都会被设置为 **1**，以便于防止访问前面的非法内存。当一个 chunk 的 size 的 P 位为 **0** 时，我们能通过 prev_size 字段来获取上一个 chunk 的大小以及地址。这也方便进行空闲 chunk 之间的合并。
+  - **PREV_INUSE**，记录前一个 chunk 块是否在使用(tcache/fastbin中的chunk不适用)。通常堆中第一个被分配的chunk的`PREV_INUSE`= **1**，以防止访问前面的内存。当一个 chunk 的 size 的 P 位为 **0** 时，则通过 `prev_size` 字段获取上一 chunk 的大小+地址，以进行空闲 chunk 合并。
 - **fw, bk**:  chunk 处于分配状态时，fd域是user data首地址。chunk 空闲时，fw, bk域有效
   - fw: 指向下一个（非物理相邻）空闲的 chunk
   - bk: 指向上一个（非物理相邻）空闲的 chunk
@@ -3074,7 +3075,13 @@ Trigger Conditions:
 
 ### Off-By-One
 
+修改一个chunk时，触发堆溢出，溢出1个字节，导致下一chunk的size域的最低字节可以被覆盖为任意数字(0-255)
 
+Off-By-NULL的利用方式一般都可以用到Off-By-One问题中，因为Off-By-NULL相当于溢出的一个字节只能为0的特殊Off-By-One。
+
+利用方式：
+
+- 修改一个在unsorted bin中的chunk的size，将其改大，把改大的那部分malloc回来，用改大的一部分修改tcache里chunk的fw域
 
 
 
@@ -3084,7 +3091,11 @@ Trigger Conditions:
 
 ### Off-By-NULL
 
+修改一个chunk时，触发堆溢出，溢出1个字节，导致下一chunk的size域的最低字节可以被覆盖为0
 
+利用方式：
+
+- 向前合并虚假chunk：改变一个chunk的`prev_inuse`位，改`prev_size`，将前一个chunk中的一个fake chunk合并入unsorted bin中，再malloc回来
 
 
 
@@ -3543,6 +3554,14 @@ struct _IO_jump_t {
 > https://xz.aliyun.com/t/5508  IO FILE 之劫持vtable及FSOP
 
 
+
+
+
+## orw
+
+> https://blog.csdn.net/seaaseesa/article/details/106685468 RCTF2020_nowrite(libc_start_main的妙用+盲注)
+>
+> https://balsn.tw/ctf_writeup/20200627-0ctf_tctf2020quals/#simple-echoserver  0CTF/TCTF 2020 Quals 其中echo是格式化字符串漏洞+orw+栈溢出
 
 
 
