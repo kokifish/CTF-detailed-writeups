@@ -361,6 +361,19 @@ bin_sh_addr = libcbase + obj.dump("str_bin_sh") # /bin/sh 偏移
 
 
 
+## seccomp
+
+规则一旦被set，后续不可通过重复set来取消之前的规则。
+
+```bash
+sudo apt install gcc ruby-dev
+sudo apt install libseccomp-dev libseccomp2 seccomp
+sudo gem install seccomp-tools
+sudo seccomp-tools dump "./ld-2.23.so ./pwn"
+```
+
+
+
 # Anti-Pwn
 
 反调试：alarm 程序超时抛出SIGALRM退出。会影响本地调试，替换成isnan函数：`sed -i s/alarm/isnan/g ./ProgrammName`
@@ -2410,7 +2423,7 @@ struct chunk{ // chunk使用时的结构
 ```cpp
 struct chunk{ // chunk释放后的结构
 	size_t prev_size;
-	size_t size; // size最低位为0
+	size_t size;
 	chunk* fw;
 	chunk* bk;
 }
@@ -2443,11 +2456,11 @@ struct malloc_chunk { // default: define INTERNAL_SIZE_T size_t
 };
 ```
 
-- **prev_size**: 如果该 chunk 的**物理相邻的前一地址 chunk（两个指针的地址差值为前一 chunk 大小）**是空闲的话，那该字段记录的是前一个 chunk 的大小 (包括 chunk 头)。否则，该字段可以用来存储物理相邻的前一个 chunk 的数据。**这里的前一 chunk 指的是较低地址的 chunk** 。
+- **prev_size**: 如果该 chunk 的**物理相邻的前一 chunk（两个指针的地址差值为前一 chunk 大小）**是空闲的话，那该字段记录的是前一个 chunk 的大小 (含 chunk 头)。否则，该字段可以用来存储物理相邻的前一 chunk 的数据。**这里的前一 chunk 指的是较低地址的 chunk** 
 - **size**: 该 chunk 的大小，大小必须是 2 * SIZE_SZ 的整数倍(32bit OS: 8B, 64bit OS: 16B)。如果申请的内存大小不是 2 * SIZE_SZ 的整数倍，会被转换满足大小的最小的 2 * SIZE_SZ 的倍数。32 位系统中，SIZE_SZ 是 4；64 位系统中，SIZE_SZ 是 8。 该字段的低三个比特位对 chunk 的大小没有影响，它们从高到低分别表示
   - NON_MAIN_ARENA，记录当前 chunk 是否不属于主线程，1 表示不属于，0 表示属于。
   - IS_MAPPED，记录当前 chunk 是否是由 **mmap** 分配的。
-  - **PREV_INUSE**，记录前一个 chunk 块是否被分配。一般来说，堆中第一个被分配的内存块的 size 字段的 P 位都会被设置为 **1**，以便于防止访问前面的非法内存。当一个 chunk 的 size 的 P 位为 **0** 时，我们能通过 prev_size 字段来获取上一个 chunk 的大小以及地址。这也方便进行空闲 chunk 之间的合并。
+  - **PREV_INUSE**，记录前一个 chunk 块是否在使用(tcache/fastbin中的chunk不适用)。通常堆中第一个被分配的chunk的`PREV_INUSE`= **1**，以防止访问前面的内存。当一个 chunk 的 size 的 P 位为 **0** 时，则通过 `prev_size` 字段获取上一 chunk 的大小+地址，以进行空闲 chunk 合并。
 - **fw, bk**:  chunk 处于分配状态时，fd域是user data首地址。chunk 空闲时，fw, bk域有效
   - fw: 指向下一个（非物理相邻）空闲的 chunk
   - bk: 指向上一个（非物理相邻）空闲的 chunk
@@ -2832,7 +2845,7 @@ int main(){ // gcc a.cpp -o a -fpermissive       -Wno-conversion-null -w
 在glibc中存在了很久的时间，类似于tcache，是对小内存块的缓存，但是进程唯一，next指针指向位置不同。
 
 - 存储在全局数据结构`main_arean`，在进程内唯一。
-- 存储小于等于`0x80`的chunk
+- 存储小于等于`0x80`的chunk，chunk大小在 [0x20, 0x80] 
 - 链表头数组 + 单链表，链表指针指向`pre_size` field，插入删除都对链表尾节点操作。(tcache指向的是`user data`首地址 / fd)
 - 不会对free chunk进行合并。鉴于fastbin设计初衷是快速小内存分配释放，故fastbin chunk `PREV_INUSE`总为1，这样即使当fastbin中某个chunk与一个freechunk相邻时，系统也不会自动合并，而是保留两者。
 
@@ -3042,6 +3055,8 @@ Trigger Conditions:
 
 
 
+### Chunk Extend and Overlapping
+
 
 
 ### Use After Free
@@ -3050,15 +3065,41 @@ Trigger Conditions:
 
 当一个内存块被释放之后再次被使用，有以下几种情况：
 
-- 内存块被释放后，其对应的指针被设置为 NULL ， 然后再次使用，程序崩溃。
-- 内存块被释放后，其对应的指针没有被设置为 NULL ，然后在它下一次被使用之前，没有代码对这块内存块进行修改，那么**程序很有可能可以正常运转**。
-- 内存块被释放后，其对应的指针没有被设置为NULL，但是在它下一次使用之前，有代码对这块内存进行了修改，那么当程序再次使用这块内存时，**就很有可能会出现奇怪的问题**。
+- chunk释放后，ptr 置 NULL：再次使用，程序崩溃。
+- chunk释放后，ptr 没有置 NULL，下次使用前没有修改这块chunk：可能正常运行、编辑、输出、double free，UAF
+- chunk释放后，ptr 没有置 NULL，下次使用前修改了这块chunk：可能会出现奇怪的问题
 
-一般所指的 **Use After Free** 漏洞主要是后两种。一般称被释放后没有被设置为NULL的内存指针为**dangling pointer**。
-
-
+**Use After Free** 漏洞一般指free后未置NULL。一般称free后没置NULL的内存指针为**dangling pointer**。
 
 
+
+### Off-By-One
+
+修改一个chunk时，触发堆溢出，溢出1个字节，导致下一chunk的size域的最低字节可以被覆盖为任意数字(0-255)
+
+Off-By-NULL的利用方式一般都可以用到Off-By-One问题中，因为Off-By-NULL相当于溢出的一个字节只能为0的特殊Off-By-One。
+
+利用方式：
+
+- 修改一个在unsorted bin中的chunk的size，将其改大，把改大的那部分malloc回来，用改大的一部分修改tcache里chunk的fw域
+
+
+
+> case: 第四届强网拟态 `old_school`, vul: edit时，可能多写1B，导致修改下一chunk的size域最低1B为任意值。
+
+
+
+### Off-By-NULL
+
+修改一个chunk时，触发堆溢出，溢出1个字节，导致下一chunk的size域的最低字节可以被覆盖为0
+
+利用方式：
+
+- 向前合并虚假chunk：改变一个chunk的`prev_inuse`位，改`prev_size`，将前一个chunk中的一个fake chunk合并入unsorted bin中，再malloc回来
+
+
+
+> case: 第四届强网拟态 `old_school_revenge`，vul: edit时，可能多写1B，导致下一chunk的size域最低1B被改为0。
 
 
 
@@ -3079,6 +3120,8 @@ Trigger Conditions:
 > http://git.etalabs.net/cgit/musl/ musl官网
 >
 > https://juejin.cn/post/6844903574154002445 从一次 CTF 出题谈 musl libc 堆漏洞利用
+>
+> https://xz.aliyun.com/t/10326 musl 1.2.2 总结+源码分析 One
 >
 > musl libc约等于dlmalloc(glibc堆管理器ptmalloc2前身)，故chunk unbin等与glibc十分相似
 
@@ -3139,6 +3182,10 @@ struct bin { // 用循环链表来记录
 > https://xz.aliyun.com/t/5579#toc-1 IO FILE 之vtable check 以及绕过 glibc 2.24引入vtable check
 >
 > https://xz.aliyun.com/t/5508
+>
+> https://b0ldfrev.gitbook.io/note/pwn/iofile-li-yong-si-lu-zong-jie
+>
+> 综合case: 祥云杯 quietbaby 考察tcache, unsorted bin leak, stdout leak libc
 
 
 
@@ -3507,6 +3554,14 @@ struct _IO_jump_t {
 > https://xz.aliyun.com/t/5508  IO FILE 之劫持vtable及FSOP
 
 
+
+
+
+## orw
+
+> https://blog.csdn.net/seaaseesa/article/details/106685468 RCTF2020_nowrite(libc_start_main的妙用+盲注)
+>
+> https://balsn.tw/ctf_writeup/20200627-0ctf_tctf2020quals/#simple-echoserver  0CTF/TCTF 2020 Quals 其中echo是格式化字符串漏洞+orw+栈溢出
 
 
 
