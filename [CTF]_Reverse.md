@@ -420,6 +420,10 @@ pip install uncompyle6 # install in Linux
 uncompyle6 -o out.py task.pyc # pyc to py
 ```
 
+### pycdc
+由于uncompyle6只能反编译python 1.3版到3.8版的字节码，因此遇到python3.9和python3.10的字节码时需要用到这个软件进行反编译，缺点是某些字节码不全。
+
+> https://github.com/zrax/pycdc
 
 
 ## Python: Encoding

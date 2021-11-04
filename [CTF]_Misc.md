@@ -94,16 +94,59 @@ Misc 在国外的比赛中其实又被具体划分为各个小块，有
 
 ### Base编码
 
+Base编码分为：b16,b32,b36,b58,b62,b64,b64Url,b85,Ascii85,b91,b92,b100
+
+base58：Base58不使用数字"0"，字母大写"O"，字母大写"I"，和字母小写"l"，以及"+"和"/"符号
+
+base64：除字母数字外只有'+'和'/'两个符号，等号不算
+
+base85：有很多别的符号，见到很多符号的时候可以考虑是不是base85
+
 > 转码  https://gchq.github.io/CyberChef/
+
+> 给定一个多重base编码的信息，程序会恢复其原始的形式 https://github.com/mufeedvh/basecrack
+
+> Base系列编码浅析 https://www.cnblogs.com/0yst3r-2046/p/11962942.html
+
+* **换表base** ：有可能题目会给出自己定义的一个表，然后给出换表后的base编码，此时就需要进行换表运算。可以先把编码后的字符用正常的base编码字母表进行更换，然后使用正常的base编码进行解码。例子：
+```python
+str1 = "TCMDIEOH2MJFBLKHT2J7BLYZ2WUE5NYR2HNG===="
+string11 = "GHI45FQRSCXYZ2TUVWJK67DELMNOPAB3"
+string2 = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567"
+print (base64.b32decode(str1.translate(str.maketrans(string1,string2))))
+```
 
 ### 核心价值观编码
 http://www.hiencode.com/cvencode.html
+
+### ROT编码
+
+* ROT5: 只将字符串中的数字进行加密，步数为5，同时在0-9十个数字进行循环，如1在rot5加密后为6，而6在rot5加密后为1
+
+* ROT13: 只将字符串中的字母进行加密，步数为13，加密方式上最接近凯撒密码，分别在A-Z或a-z之间循环，如A在rot13加密后为N,Z在rot13加密后为M **(如果字母部分只有n-r，那大概率是rot13)**
+
+* ROT18: 字面意思(5+13=18) 即将上述两种加密方式结合，分别对数字和字母进行相应的操作
+
+* ROT47: 用当前字符ASCII值往前数的第47位对应字符替换当前字符，例如当前为小写字母z，编码后变成大写字母K
 
 ### 霍夫曼编码
 
 ### URL编码
 
 - 大量的百分号
+
+### Quoted-printable编码
+实例：
+明文：密码学
+密文：=E5=AF=86=E7=A0=81=E5=AD=A6
+工具：http://web.chacuo.net/charsetquotedprintable
+
+### 中文电码
+中文电码表采用了四位阿拉伯数字作代号，从0001到9999按四位数顺序排列，一般来说不会出中文的flag，所有理论上不会用到。
+明文：密码学
+密文：137843161331
+工具：http://code.mcdvisa.com/
+
 
 ### Unicode编码
 
@@ -162,7 +205,8 @@ https://www.dangermouse.net/esoteric/
 在010editor中打开常见的字符为`E2 80 8D`和`E2 80 8C`
 
 * 原理不知道没太大关系，真正要深入的时候再深入也不迟，首先要知道怎样玩
-https://330k.github.io/misc_tools/unicode_steganography.html
+    * https://330k.github.io/misc_tools/unicode_steganography.html
+    * http://link.zhihu.com/?target=https%3A//www.mzy0.com/ctftools/zerowidth1/
 
 
 
@@ -438,9 +482,14 @@ print ('output :' + "".join(output))
 
 # Disk Memory Analysis
 
+
+取证大师
+Magnet AXIOM
+
+
 > 磁盘内存分析 (取证)
 
-常用工具 
+常用取证工具 
 * EasyRecovery 
     * 支持从各种存储介质恢复删除、格式化或者丢失的文件，支持的媒体介质包括：硬盘驱动器、光驱、闪存、以及其它多媒体移动设备。无论文件是被命令行方式删除，还是被应用程序或者文件系统删除，EasyRecovery都能实现恢复，甚至能重建丢失的RAID。
 * FTK（司法智能分析软件）电子物证分析软件，执行自动、完整、彻底的计算机电子取证检查
@@ -451,6 +500,12 @@ print ('output :' + "".join(output))
     * http://down.40huo.cn/misc/Elcomsoft.Forensic.Disk.Decryptor.CracKed.By.Hmily.LCG.rar
 * Volatility (内存取证)
 * NTFS 流文件 **Alternate Stream View** http://down.40huo.cn/misc/alternatestreamview.zip
+* PTF
+    * 这是一个专门找密码的软件，相当于mimikatz。Passware Kit Forensic 2021。 https://link.zhihu.com/?target=https%3A//www.aliyundrive.com/s/54Zr4hjdzhX
+* 取证大师
+    * 国产综合类取证工具
+* Magnet AXIOM
+    * 国外的一款图形化取证工具，功能类似于取证大师。 https://link.zhihu.com/?target=https%3A//www.aliyundrive.com/s/EpRbevKEUi5
 
 > 常见磁盘格式
 Windows: FAT12 -> FAT16 -> FAT32 -> NTFS
