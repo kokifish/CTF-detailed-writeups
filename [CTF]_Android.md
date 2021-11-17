@@ -34,7 +34,73 @@ Dalvik 是 google 专门为 Android 操作系统设计的一个虚拟机，经�
 
 
 
+
+
+# Debug
+
+
+
+# Anti-Debug
+
+
+
+
+
+
+
+## ptrace tracerid
+
+```cpp
+long ptrace(enum __ptrace_request request,pid_t pid,void *addr,void *data);
+```
+
+```
+PTRACE_TRACEME,   本进程被其父进程所跟踪。其父进程应该希望跟踪子进程
+PTRACE_PEEKTEXT,  从内存地址中读取一个字节，内存地址由addr给出
+PTRACE_PEEKDATA,  同上
+PTRACE_PEEKUSER,  可以检查用户态内存区域(USER area),从USER区域中读取一个字节，偏移量为addr
+PTRACE_POKETEXT,  往内存地址中写入一个字节。内存地址由addr给出
+PTRACE_POKEDATA,  往内存地址中写入一个字节。内存地址由addr给出
+PTRACE_POKEUSER,  往USER区域中写入一个字节，偏移量为addr
+PTRACE_GETREGS,    读取寄存器
+PTRACE_GETFPREGS,  读取浮点寄存器
+PTRACE_SETREGS,  设置寄存器
+PTRACE_SETFPREGS,  设置浮点寄存器
+PTRACE_CONT,    重新运行
+PTRACE_SYSCALL,  重新运行
+PTRACE_SINGLESTEP,  设置单步执行标志
+PTRACE_ATTACH，追踪指定pid的进程
+PTRACE_DETACH，  结束追踪
+```
+
+调ptrace可以尝试跟踪某个进程，如果失败则说明目标进程可能已经被附加调试器了
+
+`/proc/pid/status`中会存储tracerid，表示哪个pid在跟踪这个进程
+
+
+
 # Tools
+
+
+
+
+
+## IDA Pro
+
+> 注意本地打开的so版本与远程执行的so版本是否相同。如果打开的so和调试的so版本不同(如armeabi, armeabi-v7a)，attach后不要点same，不然本地so的i64就会被改掉，备注什么的都没了。
+
+远程调试，雷电模拟器+IDA Pro 7.6远程调试配置过程：
+
+1. 把IDA对应的server(在IDA目录下)推到模拟器中并运行：`adb push path\IDAPro7.6\dbgsrv\android_server /data/local/tmp; adb shell; cd /data/local/tmp; chmod 755 ./android_server ; ./android_server `
+2. 另起一个cmd: `adb forward tcp:23946 tcp:23946`，前面的是本地端口，后面的是模拟器里面的端口
+3. IDA中选择Remote ARM Linux/Android debugger, 如果是本机则IP填127.0.0.1, Port=23946; 
+4. 然后Debugger->Attach to Process
+
+> http://www.4k8k.xyz/article/freeking101/106701908 动态调试 普通调试 debug调试
+>
+> FFFFFFFF: got SIGILL signal (Illegal instruction) (exc.code 5, tid 1234). 这个错误的原因疑似为模拟器是x86结构，so程序是ARM架构。雷电模拟器+IDA会报这种错。houdini是Intel研发的ARM binary translator，可以让arm运行在x86架构的cpu上，为业界x86的兼容性方案。
+>
+> IDA无法在apk中的.so下断的原因（大概）：IDA下断在arm的.so的地址上，模拟器在加载so之后，so中指令实际上被转成了x86，但IDA中看到的指令仍是translate前的arm指令，并非实际执行的x86指令。解决方案：arm服务器运行arm模拟器，无指令集兼容问题；qemu运行arm镜像，但速度很慢；root的真机，google系最佳。M1也有兼容性问题，原因：TBD
 
 
 
@@ -83,6 +149,54 @@ win GUI app，可以完全解开apk，
 ## Frida
 
 python+javascript的hook框架，适用于android/ios/linux/win/osx等平台。动态代码执行功能在核心引擎Gum中用C实现
+
+
+
+
+
+### Cases
+
+- hook libc.so的strcmp函数，输出调用时的参数
+
+```python
+import frida
+import sys
+import time
+
+def on_message(message, data):
+    print(message)
+
+# 定义用来hook的js代码
+jscode = """
+
+var str_name_so = "libc.so";
+var funcname = "strcmp";         //要hook的函数在函数里面的偏移
+var ptr_func = Module.findExportByName(str_name_so, funcname);
+
+console.log("ptr_func :", ptr_func);
+
+Interceptor.attach(ptr_func,
+    {
+        onEnter: function (args) {
+            console.log('strcmp:', ptr(args[0]).readCString(), "::", ptr(args[1]).readCString());
+            // console.log("hook on enter no exp");
+        },
+        onLeave: function (retval) {
+            // console.log("hook on Leave no exp");
+        }
+    });
+"""
+
+device = frida.get_usb_device()  # 得到设备 # 如果获取不到 考虑使用 get_remote_device
+p1 = device.spawn(["com.yzdd.crackme"])
+process = device.attach(p1)  # 劫持进程
+script = process.create_script(jscode)  # 创建js脚本
+script.on('message', on_message)  # 加载回调函数，
+print('[*] Running')
+device.resume(p1)
+script.load()  # 加载脚本
+sys.stdin.read()
+```
 
 
 

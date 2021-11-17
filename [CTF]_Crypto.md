@@ -889,24 +889,24 @@ https://arxiv.org/pdf/1111.4877.pdf  **Cao Z , Sha Q , Fan X . Adleman-Manders-M
     # Sagemath 9.2
     e = 399995007353334843492700652707
     n = 183656432204946278583158645163956954879148229006140604544321
-
+    
     m = Matrix(ZZ, 3, 3)
     m[0,0] = 1
     m[0,2] = e
     m[1,1] = 1
     m[1,2] = 1-n
     m[2,2] = e*e
-
+    
     ml = m.LLL()
     ttt = ml.rows() 
     # print(ttt[0])
-
+    
     kl = abs(ttt[0][1])
     kpl_1 = abs(ttt[0][2])
     # x^2-(kpl_1+1)x + kl = 0
     k = int(kpl_1+1 +((kpl_1+1)**2-4*kl)**0.5)//2
     l = kpl_1+1-k
-
+    
     for i in range(0,5):
         dp = inverse_mod(e, k)+i*k
         for j in range(0,5):
@@ -1215,7 +1215,7 @@ d1 = crt([d1p, d1q], [P1p.order(), P1q.order()])
 * **计算复杂度**： TODO
 
 * **Sagemath调包**：首先构造曲线；然后给出离散对数问题；接下来选择$Q$为曲线中生成元的倍点，其中倍数根据定理D.1. 或Table D.1 选择；然后生成Weil对；最后求解离散对数问题。
-**定理D.1. (Theorem)**：令$E(F_q)$是一个超奇异曲线，其阶为$q+1-t$，其中$q=p^m$，$p$为素数，则曲线$E$有以下6种类型。
+  **定理D.1. (Theorem)**：令$E(F_q)$是一个超奇异曲线，其阶为$q+1-t$，其中$q=p^m$，$p$为素数，则曲线$E$有以下6种类型。
     ![](crypto/images/Struct_in_supersingular_curves.PNG)
 ```python
 # This is data for an example of
@@ -1369,9 +1369,7 @@ $$(ax^2+bx+c)^2 = x^7 +x$$，解出参数$a,b,c$得到$v(x)$，然后就可以�
 
 
 
-
-## $\mathrm I\mathrm I.\mathrm I\mathrm V$ 格密码 
-
+## $\mathrm I\mathrm I.\mathrm I\mathrm V$ 格密码
 
 
 
@@ -1636,17 +1634,17 @@ print(cmac)
 * 输入：给定$n$个(实/有理)数$a_1,a_2,...,a_n$
 * 输出：求出$n$个数$z_1, z_2, ..., z_n$使得$\sum_{i=1}^nz_ia_i$等于0或尽可能等于0。   
 * 过程：构造出矩阵$$
-B = \left[\begin{matrix}
-1 & 0 & \cdots & 0 & Ka_1 \\
-0 & 1 & \cdots & 0 & Ka_2 \\
-\vdots & \vdots & \ddots & \vdots & \vdots \\
-0 & 0 & \cdots & 1 & Ka_n
-\end{matrix}\right]^T
-$$ 然后使用LLL算法对矩阵$B$进行规约，得到转换矩阵$T'$。因此 有$B^TT' = \tilde{B}$。
-**注：若$B$是m行n列，则$T'$是m行n列，则$\tilde{B}$是n行n列的矩阵。在解决次问题的过程中，变换矩阵$T'$的最后$m-n$列是没有用的。**
+  B = \left[\begin{matrix}
+  1 & 0 & \cdots & 0 & Ka_1 \\
+  0 & 1 & \cdots & 0 & Ka_2 \\
+  \vdots & \vdots & \ddots & \vdots & \vdots \\
+  0 & 0 & \cdots & 1 & Ka_n
+  \end{matrix}\right]^T
+  $$ 然后使用LLL算法对矩阵$B$进行规约，得到转换矩阵$T'$。因此 有$B^TT' = \tilde{B}$。
+  **注：若$B$是m行n列，则$T'$是m行n列，则$\tilde{B}$是n行n列的矩阵。在解决次问题的过程中，变换矩阵$T'$的最后$m-n$列是没有用的。**
     * 转换矩阵$T'$的第一行表示的就是所求的$z_1, z_2, ..., z_n$。记$\tilde{B}$的第一个向量为$v_1$。由![格LLL算法](crypto/images/LLL.PNG)这个性质可知，**LLL基的第一个向量$v_1$有着最短的向量长度**，即 $$||v_1||\leq 2^{\frac{n-1}{4}}(1+\sum^n_{i=1}\alpha_i^2)^{\frac{1}{2(n+1)}}$$ 记后一项为比较小的常数$c$。则 $$||v_1||\leq c \times 2^{\frac{n-1}{4}}$$
     * 这是一个比较小的数，然后我们知道向量$v_i$是原向量的线性组合，因此$v_i$的第$n+1$个元素为 
-    $$v_i[n+1] = K\sum_{i=1}^nz_ia_i$$ 因此只要常数$K$足够大，那么后面的求和就必须足够小，因此当$a_i$全为整数的时候，该求和一定为0。(若$a_i$为实数，那么该求和可能就不为0，但是会比较接近0) 这就说明了算法的正确性。 
+      $$v_i[n+1] = K\sum_{i=1}^nz_ia_i$$ 因此只要常数$K$足够大，那么后面的求和就必须足够小，因此当$a_i$全为整数的时候，该求和一定为0。(若$a_i$为实数，那么该求和可能就不为0，但是会比较接近0) 这就说明了算法的正确性。 
 * 实验：在使用Sagemath进行编程实现的时候，矩阵是使用二重列表的形式表示。若记$B$为需要进行LLL变换的矩阵，那么每一个格上的向量使用一个列表进行表示。然后直接执行
 ``L = B.LLL()``
 得到**LLL算法下新的格基**，这个新的格基的大小和$B$一致。算法的要求是转换矩阵的线性组合的系数。由于矩阵$B$在前$n\times n$的元素是个单位矩阵，因此系数矩阵与新的格矩阵在左上方$n\times n$的元素上相等。我们可以直接使用新的格基的第一行的前$n$个元素作为系数矩阵的系数来使用。
@@ -1842,12 +1840,10 @@ $$
 $$
 x\equiv\pm a^{\frac{p+1}{4}}(mod\ p)
 $$
-
 2. 若 $x^2\equiv a\ (mod\ pq)$ 有解,$p,q$是形为$4k+3$的素数,则其解为
 $$
 x\equiv\pm (a^{\frac{p+1}{4}}(mod\ p))\cdot s\cdot q\pm(a^{\frac{q+1}{4}}(mod\ q))\cdot t\cdot p\ \ (mod\ pq)
 $$
-
 ### 1.2 $p$是一般的奇素数
 代码见`crypto/code/square_root_of_quadratic_residue.py`
 参考资料：https://learnblockchain.cn/article/1520
