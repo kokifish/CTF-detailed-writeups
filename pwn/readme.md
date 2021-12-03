@@ -27,17 +27,19 @@ Exploit 放出带有注释的exp
 
 # wp header demo
 
-> 2021 第二届祥云杯网络安全大赛 pwn
+
+
+> # 第四届“强网”拟态防御国际精英挑战赛 2021 pwn **xxx**
 >
-> challenge name: xxx
+> challenge name: `xxx`
 >
-> file: chall, libc-2.27.so
+> file: `pwn`, `libc-2.27.so`
 >
-> ld227-3ubuntu1.so and .i64 with comments provided
->
-> Description: just solve it
+> ld.so and .i64 with comments provided
 >
 > writeup writer: hexhex16@outlook.com    https://github.com/hex-16
+>
+> something wanna say...
 
 
 
@@ -45,5 +47,5 @@ Exploit 放出带有注释的exp
 
 - 用于理解某一知识点的入门级题目放在  `[Simple_Cases]_xxx` 中
 - 同一比赛若有赛题过程相似，知识点相似的，合并赛题文件夹
-- 不同赛事中，如果有赛题相似度过高，属于同一类别的，也合并。合并后文件夹以赛题类别命名
+- 不同赛事中，如果有赛题相似度过高，属于同一类别的，也合并。合并后文件夹以赛题类别命名 e.g.`Heap_OffByOne`
 

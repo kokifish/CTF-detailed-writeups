@@ -942,7 +942,7 @@ int main(int argc, char *argv[]){
 
 > 相信内容见reverse.md中的 *6. printf()函数与参数传递*
 
-- \*nix x64系统先使用RDI, RSI, RDX, RCX, R8, R9寄存器传递前6个参数，然后利用栈传递其余的参数
+- \*nix x64系统先使用**RDI, RSI, RDX, RCX, R8, R9**寄存器传递前6个参数，然后利用栈传递其余的参数
 - Win64使用RCX, RDX, R8, R9寄存器传递前4个参数，使用栈来传递其余参数
 
 ---
@@ -1148,13 +1148,13 @@ Stack Overflow Workflow:
 
 
 
-32 位和 64 位程序有以下简单的区别
 
-- x86
-  - **函数参数**在**函数返回地址**的上方
-- x64
-  - System V AMD64 ABI (Linux、FreeBSD、macOS 等采用) 中前6个整型或指针参数依次保存在 **RDI, RSI, RDX, RCX, R8 和 R9 寄存器**中，如果还有更多的参数的话才会保存在栈上
+
+- x86: **函数参数**在**函数返回地址**的上方
+- x64:
+  - System V AMD64 ABI (Linux、FreeBSD、macOS...) 中前6个整型/指针参数保存在 **RDI, RSI, RDX, RCX, R8, R9 寄存器**，如果还有更多的参数的话才会保存在栈上
   - 内存地址不能大于 0x00007FFFFFFFFFFF，**6 个字节长度**，否则会抛出异常
+
 
 
 
@@ -1178,9 +1178,7 @@ Stack Overflow Workflow:
 >
 > https://www.anquanke.com/post/id/85831 现代栈溢出利用技术基础：ROP
 
-- 程序向栈中某个变量中写入的字节数超过变量本身所申请的字节数，导致与其相邻的栈中的变量的值被改变
-- 这种问题是一种特定的缓冲区溢出漏洞，类似的还有堆溢出，bss 段溢出等溢出方式
-- 栈溢出漏洞轻则可以使程序崩溃，重则可以使攻击者控制程序执行流程
+- 程序向栈中某个变量中写入的字节数超过变量本身所申请的字节数，导致与其相邻的栈中的变量的值被改变。类似的还有堆溢出，bss 段溢出等溢出方式
 
 发生栈溢出的基本前提：
 
@@ -1404,6 +1402,10 @@ readelf -S ret2libc # 可以获得段地址，比如bbs段的地址 # 也可在I
 
 
 
+
+
+
+
 ### Blind ROP (BROP)
 
 > BROP(Blind ROP)于2014年由Standford的Andrea Bittau提出，其相关研究成果发表在Oakland 2014，其论文题目是Hacking Blind
@@ -1429,6 +1431,66 @@ readelf -S ret2libc # 可以获得段地址，比如bbs段的地址 # 也可在I
 
 
 
+
+### ret2dlresolve
+
+> https://blog.csdn.net/qq_51868336/article/details/114644569 这个很长，很多案例，但缺少原始binary，payload解释不全，且和自己的binary对应不上。好多博客讲的感觉都不太好... 缺少必要的前置知识，建议重新梳理
+>
+> https://bbs.pediy.com/thread-227034.htm
+>
+> 动态链接的过程以及使用到的section记录到executable中
+
+Linux程序使用 `_dl_runtime_resolve(link_map_obj, reloc_offset)` 来对动态链接的函数重定位，控制`_dl_runtime_resolve`即可控制解析的函数，使其解析出想要的函数。
+
+`_dl_runtime_resolve`解析符号地址时使用的都是从目标文件中的动态节`.dynamic`索引得到的
+
+1. 重定位表项`.rel(a).dyn & .rel(a).plt`: 只读
+
+   ```assembly
+   ; ELF JMPREL Relocation Table; .rel(a).plt 需要重定位的函数的信息
+   Elf64_Rela <600B78h, 100000007h, 0> ; R_X86_64_JUMP_SLOT read ; 1at arg: read@.got.plt
+   Elf64_Rela <600B80h, 200000007h, 0> ; R_X86_64_JUMP_SLOT __libc_start_main
+   Elf64_Rela <600B88h, 400000007h, 0> ; R_X86_64_JUMP_SLOT setvbuf
+   Elf64_Rela <600B90h, 500000007h, 0> ; R_X86_64_JUMP_SLOT atoi
+   LOAD            ends
+   ```
+
+2. 动态符号表`.dynsym`: 只读，`DT_SYMTAB, ELF Symbol Table`
+
+   ```assembly
+   ; ELF Symbol Table
+   Elf64_Sym <0> ; 一个Elf64_Sym占0x18B <offset in dynstr, ...>
+   Elf64_Sym <offset aRead - offset p_dynstr, 12h, 0, 0, 0, 0> ; "read"
+   Elf64_Sym <offset aLibcStartMain - offset p_dynstr, 12h, 0, 0, 0, 0> ; "__libc_start_main"
+   Elf64_Sym <offset aGmonStart - offset p_dynstr, 20h, 0, 0, 0, 0> ; "__gmon_start__"
+   Elf64_Sym <offset aSetvbuf - offset p_dynstr, 12h, 0, 0, 0, 0> ; "setvbuf"
+   Elf64_Sym <offset aAtoi - offset p_dynstr, 12h, 0, 0, 0, 0> ; "atoi"
+   Elf64_Sym <offset aStdout - offset p_dynstr, 11h, 0, 1Ah, offset stdout, 8> ; "stdout"
+   Elf64_Sym <offset aStdin - offset p_dynstr, 11h, 0, 1Ah, offset stdin, 8> ; "stdin"
+   Elf64_Sym <offset aStderr - offset p_dynstr, 11h, 0, 1Ah, offset stderr, 8> ; "stderr"
+   ```
+
+3. 动态字符串表`.dynstr`: 只读，动态链接所需要的字符串，`DT_STRTAB, ELF String Table`. 
+
+   ````assembly
+   LOAD:0000000000400368 p_dynstr        db 0 ; 以0开头; ELF String Table
+   LOAD:0000000000400369 aLibcSo6        db 'libc.so.6',0 
+   LOAD:0000000000400373 aStdin          db 'stdin',0 
+   LOAD:0000000000400379 aRead           db 'read',0
+   LOAD:000000000040037E aStdout         db 'stdout',0 
+   LOAD:0000000000400385 aStderr         db 'stderr',0
+   LOAD:000000000040038C aAtoi           db 'atoi',0
+   LOAD:0000000000400391 aSetvbuf        db 'setvbuf',0
+   LOAD:0000000000400399 aLibcStartMain  db '__libc_start_main',0
+   LOAD:00000000004003AB aGmonStart      db '__gmon_start__',0 
+   LOAD:00000000004003BA aGlibc225       db 'GLIBC_2.2.5',0   ; ELF GNU Symbol Version Table
+   ````
+
+
+
+> # Case
+>
+> hitctf2021 pwn1 silent: 能向任意地址写8B，存在栈溢出。将`Elf64_Dyn <5, 400368h>; DT_STRTAB`字符串表中的地址`0x400368`改为bss区上一个可控的buf上，buf上伪造一个字符串表，替换某个函数(read)的函数名为`system`，再写上`/bin/sh`，然后利用栈溢出，`pop rdi;ret;addr_bin_sh;addr_read_plt`，就变成解析`system`符号并调用`system("/bin/sh")`
 
 ### Fancy Stack Overflow
 
@@ -1632,7 +1694,7 @@ addr of format string: Color %s, Number %d, Float, %4.2f # format string 格式�
   - o，8进制unsigned int 。如果指定了精度，则输出的数字不足时在左侧补0。默认精度为1。精度为0且值为0，则输出为空。
   - s，如果没有用l标志，输出null结尾字符串直到精度规定的上限；如果没有指定精度，则输出所有字节。如果用了l标志，则对应函数参数指向wchar_t型的数组，输出时把每个宽字符转化为多字节字符，相当于调用wcrtomb 函数。
   - c，如果没有用l标志，把int参数转为unsigned char型输出；如果用了l标志，把wint_t参数转为包含两个元素的wchart_t数组，其中第一个元素包含要输出的字符，第二个元素为null宽字符。
-  - p， void *型，输出对应变量的值。printf("%p",a)用地址的格式打印变量a的值，printf("%p", &a)打印变量a所在的地址。
+  - p， void *型，输出对应变量的值。`printf("%p",a)`用地址的格式打印变量a的值，`printf("%p", &a)`打印变量a所在的地址。
   - n，不输出字符，但是把已经成功输出的字符个数写入对应的整型指针参数所指的变量。
   - %， '`%`'字面值，不接受任何flags, width。
 
@@ -3582,6 +3644,17 @@ struct _IO_jump_t {
 
 
 
+
+## MIPS
+
+> https://xuanxuanblingbling.github.io/ctf/pwn/2020/09/24/mips/
+
+```bash
+sudo apt-get install qemu-user # 然后就可以像做x86的一样做了 实际上是
+sudo apt-get install -y gcc-mips-linux-gnu # 安装mips的as gcc等程序
+```
+
+> onegadget 不支持mips, ropper支持mips
 
 
 

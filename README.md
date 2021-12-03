@@ -1,9 +1,9 @@
 # CTF-detailed-writeups
 Very detailed CTF writeups. Try to make it understandable to CTF beginners. Bilingual in Chinese and English, mainly in Chinese.中英双语 中文为主
 
-Some CTF notes will also be saved under this REPO. 部分CTF相关笔记也会保存在此repo下
-
 This REPO is devoted to writing very detailed writeups so that CTF beginners (including me) can replicate the resolution process. 本repo致力于写十分详细的writeup，让CTF beginners也能复现解题过程。~~也可能因为懒，部分writeup会写的比较简洁~~
+
+Some CTF notes will also be saved under this REPO. 部分CTF相关笔记也会保存在此repo下
 
 # Norm
 
@@ -23,7 +23,7 @@ This REPO is devoted to writing very detailed writeups so that CTF beginners (in
   - `image_analysis_zongheng_2020_mosaic`
 - `[alt]` level-3 directory: `pic`, `src`, `doc`,`test`, etc. But **avoid** using it. Use the full name is permitted.
 
-> Archive simple/similar cases in a folder named by `SimpleCases_`+ challenge subclass
+> Archive simple/similar cases in a folder named by `challenge_subclass`, e.g. `Heap_OffByOne`
 
 # Contacts
 
@@ -48,13 +48,13 @@ updating
 - https://github.com/ctf-wiki/ctf-wiki  https://ctf-wiki.org/  for beginners
 - https://github.com/MOCSCTF/CTF-Write-UP
 - https://github.com/ctfs/write-ups-2017
-- https://adworld.xctf.org.cn/
+- https://adworld.xctf.org.cn/ 含wp的刷题
 - https://www.ichunqiu.com/
 - https://www.bugbank.cn/
 - https://blog.knownsec.com/Knownsec_RD_Checklist/index.html 
 - https://github.com/CHYbeta/Web-Security-Learning   web
 - https://github.com/CHYbeta/Software-Security-Learning  pwn
 - https://github.com/Audi-1/sqli-labs sqli challenges
-- https://buuoj.cn/
-- viristotal.com
+- https://buuoj.cn/ 纯刷题
+- http://ww1.viristotal.com/
 

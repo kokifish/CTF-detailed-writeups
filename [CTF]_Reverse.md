@@ -66,8 +66,6 @@
 
 
 
-
-
 # Reverse Engineering Introduction
 
 - 软件代码逆向主要指对软件的结构，流程，算法，代码等进行逆向拆解和分析
@@ -886,9 +884,9 @@ for i in range(182): # 182为judege函数的总长度
 
 
 
+# Angr
 
-
-
+- TBD
 
 
 
