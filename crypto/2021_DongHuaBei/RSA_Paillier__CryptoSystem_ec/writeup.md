@@ -33,7 +33,8 @@ m2 = []
 for i in range(len(c_list)):
     A, B = c_list[i]
     y = y_list[i]
-    lam = (p-1) * (q-1) // GCD(p-1, q-1)lcc = L(y, lam, N)
+    lam = (p-1) * (q-1) // GCD(p-1, q-1)
+    lcc = L(y, lam, N)
     lgg = L(g, lam, N)
     mu = inverse(lgg, N)
     xx = lcc * mu % N

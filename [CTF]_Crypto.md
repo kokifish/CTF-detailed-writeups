@@ -224,6 +224,8 @@ class SecurePrng(object):
 基本用法： 参考 https://www.jianshu.com/p/64d87659673a
 `z3.simplify()`函数可以简化z3表达式从而加快运算速度，但是有可能导致精度丢失。
 
+* **如果题目中给出多元多次方程，可以找出额外的约束条件，从而可以用z3求解。**
+
 使用`z3`求解出约束的多项式之后，需要把结果转换成`python`中的类型，比如int,float,bool等类型，解决方法如下
 (参考：https://www.jb51.cc/python/186627.html 和 https://jingyan.baidu.com/article/48a420579c65f3e8242504b8.html)
 > 对于布尔值,可以使用函数is_true和is_false.数值可以是整数,合理或代数.我们可以使用函数is_int_value,is_rational_value和is_algebraic_value来测试每种情况.整数情况是最简单的,我们可以使用方法as_long()将Z3整数值转换为Python long.对于有理值,我们可以使用方法numerator()和分母()来获取表示分子和分母的Z3整数.方法numerator_as_long()和denominator_as_long()是self.numerator().as_long()和self.denominator().as_long()的快捷方式.最后,代数数字用于表示非理性数字. AlgebraicNumRef类有一个称为约(self,precision)的方法.它返回一个Z3有理数,它以精度为1/10 ^的精度逼近代数
@@ -260,6 +262,15 @@ python中的random库使用的是**Mersenne Twister 算法作为核心生成器*
 参考：`crypto/random_number_Mersenne_Twister_2021NahamconCTF_Dice_Roll`中的writeup。
 破解代码见`crypto/code/mersenne-twister-predictor-master.zip`。
 
+#### `python`中的随机数生成
+在普通的工程上使用`random`函数库即可，但是如果要设计密码方案，则需要用到强随机数生成器。一般来说使用
+* `os.urandom()`：函数调用计算机底层的模块生成随机数，并且它会从许多不可预测的来源中提取其熵源，有较强的随机性。
+* `secrets`：一个较为通用的强伪随机数生成器。
+
+
+
+
+
 ### 块密码
 所谓块加密就是每次加密一块明文，常见的加密算法有：
 - IDEA 加密
@@ -277,9 +288,11 @@ python中的random库使用的是**Mersenne Twister 算法作为核心生成器*
 
 DES is developed in 1970s until 2000s after it was broken (in 22 hours and 15 minutes by distributed.net and the Electronic Frontier Foundation in January 1999). **Triple DES** is hence recommended by the NIST for future use.
 
-DES是一个16轮的Feistel型结构密码，它的分组长度为64比特，用一个56比特的密钥来加密一个64比特的明文串，输出一个64比特的密文串。
+DES是一个**16轮**的Feistel型结构密码，它的**分组长度为64比特**，用一个**56比特的密钥**来加密一个64比特的明文串，输出一个64比特的密文串。
 
-> TODO: DES 原理
+* DES的原理见《密码学原理与实践 第三版》3.5章，下面仅给出DES的轮函数：
+![DES主要流程](crypto/images/DES_main_process.png)
+![DES的F函数](crypto/images/F_function_of_DES.PNG)
 
 * 参考Sagemath9.2代码
 ```python
@@ -303,6 +316,35 @@ D1 = des.decrypt(ciphertext=D2, key=K)
 print(D1.hex())
 #1a1d6d039776742
 ```
+
+##### 1. 线性S盒
+DES的S盒如果是纯线性的，那么只要知道一组明密文对，那么就可以列出在$GF(2)$上的线性方程组，从而把密钥求解出来。可以使用`python`的`z3`库列举线性方程组，然后使用Sagemath进行求解，因为`z3`求解线性方程组比较慢。
+
+* 具体流程
+```python
+from z3 import *
+
+key_z3 = [BitVec(f'k_{i}', 1) for i in range(64)]
+print(len(key_z3))
+s = Solver()
+msg = # 64 bit message
+myc = encrypt_z3(msg, key_z3)
+cc =  # 64 bit ciphertext
+for i in range(64):
+    print([z3.simplify(myc[i])],',')
+```
+方程组列举完成后，使用Sagemath进行求解
+
+```python
+# Sagemath 9.2
+M = Matrix(GF(2), M)
+v = vector(GF(2), v)
+x = M.solve_right(v)
+print(x)    # x is the key in bits
+```
+
+> 如果S盒是线性的，那么这种攻击方法也可以推广到AES中。
+
 
 #### AES (Advanced Encryption Standard)
 
@@ -402,14 +444,24 @@ BETA = BitArray("0x3f84d5b5b5470917")
 
 #### 分组模式
 分组加密会将明文消息划分为固定大小的块，每块明文分别在密钥控制下加密为密文。当然并不是每个消息都是相应块大小的整数倍，所以我们可能需要进行填充。常见的分组模式：
-- ECB：密码本模式（Electronic codebook）
-- CBC：密码分组链接（Cipher-block chaining）
-- PCBC：密码分组链接（Cipher-block chaining）
-- CFB：密文反馈模式（Cipher feedback）
-- OFB：输出反馈模式（Output feedback）
-- CTR：计数器模式（Counter mode）
+- **ECB**：密码本模式（Electronic codebook）
+    - 这种模式是将整个明文分成若干段相同的小段，然后对每一小段进行加密。
+- **CBC**：密码分组链接（Cipher-block chaining）
+    - 这种模式是先将明文切分成若干小段，然后每一小段与初始块或者上一段的密文段进行异或运算后，再与密钥进行加密。
+- **PCBC**：密码分组链接（Cipher-block chaining）
+- **CFB**：密文反馈模式（Cipher feedback）
+    - 此模式将会以一种流密码的形式进行，详细见下面描述：
+    - CFB模式需要一个整数参数$s$，使$1\leq s\leq b$。在下面的CFB模式规范中，每个明文段($P_j$)和密文段($C_j$)由$s$位组成。$s$的值有时被合并到模式的名称中，例如，1位CFB模式、8位CFB模式、64位CFB模式或128位CFB模式。运算形式如下： $$ \begin{array}{l}I_0 = IV. \\ I_i=((I_{i-1}\ll s) + C_i)\ mod\ 2^b, \\ C_i = MSB_s(E_K(I_{i-1}))\oplus P_i, \\ P_i = MSB_s(E_K(I_{i-1}))\oplus C_i \end{array}$$
+    - `pycryptodome`中默认是$s=8$，是其中的`segment_size`参数。
 
-**注：ECB模式的AES是不安全的。**
+- **OFB**：输出反馈模式（Output feedback）
+- **CTR**：计数器模式（Counter mode）
+
+**注：ECB模式的AES是不安全的。建议仔细进行确认，网上有些填充模式说得不对。**
+
+* 参考： https://en.wikipedia.org/wiki/Block_cipher_mode_of_operation
+
+* 有时候会把分组模式作为题目，此时把AES看成黑箱，然后根据最后的结果、最初的结果和允许执行的中间过程构造出题目想要的结果。
 
 #### 填充方法
 目前有不少的填充规则。常见的填充规则：
@@ -490,6 +542,9 @@ BETA = BitArray("0x3f84d5b5b5470917")
 2. D. Boneh and G. Durfee. **New results on cryptanalysis of low private exponent RSA**[J]. Preprint, 1998.
 3. Howgrave-Graham N , Seifert J P . **Extending Wiener's Attack in the Presence of Many Decrypting Exponents**[M] Secure Networking — CQRE [Secure] ’ 99. Springer Berlin Heidelberg, 1999.
 4. Cao Z , Sha Q , Fan X . **Adleman-Manders-Miller Root Extraction Method Revisited**[J]. 2011.
+5. Nagaraj S V . Cryptanalysis of RSA and its variants[M]. Computing Reviews, 2010, 51(7) http://index-of.es/Varios-2/Cryptanalysis%20of%20RSA%20and%20It's%20Variants.pdf
+
+* 第5个参考文献集成了大部分的RSA的攻击，都可以当作工具使用。
 
 #### 零、实用工具
 * RSA工具集-openssl,rsatool,RsaCtfTool
@@ -843,13 +898,17 @@ $$ed+k(\frac{N+1}{2}-\frac{p+q}{2})=1$$
 $m ^ e = kN + c$其中一般 $e = 3$，$k$比较小($k$小于10亿爆破时间一般小于半小时)
 
 ##### 4.10 公钥$e$与$\varphi(N)$不互素
-* 攻击前提：$p,q$已知，$e$比较小(不超过65535)
-但是由于$e$与$\varphi(N)$不互素，所以我们无法求解得到私钥$d$。只有当他们互素时，才能保证$e$的逆元$d$唯一存在。
+* 攻击前提：$p,q,e$已知，但是由于$e$与$\varphi(N)$不互素，所以我们无法求解得到私钥$d$。只有当他们互素时，才能保证$e$的逆元$d$唯一存在。
 ###### 4.10.1 $e \nmid \varphi(N)$
-一般情况下会对同一个信息$m$给出两对$c_1,e_1,n_1,c_2,e_2,n_2$信息，且$n_1 = pq_1$、$n_2=pq_2$。于此同时还有$$gcd(e_1,(p-1)*(q_1-1)) = gcd(e2,(p-1)*(q_2-1)) = b$$然后令$e_i=a_ib$则$a_i$与$\varphi(N)$互素，又因为$ed\equiv 1\ mod\ \varphi(N)$因此每个$a_i$都唯一确定一个$bd_i$，则有$c_i^{bd_i} \equiv m^b\ mod\ N$记$c_i^{bd_i}=res_i$从而我们可以得到$$res_1 \equiv m^b\ mod\ n_1 \newline res_2 \equiv m^b\ mod\ n_2$$展开得$$res_1 \equiv m^b\ mod\ p \newline res_1 \equiv m^b\ mod\ q_1 \newline res_2 \equiv m^b\ mod\ q_2$$通过中国剩余定理计算可得$$res \equiv m^b\ mod\ q_1q_2$$此时求出$b' = gcd(b,q_1q_2)$，$d'=e/b'$，$d'd'^{-1}\equiv 1\ mod\ \varphi(q_1q_2)$，则$$res^{d'^{-1}} \equiv m^{bd'^{-1}} \equiv m^{b'}\ mod\ q_1q_2$$一般来说$b'$为2，此时$res^{d'^{-1}}$已知，因此之需要开个平方就可以得到$m$，**若$b'$不为2，则相当于变成了4.10.2节的情况**。
+已知$p,q,e,m,c$，假设$gcd(e, \phi(N)) = a$，则有$e = ab$，其中$gcd(b,\phi(N)=1$。计算$$c' = c^{-b} = (m^{ab})^{-b} = m^a\ mod\ N$$一般来说$a$都会比较小，这就相当于对$c' = m^a$开$a$次方，既求$c'$的$a$次剩余。**见4.10.2节**。
+
+
+<!-- 一般情况下会对同一个信息$m$给出两对$c_1,e_1,n_1,c_2,e_2,n_2$信息，且$n_1 = pq_1$、$n_2=pq_2$。于此同时还有$$gcd(e_1,(p-1)*(q_1-1)) = gcd(e2,(p-1)*(q_2-1)) = b$$然后令$e_i=a_ib$则$a_i$与$\varphi(N)$互素，又因为$ed\equiv 1\ mod\ \varphi(N)$因此每个$a_i$都唯一确定一个$bd_i$，则有$c_i^{bd_i} \equiv m^b\ mod\ N$记$c_i^{bd_i}=res_i$从而我们可以得到$$res_1 \equiv m^b\ mod\ n_1 \newline res_2 \equiv m^b\ mod\ n_2$$展开得$$res_1 \equiv m^b\ mod\ p \newline res_1 \equiv m^b\ mod\ q_1 \newline res_2 \equiv m^b\ mod\ q_2$$通过中国剩余定理计算可得$$res \equiv m^b\ mod\ q_1q_2$$此时求出$b' = gcd(b,q_1q_2)$，$d'=e/b'$，$d'd'^{-1}\equiv 1\ mod\ \varphi(q_1q_2)$，则$$res^{d'^{-1}} \equiv m^{bd'^{-1}} \equiv m^{b'}\ mod\ q_1q_2$$一般来说$b'$为2，此时$res^{d'^{-1}}$已知，因此之需要开个平方就可以得到$m$，**若$b'$不为2，则相当于变成了4.10.2节的情况**。 -->
 
 ###### 4.10.2 $e\ |\ \varphi(N)$
-现在相当于是这样的一种情况，我们有这样的一个方程$$c\equiv m^e\ mod\ N \tag{4.10}$$，其中$c,N,e,p,q$已知，需要求$m$。但是此时有$e | \varphi(N)$。因此这个方程可以化为$$c\equiv m^e\ mod\ p \newline c\equiv m^e\ mod\ q$$因为$e$与$p,q$互素，因此两个方程各有$e$个根，从而方程$(4.10)$有$e^2$个根。我们的目的就是找到这$e^2$个根中我们需要的那个，**就是找到有特殊字符串开头比如``flag{``开头的根$m$**。
+* 攻击前提：$e$比较小，不大于65536。而且有$e\ |\ (p-1)$ 和 $e\ |\ (q-1)$。若有其中一个条件不满足，则下面讲到的AMM算法就无法求解。
+
+现在相当于是这样的一种情况，我们有这样的一个方程$$c\equiv m^e\ mod\ N, \tag{4.10}$$其中$c,N,e,p,q$已知，需要求$m$。但是此时有$e | \varphi(N)$。因此这个方程可以化为$$c\equiv m^e\ mod\ p \newline c\equiv m^e\ mod\ q$$因为$e$与$p,q$互素，因此两个方程各有$e$个根，从而方程$(4.10)$有$e^2$个根。我们的目的就是找到这$e^2$个根中我们需要的那个，**就是找到有特殊字符串开头比如``flag{``开头的根$m$**。
 
 * 主要流程：
     1. 用**Adleman-Manders-Miller rth Root Extraction Method**在GF(p)和GF(q)上对$c$开$e$次根，分别得到一个解。
@@ -869,6 +928,20 @@ https://arxiv.org/pdf/1111.4877.pdf  **Cao Z , Sha Q , Fan X . Adleman-Manders-M
 
 * 代码参考：https://blog.csdn.net/cccchhhh6819/article/details/112766888 本质上这里的代码是参考starctf2021_Crypto_little_case题目中的writeup。
 * ***具体Sagemath9.2代码见``crypto/code/AMM.sage``***
+
+###### 4.10.3 $e\ |\ \varphi(N)\ v2$
+同样有$e\ |\ \varphi(N)$，但是密文$c$没有$e$个根，因为此时有$e \nmid (p-1)$。不失一般性，假设有$gcd(e, p-1) = a$，$gcd(e, q-1) = b$，其中$1 < a,b < e$。**暂时还没有找到有效的算法进行计算。** 只能将就着使用Sagemath中的求根函数，此时当$e > 100$时，函数基本上不能求解，因为时间太长了。
+
+* 参考代码：
+    ```python
+    P.<x> = GF(p)[]
+    c_ = 
+    f = x^e - c_
+    print(f.roots())
+    ```
+
+###### 小技巧
+因为题目给出的$m$一般比较的小，因此当得到了$$c' = m^e \ mod\ N,$$的时候，可以尝试用`gmpy2.iroot`函数对$c'$开$e$次方根，当$m^e < N$时可以恢复出$m$。
 
 
 ##### 4.11 Small private CRT-exponents $d_p, d_q$
@@ -926,15 +999,31 @@ https://arxiv.org/pdf/1111.4877.pdf  **Cao Z , Sha Q , Fan X . Adleman-Manders-M
 
 
 
+#### 五、变种RSA密码分析
 
-#### 五、选择明密文攻击
-##### 5.1 选择明文攻击
+见Cryptanalysis of RSA and It's Variants的Section 11 Common Prime RSA中的内容。
+
+##### 5.1 Common Prime RSA (素数中含有公约数)
+对于$N=pq$，若有$p-1=2ag,\ q-1 = 2bg$。则此RSA为Common Prime RSA. 
+
+###### 5.1.1 公因数$g\approx N^{1/2}$
+这样一来就有$N=2g(2gab+a+b)+1$，又因为$p-1=2ga$，因此有$c^{N-1}\ mod\ N$有$ab$个元素，而在模$p$的乘法群中只有$a$个元素，然后使用Pollard rho算法的时候算法复杂度就变为了$O(\sqrt{a})$。
+
+因此当$g\approx N^{1/2}$时，$O(\sqrt{a})$就很小，可以用Pollard rho算法进行求解。
+
+###### 5.1.2 已知$a,b$ TODO
+
+###### 5.1.3 已知$g$ TODO
+
+
+#### 六、选择明密文攻击
+##### 6.1 选择明文攻击
 * 前提：我们有一个Oracle，对于给定任意明文，Oracle都会给出相应的密文。
 * 目标：获取公钥N，e
     1. 首先通过构造多对加解密获取N。
     2. 当$e < 2^{64}$时，用 Pollard’s kangaroo algorithm 算法获取公钥$e$。
 
-##### 5.2 选择密文攻击
+##### 6.2 选择密文攻击
 * 前提：我们有一个Oracle，对于任意的合法密文，Oracle都会给出相应的明文(相当于时攻击者临时获得了解密机器的访问权)。但是我们不知道密钥。
 * 目标：Alice计算$C=m^e\ mod\ N$，把Alice用自己的公钥签名的信息$m$恢复出来。
     1. 选择任意$X\in Z_N^*$
@@ -944,19 +1033,19 @@ https://arxiv.org/pdf/1111.4877.pdf  **Cao Z , Sha Q , Fan X . Adleman-Manders-M
 
 此攻击并没有把Alice的私钥恢复出来，本质上是对RSA协议本身的攻击而不是算法的攻击。
 
-##### 5.3 RSA parity oracle
+##### 6.3 RSA parity oracle
 假设目前存在一个 Oracle，它会对一个给定的密文进行解密，并且会检查解密的明文的奇偶性，并根据奇偶性返回相应的值，比如 1 表示奇数，0 表示偶数。那么给定一个加密后的密文，我们只需要 log(N) 次就可以知道这个密文对应的明文消息。
 
 Oracle返回奇偶性信息造成了信息的泄露，因此可以使用选择明文攻击的思路进行攻击，具体的攻击方案见：https://ctf-wiki.org/crypto/asymmetric/rsa/rsa_chosen_plain_cipher/
 
 * 本质上是二分法，然后夹逼。
 
-##### 5.4 RSA Byte Oracle
+##### 6.4 RSA Byte Oracle
 假设目前存在一个 Oracle，它会对一个给定的密文进行解密，并且会给出明文的最后一个字节。那么给定一个加密后的密文，我们只需要$log_{256}N$次就可以知道这个密文对应的明文消息。
 
 具体方案同样见：https://ctf-wiki.org/crypto/asymmetric/rsa/rsa_chosen_plain_cipher/
 
-##### 5.5 RSA parity oracle variant
+##### 6.5 RSA parity oracle variant
 如果 oracle 的参数会在一定时间、运行周期后改变，或者网络不稳定导致会话断开、重置，二分法就不再适用了，为了减少错误，应当考虑逐位恢复。
 
 这里的攻击是基于**RSA parity Oracle** 方案，即对一个给定的密文解密后会检查明文的奇偶性，然后返回相应的值。这里所存在的问题是每次加密和解密所使用的密钥会不一样，5.3节中所介绍的二分法的原理是在相同的密钥的情况下通过选择明文攻击不断发送消息，从而得出明文。
@@ -970,15 +1059,15 @@ Oracle返回奇偶性信息造成了信息的泄露，因此可以使用选择�
 具体方案同样见：https://ctf-wiki.org/crypto/asymmetric/rsa/rsa_chosen_plain_cipher/
 * ***具体Python3代码见``crypto/code/RSA_parity_oracle_variant.py``***
 
-#### 六、侧信道攻击
+#### 七、侧信道攻击
 侧信道攻击：攻击者能获取密码设备中的侧信道信息(例如能量消耗、运算时间、电磁辐射等等)从而获取密码信息。
 
 攻击条件：密码实现的过程中侧信道信息泄露，能从侧信道信息中获取加密过程的信息，从而分析出明文。
 
 详细例子见：https://ctf-wiki.org/crypto/asymmetric/rsa/rsa_side_channel/
 
-#### 七、基于具体RSA实现的攻击
-##### 7.1  Bleichenbacher's Attack on PK CS 1
+#### 八、基于具体RSA实现的攻击
+##### 8.1  Bleichenbacher's Attack on PK CS 1
 即在PKCS 1(Public Key Cryptography Standard 1)中实现时可以找出实现时的漏洞，然后相当于敌手获得一个oracle，使得敌手可以不断猜测一个伪造的签名，知道猜测成功。
 
 这种攻击主要针对PKCS 1实现时的攻击。
@@ -1102,7 +1191,7 @@ $$
 
 求解的过程比较简单，输入以下命令：
 `./cado-nfs.py -dlp -ell <ell> target=<target> <p>`
-其中`p`表示在$GF(p)$这个有限域大小，`ell`表示`p`的一个大素因子，然后`target`表示在有限域$GF(p)里面的一个数，我们要求出`target`的离散对数。
+其中`p`表示在$GF(p)$这个有限域大小，`ell`表示`p`的一个大素因子，然后`target`表示在有限域$GF(p)$里面的一个数，我们要求出`target`的离散对数。
 
 然后有一个注意的点是我们没有指定离散对数的基(base)，既没有给出$a$使得$a^{log(target)} = target\ mod\ p$。然后求解的时候会给出log(2),log(3)，本质上他们的基都是相同的，但是可能2，3和target会在不同的子群中。详细可以见：https://crypto.stackexchange.com/questions/74867/how-do-i-interpret-the-cado-nfs-output-for-discrete-logarithm-calculation-in-gf
 
@@ -1130,7 +1219,7 @@ $$
 
 
 ### 二 ECC 椭圆曲线加密
-ECC 全称为椭圆曲线加密，EllipseCurve Cryptography，是一种基于椭圆曲线数学的公钥密码。与传统的基于大质数因子分解困难性的加密方法不同，ECC 依赖于解决椭圆曲线离散对数问题的困难性。它的优势主要在于相对于其它方法，它可以在使用较短密钥长度的同时保持相同的密码强度。ECC密码体制在区块链等多种领域中都有应用。
+ECC 全称为椭圆曲线加密，Elliptic Curve Cryptography，是一种基于椭圆曲线数学的公钥密码。与传统的基于大质数因子分解困难性的加密方法不同，ECC 依赖于解决椭圆曲线离散对数问题的困难性。它的优势主要在于相对于其它方法，它可以在使用较短密钥长度的同时保持相同的密码强度。ECC密码体制在区块链等多种领域中都有应用。
 
 * **椭圆曲线介绍**
 代数闭包不完善定义：使用域K中的元素作为系数的所有多项式方程的解所构成的域。成为K的代数闭域$~K$
@@ -1205,6 +1294,8 @@ E2P = E2(P) # where E2Px == Px % p, E2Py == Py % p
 d1 = crt([d1p, d1q], [P1p.order(), P1q.order()])    
 ```
 
+* 参考题目：2021广东省强网杯DLP，见`crypto/2021_GD_QWB/2021_GD_QWB_DLP`
+
 #### 5 MOV攻击
 
 * **攻击原理**：使用双线性对进行攻击，本质上是构造一个双线性映射，将椭圆曲线$E(F_q)$的两个点映射到有限域$F_{q^k}$的一个元素，其中$k$是该曲线的**嵌入度**。设曲线$E$的阶为$n$，且$n,q$互素，我们要构造映射$$f:E[n]\times E[n]\rightarrow F_{q^k}$$ 嵌入度$k$满足关系$$n \mid q^k-1$$ 
@@ -1264,7 +1355,7 @@ print(d)
 
 
 
-##### 6 Smart攻击
+#### 6 Smart攻击
 
 * ***攻击条件：椭圆曲线$E(F_q)$的阶为$q$，$q$是素数***
 
@@ -1273,68 +1364,135 @@ print(d)
     * 容易得知把曲线$E(Q_p)$的系数模$p$之后就得到了$E(F_p)$上的曲线，点同样也可以根据模$p$得到。这样一来就得到了$E(Q_p)\rightarrow E(F_p)$的一个同态映射。然后我们令$E_1(Q_p)$表示的是这个同态的kernel，即$E_1(Q_p)$包含了所有映射到$E(F_p)$无穷远点的点。
     * **( P-Adic Elliptic Log) P进制椭圆对数$\psi_p: E_1(Q_p) \rightarrow pZ_p$**：对于点$S(x_S,y_S) \in E_1(Q_p)$ 有 $$\psi_p(S) = -\frac{x_S}{y_S}$$
 
+* **攻击失败**：选取的$Q_p$不当，导致$E(Q_p)$和$E(F_p)$同构，无法获取额外信息，导致攻击失败，这种情况叫做(canonical lift)。正常来说只有$\frac{1}{p}$的概率发生，但是如果选取不当则攻击失败。
+
 * **攻击流程**：
-    1. 把点升格lift到$E(Q_p)$中，可使用Hensel's Lemma，得到点$P',Q'$。则有$$Q'-kP' \in E_1(Q_p)$$。
+    1. 把点升格(lift)到$E(Q_p)$中，可使用Hensel's Lemma，得到点$P',Q'$。则有$$Q'-kP' \in E_1(Q_p)$$。
     2. 把点$P',Q'$升格到$E_1(Q_p)$中，由于椭圆曲线$E(F_p)$的阶为$p$，因此有$pP',pQ' \in E_1(Q_p)$，有$$pQ'-k(pP')\in E_2(Q_p)$$。
     3. 用P进制椭圆对数把点映射到$pZ_p$中，因此有$$\psi_p(pQ'), \psi_p(pP') \in pZ_p \\ \psi_p(pQ') - k\psi_p(pP') \in pZ_p$$。
     4. 因此有$$k = \frac{\psi_p(pQ')}{\psi_p(pP')} \in pZ_p$$ 最后计算$k = k\ mod\ p$。
 
 * **Sagemath代码**：
-```python
-def SmartAttack(P,Q,p):
-    E = P.curve()
-    Eqp = EllipticCurve(Qp(p, 2), [ ZZ(t) + randint(0,p)*p for t in E.a_invariants() ])
+    ```python
+    def SmartAttack(P,Q,p):
+        E = P.curve()
+        Eqp = EllipticCurve(Qp(p, 2), [ ZZ(t) + randint(0,p)*p for t in E.a_invariants() ])
 
-    P_Qps = Eqp.lift_x(ZZ(P.xy()[0]), all=True)
-    for P_Qp in P_Qps:
-        if GF(p)(P_Qp.xy()[1]) == P.xy()[1]:
-            break
+        P_Qps = Eqp.lift_x(ZZ(P.xy()[0]), all=True)
+        for P_Qp in P_Qps:
+            if GF(p)(P_Qp.xy()[1]) == P.xy()[1]:
+                break
 
-    Q_Qps = Eqp.lift_x(ZZ(Q.xy()[0]), all=True)
-    for Q_Qp in Q_Qps:
-        if GF(p)(Q_Qp.xy()[1]) == Q.xy()[1]:
-            break
+        Q_Qps = Eqp.lift_x(ZZ(Q.xy()[0]), all=True)
+        for Q_Qp in Q_Qps:
+            if GF(p)(Q_Qp.xy()[1]) == Q.xy()[1]:
+                break
 
-    p_times_P = p*P_Qp
-    p_times_Q = p*Q_Qp
+        p_times_P = p*P_Qp
+        p_times_Q = p*Q_Qp
 
-    x_P,y_P = p_times_P.xy()
-    x_Q,y_Q = p_times_Q.xy()
+        x_P,y_P = p_times_P.xy()
+        x_Q,y_Q = p_times_Q.xy()
 
-    phi_P = -(x_P/y_P)
-    phi_Q = -(x_Q/y_Q)
-    k = phi_Q/phi_P
-    return ZZ(k)
+        phi_P = -(x_P/y_P)
+        phi_Q = -(x_Q/y_Q)
+        k = phi_Q/phi_P
+        return ZZ(k)
 
-E = EllipticCurve(GF(43), [0,-4,0,-128, -432])
-P = E([0,16])
-Q = 39 * P
-SmartAttack(P,Q,43)
-```
+    E = EllipticCurve(GF(43), [0,-4,0,-128, -432])
+    P = E([0,16])
+    Q = 39 * P
+    SmartAttack(P,Q,43)
+    ```
 
 * 参考资料
     https://zhuanlan.zhihu.com/p/40898123 $p$进域
     https://wstein.org/edu/2010/414/projects/novotney.pdf  Smart攻击
     https://zhuanlan.zhihu.com/p/421202600
+    http://www.monnerat.info/publications/anomalous.pdf Anomalous曲线，适用于Smart攻击
+
+##### Anomalous曲线的生成
+Anomalous曲线的阶为$p$，适用于Smart攻击，暴力查找这样的曲线是很难的，需要特定的寻找方法。
+
+* 参考文献：http://www.monnerat.info/publications/anomalous.pdf Generating Anomalous Elliptic Curves
+
+* 原理文献中都有，这个给出生成曲线的代码：
+    ```python
+    # Sagemath 9.2
+    # http://www.monnerat.info/publications/anomalous.pdf
+    # if m is k-bits, then p is 2*k-bits
+
+    import random
+    D = 19
+    j = -2^15*3^3
+
+    def anon_prime(m):
+        while True:
+            p = (19*m*(m + 1)) + 5
+            if is_prime(p):
+                return m, p
+            m += 1
+
+    curves = []
+    def anom_curve():
+        m = random.getrandbits(128) 
+        while True:
+            m, p = anon_prime(m)
+            a = (-3*j * inverse_mod((j - 1728), p)) % p
+            b = (2*j * inverse_mod((j - 1728), p)) % p
+            E = EllipticCurve(GF(p), [a,b])
+            
+            if E.order() == p:
+                print(a,b,p)
+                break
+    ```
 
 
+#### 7 singular曲线
+既满足$-16(4a^3+27b^2)\ mod\ p = 0$的曲线。它会有落在$(x_0,0)$这样的singular点。这种形式的曲线最终会分两种情况。
+
+* $y^2=x^3$的形式：曲线有一个 **尖点(cusp)** ，在$(0,0)$。然后有同构映射$f:E(F_p) \rightarrow GF(p)$，其中$$f : (x,y) \rightarrow \frac{x}{y}$$
+* $y^2=x^2(x+a)$的形式：曲线的singular点是 **交叉点(node)** ，在$(x_0,0)$。然后求出$a$的平方剩余$a \equiv b^2\ mod\ p$，则有同构映射$f:E(F_p) \rightarrow GF(p)$，其中$$f : (x,y) \rightarrow \frac{y+bx}{y-bx}$$
+
+* 例子：
+    ```python
+    # Sagemath 9.2 The second case y^2 = x^2(x+a)
+    p = 23981
+    P.<x> = GF(p)[]
+    f = x^3 + 17230*x + 22699
+    P = (1451, 1362)
+    Q = (3141, 12767)
+    # change variables to have the singularity at (0, 0)
+    f_ = f.subs(x=x + 23796)
+    P_ = (P[0] - 23796, P[1])
+    Q_ = (Q[0] - 23796, Q[1])
+    # show that the curve is of the form y^2 = x^3 + x^2
+    print(f_.factor())
+    # (x + 23426) * x^2
+    t = GF(p)(23426).square_root()
+    # map both points to F_p
+    u = (P_[1] + t*P_[0])/(P_[1] - t*P_[0]) % p
+    v = (Q_[1] + t*Q_[0])/(Q_[1] - t*Q_[0]) % p
+    # use Sage to solve the logarithm
+    print(discrete_log(v, u))
+    ```
+
+* 参考资料  ： 
+    1. Joseph H.Silverman. The Arithmetic of Elliptic Curves[M]. 2nd Edition. 第三章
+    2. https://crypto.stackexchange.com/questions/61302/how-to-solve-this-ecdlp
 
 
 
 ### 三 超椭圆曲线
 
-一个在$F_q,q = p^l$上的亏格为$g$的超椭圆曲线$C$是由下面的方程构成$$y^2+h(x)y=f(x)$$其中$h(x)$和$f(x)$是两个系数为$F_q$的多项式，其中$deg(h(x))\leq g$和$deg(f(x))=2g+1$。与此同时曲线需要满足非奇异的特性，即满足$$
-\begin{cases}
-y^2+h(x)y=f(x)\\
+一个在$F_q,q = p^l$上的亏格为$g$的超椭圆曲线$C$是由下面的方程构成 $$y^2+h(x)y=f(x)$$ 其中$h(x)$和$f(x)$是两个系数为$F_q$的多项式，其中$deg(h(x))\leq g$和$deg(f(x))=2g+1$。与此同时曲线需要满足非奇异的特性，即满足$$ \begin{cases} y^2+h(x)y=f(x)\\
 2y+h(x)=0\\
 h'(x)y-f'(x)=0
-\end{cases}
-$$ 这三个方程没有解。
+\end{cases} $$ 这三个方程没有解。
 
 接下来对于有限域$F_q$的一个扩域$K$。记$L$为$F_q$的一个代数闭包，那么就有$F_q \subset K \subset L$。 
 
-**除子：** 除子是超椭圆曲线$C$上的点$C(L)$的形式和，记$$D = Div_C(L) = \sum_{P\in C(L)}c_P[P]$$ 定义除子的度数$deg(D)$为$\sum_Pc_P$。对于扩域$K$，我们可以定义度数为0的在扩域$K$上的除子群，其中有$\#K = q^r$：
-$$Div_C^0(K):=\{ D\in Div_C(L) | deg(D) = 0, D^{\sigma^r} = D \}$$ 其中有$P^{\sigma} = (x^q,y^q)$且$D^{\sigma} = \sum_Pc_P[P^{\sigma}]$。
+**除子：** 除子是超椭圆曲线$C$上的点$C(L)$的形式和，记$$D = Div_C(L) = \sum_{P\in C(L)}c_P[P]$$ 定义除子的度数$deg(D)$为$\sum_Pc_P$。对于扩域$K$，我们可以定义度数为0的在扩域$K$上的除子群，其中有$\#K = q^r$：$$Div_C^0(K):=\{ D\in Div_C(L) | deg(D) = 0, D^{\sigma^r} = D \}$$ 其中有$P^{\sigma} = (x^q,y^q)$且$D^{\sigma} = \sum_Pc_P[P^{\sigma}]$。
 
 **order of vanishing：** 记$F(x,y)\in K[x,y]$，即函数$F$是系数为$K$的多项式。在P点的$F$的**order of vanishing**记$ord_P(F)$。直观上(不严谨)可以理解为$F$在$P$点上零点的重数。
 
@@ -1355,11 +1513,11 @@ $$Div_C^0(K):=\{ D\in Div_C(L) | deg(D) = 0, D^{\sigma^r} = D \}$$ 其中有$P^{
 
 $J_C(K)$的运算规则在这里就不给出了，毕竟有现成的轮子的东西没有必要详细介绍。
 
-**关键性质：** 若$$u(x)=\prod_{i=1}^d(x-x_i)$$ 其中$x_i \in K$。根据条件2可知点$(x_i, v(x_i))$是曲线$C$上的点。因此除子$$\sum_{i=1}^d([x_i,v(x_i)]-[\infty])$$是一个在$Div_C^0(K)$上的规约除子。因此超椭圆曲线上的$d\leq g$个点就对应着Jacobian群$J_C(K)$上的一个元素。
+**关键性质：** 若$$u(x)=\prod_{i=1}^d(x-x_i)$$ 其中$x_i \in K$。根据条件2可知点$(x_i, v(x_i))$是曲线$C$上的点。因此除子$$\sum_{i=1}^d([x_i,v(x_i)]-[\infty])$$是一个在$Div_C^0(K)$上的规约除子。因此超椭圆曲线上的$d\leq g$个点就对应着Jacobian群$J_C(K)$上的一个元素。 
+
 
 > 题目 hxp CTF 2020 hyper 
-题目本质上是给了超椭圆曲线的加密方案，但是密钥泄露了$u(x)$。然后只需要求出$v(x)$即可。根据$u(x)$我们可以知道$u(x)$的三个根，然后又因为点$(x_i, v(x_i))$在曲线$C$上。因此可以列出三个方程
-$$(ax^2+bx+c)^2 = x^7 +x$$，解出参数$a,b,c$得到$v(x)$，然后就可以求出flag。
+题目本质上是给了超椭圆曲线的加密方案，但是密钥泄露了$u(x)$。然后只需要求出$v(x)$即可。根据$u(x)$我们可以知道$u(x)$的三个根，然后又因为点$(x_i, v(x_i))$在曲线$C$上。因此可以列出三个方程 $$(ax^2+bx+c)^2 = x^7 +x,$$解出参数$a,b,c$得到$v(x)$，然后就可以求出flag。 
 
 参考write up：https://ctftime.org/writeup/25448
 
@@ -1370,7 +1528,7 @@ $$(ax^2+bx+c)^2 = x^7 +x$$，解出参数$a,b,c$得到$v(x)$，然后就可以�
 
 
 
-## $\mathrm I\mathrm I.\mathrm I\mathrm V$ 格密码 
+## 格密码 
 
 
 
@@ -1408,7 +1566,7 @@ LLL算法本质上是将A lattice basis $B$转换为 LLL-reduced basis $\tilde{B
     * https://cims.nyu.edu/~regev/teaching/lattices_fall_2004/ln/cvp.pdf
     * https://www.isg.rhul.ac.uk/~sdg/igor-slides.pdf
 
-该算法输入一组格$L$(秩为$n$) 的基$B$ 和一个目标向量$t$，输出 CVP 问题的近似解，近似因子$\gamma =2^{\frac{n}{2}}$。具体算法如下，本质上是LLL算法：
+**该算法输入一组格$L$(秩为$n$) 的基$B$ 和一个目标向量$t$，输出 CVP 问题的近似解，既一个在格上的距离向量$t$最短的向量**，近似因子$\gamma =2^{\frac{n}{2}}$。具体算法如下，本质上是LLL算法：
 ![Babai's nearest plane algorithm](crypto/images/BabaisNearestPlaneAlgorithm.PNG)
 这里的$b_j$表示的是经过LLL算法变换之后个格基的第$j$个向量。
 
@@ -1448,6 +1606,49 @@ $$ 注意：这里每一行代表一个向量，因此使用LLL算法求线性�
 * 解题代码``crypto/code/Hidden_Number_Problem/Hidden_Number_Problem.sage``
 
 
+#### GGH公钥密码体制
+
+这是一个困难性基于格的最短向量问题的密码算法($CVP_{\gamma},search$)，密码构造如下：
+* KeyGen
+    1. 选择一组好基(Good basis)哈达马比例(Hadamard ratio)接近1的基称为好基。记为$V = v_1,...,v_n$.
+    2. 选择一个矩阵$U$满足$det(U) = \pm 1$.
+    3. 计算$W = UV$，则$W$为公钥，$V,U$为私钥.
+* Encryption
+    1. 给定明文向量$m$；选择足够小的向量$r$，两者都有$n$个元素.
+    2. 计算$e = mW+r$，$e$为密文.
+* Decryption
+    * 计算$m = eV^{-1}U^{-1}$.因为$r$足够小，因此可以约掉。
+
+* 攻击：当方案设计不当时可以使用Babai's nearest plane algorithm进行求解.
+
+* 参考代码
+    ```python
+    # Sagemath 9.2
+    W = matrix()    # n * n
+
+    e = vector()    # n
+
+    def babai(A, w):
+        A = A.LLL(delta=0.75)
+        G = A.gram_schmidt()[0]
+        t = w
+        for i in reversed(range(A.nrows())):
+            c = ((t * G[i]) / (G[i] * G[i])).round()
+            t -= A[i] * c
+        return w - t
+
+    V = babai(W, e)
+    print(V * W^-1)
+    ```
+
+* 参考文献：
+    * https://zhuanlan.zhihu.com/p/337003376
+    * https://staff.emu.edu.tr/alexanderchefranov/Documents/CMSE491/CMSE491%20Fall2020/Hoffstein2015%20Introduction%20to%20Mathematical%20Cryptography%20409-412%20GGH.pdf
+
+
+
+
+
 ## 同态加密
 
 > 同态加密一般会因为算法本身的复杂度而不会出太难，可能就会让我们推一推解密算法。
@@ -1465,7 +1666,7 @@ Paillier加密系统用到了群$Z^*_{N^2}$。其中一个比较重要的性质�
     * $\phi(N^2) = pq(p-1)(q-1) = N\phi(N)$ .
     * $a\in Z^*_{N^2}$，则有$a^{\phi(N)} \equiv (1 + kN)\ mod\ N^2$.
     * 若$f(a_1,b_1) = f(a_2,b_2)$，则$(1+N)^{a_1-a_2}\cdot (b_1/b_2)^N \equiv 1\ mod\ N^2$.
-    * f(a_1,b_1)\cdot f(a_2,b_2) = f(a_1+a_2, b_1\cdot b_2)
+    * $f(a_1,b_1)\cdot f(a_2,b_2) = f(a_1+a_2, b_1\cdot b_2)$
 
 因此我们可以看成$Z^*_{N^2}$上的元素$c$和$Z_N \times Z_N^*$上的元素$(m,r)$是等价的。
 * Paillier 密码方案
@@ -1651,8 +1852,7 @@ $$ 然后使用LLL算法对矩阵$B$进行规约，得到转换矩阵$T'$。因�
 ``L = B.LLL()``
 得到**LLL算法下新的格基**，这个新的格基的大小和$B$一致。算法的要求是转换矩阵的线性组合的系数。由于矩阵$B$在前$n\times n$的元素是个单位矩阵，因此系数矩阵与新的格矩阵在左上方$n\times n$的元素上相等。我们可以直接使用新的格基的第一行的前$n$个元素作为系数矩阵的系数来使用。
 
-* ***具体Sagemath9.2代码见``crypto/code/LLL_n_positive_integral_combination.sage``*** 这里不是给出题解，而是给出如何使用LLL算法求解**给出
-$n$个数，求解它们的整线性组合使得线性组合所得到的结果为0**这个问题。
+* ***具体Sagemath9.2代码见``crypto/code/LLL_n_positive_integral_combination.sage``*** 这里不是给出题解，而是给出如何使用LLL算法求解**给出$n$个数，求解它们的整线性组合使得线性组合所得到的结果为0**这个问题。
 
 ## Hash 函数的攻击
 * 暴力攻击：不依赖于任何算法细节，仅与 Hash 值长度有关；
@@ -1754,7 +1954,7 @@ def proof_of_work(str, hashh):
 ## ElGamal数字签名
 **具体方案：** 设$p$是一个使得在$Z_p$上的离散对数问题是难处理的素数，设$\alpha\in Z_p^*$是一个本原元(生成元)。设$\mathcal P = Z_p, \mathcal A = Z_P^*\times Z_{p-1}$，定义$$\mathcal K = \{(p,\alpha, a, \beta):\beta \equiv \alpha^a\ (mod\ p)\}$$ 其中$p,\alpha,\beta$是公钥，$a$是私钥。
 
-队$K=(p,\alpha, a, \beta) \in \mathcal K$和一个(秘密)随机数$k\in Z_{p-1}^*$，则：$$sig_K(x,k)=(\gamma,\delta)$$ 其中 $$\gamma = \alpha^k\ mod\ p \newline \delta = (x-a\gamma)k^{-1}\ mod\ (p-1)$$ 对于$x,\gamma\in Z_p^*$和$\delta\in Z_{p-1}$，有 $$ver_K(x,(\gamma,\delta)) = true \newline \Leftrightarrow \beta^{\gamma}\gamma^{\delta}\equiv \alpha^{x}\ (mod\ p)$$
+对于$K=(p,\alpha, a, \beta) \in \mathcal K$和一个(秘密)随机数$k\in Z_{p-1}^*$，则：$$sig_K(x,k)=(\gamma,\delta)$$ 其中 $$\gamma = \alpha^k\ mod\ p \newline \delta = (x-a\gamma)k^{-1}\ mod\ (p-1)$$ 对于$x,\gamma\in Z_p^*$和$\delta\in Z_{p-1}$，有 $$ver_K(x,(\gamma,\delta)) = true \newline \Leftrightarrow \beta^{\gamma}\gamma^{\delta}\equiv \alpha^{x}\ (mod\ p)$$
 
 ### 常见Elgamal攻击
 #### 1.完全破译攻击
@@ -1767,7 +1967,7 @@ def proof_of_work(str, hashh):
 容易得$$\gamma = \alpha^k\ mod\ p \newline \delta_1 = (m_1-a\gamma)k^{-1}\ mod\ (p-1) \newline \delta_2 = (m_2-a\gamma)k^{-1}\ mod\ (p-1)$$ 进而有 $$\delta_1k \equiv m_1 - a\gamma\ mod\ (p-1) \newline \delta_2k \equiv m_2 - a\gamma\ mod\ (p-1)$$ 两式相减得 $$k(\delta_1-\delta_2)\equiv m_1-m_2\ mod\ (p-1)$$ 容易计算出随机数$k$，如果$gcd(\delta_1-\delta_2, p-1) \neq 1$，存在多个解，逐个去试即可。因此有私钥$$a = (m-k\delta)\gamma^{-1}\ mod\ (p-1)$$
 
 #### 2. 通用伪造签名
-如果消息$m$没有取哈希，或者消息$m$没有指定消息格式的情况下攻击成立。攻击者只能构造同构签名验证的信息，但无法伪造指定格式的消息。当消息$m$进行hash操作可避免此攻击。
+如果消息$x$没有取哈希，或者消息$x$没有指定消息格式的情况下攻击成立。攻击者只能构造同构签名验证的信息，但无法伪造指定格式的消息。当消息$x$进行hash操作可避免此攻击。
 
 **攻击流程：**
 1. 选择整数$i,j$满足$gcd(j,p-1)=1$。
@@ -1777,7 +1977,7 @@ def proof_of_work(str, hashh):
 验证：$$\beta^{\gamma}\gamma^{\delta} \equiv \alpha^{i\delta}\beta^{\gamma+j\delta} \equiv \alpha^{i\delta}\beta^{\gamma-j\gamma j^{-1}} \equiv \alpha^{-ij^{-1}\gamma} \equiv \alpha^x\ mod\ p$$
 
 #### 3. 已知签名伪造
-* 攻击者已知$\gamma,\delta$以及消息$x$。（已知消息攻击的存在性伪造）同样可以对消息$m$进行hash操作避免此攻击。
+* 攻击者已知$\gamma,\delta$以及消息$x$。（已知消息攻击的存在性伪造）同样可以对消息$x$进行hash操作避免此攻击。
 
 **攻击流程：**
 1. 选择整数$h,i,j, 0\leq h,i,j \leq p-2$，且$gcd(h\gamma-j\delta, p-1)=1$。
@@ -1872,9 +2072,17 @@ writeup见`crypto\2021_RCTF\2021_RCTF_Uncommon_Factors_II`
 * Orthogonal based approach (OL)
 * Multivariate polynomial approach (MP)
 
-
-## 3. 整数开n次方根
+## 3. 解一元多次方程组
+### 3.1 整数开n次方根
 使用`python`中的`gmpy2.iroot(num, n)`函数。
+
+### 3.2 有限域中一元多次方程组
+```python
+# Sagemath 9.2
+P.<x> = GF(p)[]
+f = x^2 + ax + b
+f.roots()
+```
 
 ## 4. 高斯整数相关
 > 这里主要使用到的是对素数进行分解，和构造$a^2+b^2=n$
@@ -1999,6 +2207,33 @@ print(chinese_remainder([(3,2),(5,3),(7,4),(11,5)]))
 
 * 拓展：佩尔方程 $$x^2-ny^2=c$$
 
+## 8. 欧拉函数 (Euler's totient function)
+计算与$n$互素的所有小于$n$的数的个数。假设$p_1,\cdots,p_r$是$n$的素因数，则：
+$$\phi(n) = n(1-\frac{1}{p_1})\cdots(1-\frac{1}{p_r})$$
+
+## 9. 一些密码学基本概念
+称一个机器是概率多项式时间的，如果它的运行步数是安全参数的多项式函数，简记为PPT。
+
+### 9.1 陷门置换的定义
+**定义 9.1-1** 一个陷门置换族是一个 PPT 算法元组(Gen, Simple, Eval, Invert):
+1. Gen($1^k$)是一个概率性算法，输入为安全参数$1^k$，输出为($i$, td)，其中$i$时定义域$D_i$上的一个置换$f_i$的标号，td时允许求$f_i$逆的陷门信息。
+2. Sample($1^k,i$)时一个概率性算法，输入$i$由Gen产生，输出为$x\leftarrow_R D_i$。
+3. Eval($1^k,i,x$)时一个确定性算法，输入$i$由Gen产生，$x\leftarrow_R D_i$由Sample($1^k,i$)产生，输出为$y\in D_i$。即Eval($1^k,i,\cdot$):$D_i\rightarrow D_i$时$D_i$上的一个置换。
+4. Invert($1^k,(i, td),y$)时一个确定性算法，输入($i$,td)由Gen产生，$y\in D_i$。输出为$x\in D_i$。
+* 陷门置换族的正确性要求：对所有的$k$，($i$,td)$\leftarrow$Gen($1^k$)以及$x\leftarrow$Sample($i^k,i$)，Invert($1^k,(i,td),Eval(1^k,i,x$))= $x$。
+* Invert($1^k,(i, td),\cdot$)其实就是置换$f_i$的逆置换$f_i^{-1}$。虽然$f_i^{-1}$总是存在的，单不一定时可有效计算的。上面的定义说，已知陷门信息td，你置换$f_i^{-1}$是可有效计算的。
+* **在以上定义中，没有考虑任何“困难性”或“安全性”的概念。但密码学中的陷门置换是指单向陷门置换，即当陷门信息td未知时，一个随机陷门置换的求逆是困难的。正式定义如下。**
+
+**定义 9.1-2: 单向陷门置换(TDP)** 一个陷门置换簇(Gen,Sample, Eval, Invert)是单向的，如果对于任意的 PPT 敌手A，存在一个可忽略的函数$\grave{o}(k)$，使得A在下面的游戏中，其优势${\rm Adv}_{\rm T-Perm,A}(k) \leq \grave{o}(k)$：
+* ${\rm Exp_{T-Perm,A}}(k):$
+    * ($i$,td)$\leftarrow$Gen($k$);
+    * $y\leftarrow$ Sample($k,i$);
+    * $x\leftarrow$ A($k,i,y$);
+    * 如果Eval($k,i,x$)=$y$，返回1；否则返回0.
+
+敌手的优势定义为${\rm Adv}_{\rm T-Perm,A}(k) = {\rm Pr[Exp_{T-Perm,A}}(k)=1]$。
+* 此定义主要用在安全性证明中。
+
 
 # 常见Crypto攻击思想
 
@@ -2074,10 +2309,7 @@ openssl x509 -outform der -in certificate.pem -out certificate.der
 openssl x509 -inform der -in certificate.cer -out certificate.pem
 ```
 
-# 比赛
-* angstromctf (https://2021.angstromctf.com/)
-    * Cache Money
-    https://mystiz.hk/posts/2021-04-08-angstromctf-2021/
+
 
 
 
@@ -2099,6 +2331,11 @@ openssl x509 -inform der -in certificate.cer -out certificate.pem
 
 
 # CTF crypto中python技巧
+
+## 判断素数
+* `pycryptodome` : `from Crypto.Util.number import isPrime `
+* `gmpy2` : `gmpy2.is_prime()`
+* `Sagemath` : `is_prime()`
 
 ## CTF常见字符集
 ```python
@@ -2138,7 +2375,7 @@ http://oeis.org/search?q=1%2C4%2C15%2C56&sort=&language=english&go=Search
 
 # 近年来比较热的密码技术
 
-### 差分隐私
+## 差分隐私
 > 最好多看几篇文章，这里就做简单叙述
 * reference: 
     * https://blog.csdn.net/shangsongwww/article/details/105121386
@@ -2155,7 +2392,7 @@ http://oeis.org/search?q=1%2C4%2C15%2C56&sort=&language=english&go=Search
 
 * 因此差分隐私的核心思想就是在查询的结果中加入随机性。差分隐私主要有两种机制： **拉普拉斯机制（Laplace Machanism）和指数机制（Exponential Mechanism）** 来实现差分隐私保护。其中，拉普拉斯机制用于数值型结果的保护，指数机制用于离散型结果的保护。
 
-#### 非形式化定义
+### 非形式化定义
 
 * **Laplace机制** ：在查询结果里加入Laplace分布的噪音，适用于数值型输出。例如：zhihu里有多少人是985大学毕业的？ 假如结果是2000人，那么每一次查询得到的结果都会稍稍有些区别，比如有很高的概率输出2001，也有较高概率输出2010， 较低概率输出1990，等等，然后统计输出的结果，会发现结果服从拉普拉斯分布。
 
@@ -2163,11 +2400,113 @@ http://oeis.org/search?q=1%2C4%2C15%2C56&sort=&language=english&go=Search
 
 * **敏感度**： 差分隐私保护可以通过在查询函数的返回值中加入噪声来实现，但是噪声的大小同样会影响数据的安全性和可用性。通常使用敏感性作为噪声量大小的参数，表示删除数据集中某一记录对查询结果造成的影响。
 
-#### 形式化定义
+### 形式化定义
 
-* **$\epsilon$-差分隐私**： 给定数据集$D$,给定$D$的邻近数据集$D'$,可以理解为$||D|-|D'|| = 1$。给定一个随机函数$f:D\rightarrow S$，$S$表示函数$f$输出的值域，可能是$D$的一个抽样，也可能是统计特性。然后我们有
-$$
-Pr[f(D)=s]\leq Pr[f(D')=s]\times e^{\epsilon}
-$$ 其中$e\approx 2.718281828459$是自然对数，且$s\in S$。
+* **$\epsilon$-差分隐私**： 给定数据集$D$,给定$D$的邻近数据集$D'$,可以理解为$||D|-|D'|| = 1$。给定一个随机函数$f:D\rightarrow S$，$S$表示函数$f$输出的值域，可能是$D$的一个抽样，也可能是统计特性。然后我们有 $$
+Pr[f(D)=s]\leq Pr[f(D')=s]\times e^{\epsilon} $$ 其中$e\approx 2.718281828459$是自然对数，且$s\in S$。
 
 拉普拉斯机制和敏感度机制暂时不提及，有兴趣可以自己研究或补充。
+
+
+
+
+
+## 安全多方计算 TODO
+
+### Shamir秘密分享
+> 本质上是多项式的求解。Shamir的$(k,n)$秘密共享算法将秘密$S$分为$n$个子秘密，任意$k$个子秘密都可以恢复出$S$ ，而任意$k-1$个子秘密无法恢复出$S$。
+
+下面介绍Shamir秘密分析方案，$(k,n)$秘密共享算法：
+* KeyGen：
+    1. 确定$(k,n)$。选择素数$p$
+    2. 选择秘密$S$。
+    3. 选择$k-1$个小于$p$的随机数$a_1,...,a_{k-1}$，得到多项式$y = S + \sum_{i = 1}^{k-1}a_ix^i\ mod\ p$。
+    4. 选择$n$个随机数$x_1,...,x_n$，计算$y_i = S + \sum_{j = 1}^{k-1}a_jx_i^j\ mod\ p$，得到$n$对二元组$(x_i,y_i)$。将$(x_i,y_i)$作为钥匙分给$n$个人。
+* Decryption：
+    1. 集齐任意$k$个人的钥匙，列出$k$个方程组 $$ \begin{cases} S + a_1x_i + ... + a_{k-1}x_i^{k-1} = y_i \\ S + a_1x_{i+1} + ... + a_{k-1}x_{i+1}^{k-1} = y_{i+1} \\ \vdots \\ S + a_1x_{i+k} + ... + a_{k-1}x_{i+k}^{k-1} = y_{i+k}  \end{cases}.$$
+    2. 解方程得到$S,a_1,...,a_{k-1}$，其中$S$就是分享的秘密。
+
+
+* 参考资料：
+    * https://blog.csdn.net/z784561257/article/details/82942581
+    * https://zhuanlan.zhihu.com/p/95362628
+
+### 零知识证明
+
+零知识证明起源于最小泄露证明。
+
+#### 交互式零知识证明
+本质上是基于一个交互式证明系统，交互证明系统由两方参与，分别称为证明者（Prover，简记为P）和验证者（Verifier，简记为 V），其中知道某一秘密（如公钥密码体制的秘密钥或一个二次剩余$x$的平方根），P希望使V相信自己的确掌握这一秘密。交互证明由若干轮组成。
+
+交互证明系统需要满足以下要求：
+1. 完备性：如果P知道某一秘密，V将接受P的证明。
+2. 可靠性：如果P能以一定的概率使V相信
+的证明，则P知道相应的秘密。
+
+**定义：交互证明系统**
+* 我们称(P,V)（或记为S=(P,V)是关于语言 L 、安全参数K的交互式证明系统，如果满足：
+    1. 完备性：$\forall x\in L, {\rm Pr[(P,V)[}x]=1]\geq 1-\grave{o}(K)$；
+    2. 可靠性：$\forall x\notin L, {\rm \forall P^*, Pr[(P^*,V)[}x]=1]\leq 1-\grave{o}(K)$；
+其中(P,V)[$x$]表示当系统的输入是$x$时系统的输出。输出为1表示V接收P的证明。$\grave{o}(K)$是可忽略的。
+
+如果V除了知道P能证明某一事实外，不能得到其它任何信息，则称P实现了零知识证明，相应的协议称为零知识证明协议。
+
+* 刻画交互式证明系统的零知识性。
+
+**定义：零知识性** 设S=(P,V)是一交互证明系统，若对任一PPT的$V^*$，存在PPT的机器$S$，使得对$\forall x\in L$，$\{VIEW_{P,V^*}(x)\}_{x\in L}$和$\{S(x)\}_{x\in L}$服从相同的概率分布，记为$\{VIEW_{P,V^*}(x)\}_{x\in L}\equiv \{S(x)\}_{x\in L}$，称S是完备零知识的，如果$\{VIEW_{P,V^*}(x)\}_{x\in L}\equiv^c\{S(x)\}_{x\in L}$，则称S是计算上零知识的。
+* 其中S为模拟器，$S(x)$表示输入为$x$时，S的输出$\{S(x)\}_{x\in L}$表示S输出的概率。$\{VIEW_{P,V^*}(x)\}_{x\in L}$表示$x\in L$时，$$VIEW_{P,V^*}(x)$的概率分布。
+
+
+#### 非交互式零知识证明
+如果P和V不进行交互，证明由P产生后直接给V，V对证明直接进行验证，这种证明系统称为非交互式证明系统（简称为NIZK: Non-Interactive Zero-Knowledge）定义如下。
+
+> 以下定义非人话，可忽略
+
+**定义：适应性非交互式零知识证明系统**
+如果满足以下条件，一对多项式时间算法$\sum_{ZK}=({\rm P,V,Sim_1,SIm_2})$就是一个语言$L\in NP$的适应性非交互式零知识证明系统:
+1. 完备性：对任意$x\in L(|x|=K)$机器证据$w$，有$$Pr[r\leftarrow_R\{0,1\}^{poly(k)};\pi\leftarrow P(r,x,w):V(r,x,w)=1]=1.$$
+2. 可靠性：对任意$x\notin L$，那么对任意的$P^*，有$$Pr[r\leftarrow_R\{0,1\}^{poly(k)};\pi\leftarrow P(r,x,w):V(r,x,w)=1]=0.$$
+3. 零知识性：设(${\rm Sim_1,Sim_2}$),(${\rm A_1,A_2}$)是一对两阶段算法，考虑如下实验：
+    * ${\rm Exp_{ZK-real}(K)}:$
+        1. $r\leftarrow_R \{0,1\}^{poly(K)}$ ;
+        2. $(x,w)\leftarrow_R A_1(r)(x\in L\cap\{0,1\}^K$ ;
+        3. $p \leftarrow_R P(r,x,w)$ ;
+        4. $b \leftarrow_R A_2(r,x,p)$ ;
+        5. 返回$b$.
+    * ${\rm Exp_{ZK-sim}(K)}:$
+        1. $r\leftarrow_R Sim_1(K)$ ;
+        2. $(x,w)\leftarrow_R A_1(r)(x\in L\cap\{0,1\}^K$ ;
+        3. $\pi \leftarrow_R Sim_2(x)$ ;
+        4. $b \leftarrow_R A_2(r,x,\pi)$ ;
+        5. 返回$b$.
+
+    如果$|{\rm Pr[Exp_{ZK-real}(K)=1] - Pr[Exp_{ZK-sim}(K)=1]}|$是可忽略的，则称$\sum_{ZK}$具有零知识性。
+
+* 目前为止比较出名的是ZCash(零币)中所使用的zk-SNARK零知识证明。这个零知识证明只需要证明者Prover给出少量的信息，验证者就能相信证明者知道ZCash中的私钥和确定证明者拥有的UTXO。
+
+* zk-SNARK比较复杂，这里就不给出原理了，见下方链接。最好一起看，因为笔者也不是每个细节都看懂得懂emmmmmm。但是这么复杂的系统起码需要懂得为什么要出现某些步骤。
+    * https://www.jianshu.com/p/7b772e5cdaef 
+    * https://www.jianshu.com/p/b6a14c472cc1
+    * https://www.investopedia.com/terms/z/zksnark.asp
+    * https://blog.csdn.net/luckydog612/article/details/80396343 非形式化介绍
+
+* zk-SNARK中的一些总结：
+    * 首先是先设计出一套不安全的零知识证明系统，这里主要是首先Prover需要计算某个多项式，而且Prover不能让Verifier知道这个解，但是又要让V相信P知道这个解。
+    * P根据多项式构造出一种QAP(Quadratic Arithmetic Programs)的形式(反正就是解多项式)，然后V通过P构造出的多项式验证出P知道某个秘密。
+    * 这里会出现3个问题：
+        1. V需要给出单个点求值后进行比较以减少P需要传送给V的数据大小。
+        2. P可以根据V给出的抽样点构造多项式。（因此用到同态加密来隐藏抽样点）
+        3. P可以构造错误的多项式通过V给出的抽样点的检测。（因此用到了KCA机制(Knowledge of Coefficient Test and Assumption)，通过椭圆曲线离散对数问题保证P构造的多项式满足离散对数的约束，保证P不会构造错误的多项式）
+        4. 在验证的时候会出现乘法同态隐藏的问题，因此用到椭圆曲线双线性的特点。
+        5. 在ZCash种，构造“共同参考数据集”（CRS，Common Reference String），通过某种可信的方式产生，作为一种全体节点的共识，在所有交易的验证过程中使用，因而“质询-响应”的交互式验证方式变成了只需要P提交证据即可。
+
+
+### 同态加密见现代密码一章
+
+### 群签名
+
+### 环签名
+
+### OT（Oblivious Transfer，不经意传输）
+
+* 参考资料：https://zhuanlan.zhihu.com/p/424202269

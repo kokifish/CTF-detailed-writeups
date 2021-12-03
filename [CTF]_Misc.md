@@ -86,6 +86,7 @@ Misc 在国外的比赛中其实又被具体划分为各个小块，有
 
 ## Computer Related Coding
 
+* http://toolswebtop.com/ 各种编码，遇到不确定的编码可以一个一个试，主要还是靠平时积累
 
 
 ### ASCII编码
@@ -130,6 +131,17 @@ http://www.hiencode.com/cvencode.html
 * ROT47: 用当前字符ASCII值往前数的第47位对应字符替换当前字符，例如当前为小写字母z，编码后变成大写字母K
 
 ### 霍夫曼编码
+
+### Brainfuck and Ook!
+
+https://www.splitbrain.org/services/ook
+
+`Ook. Ook. Ook. Ook. Ook. Ook. Ook. Ook. Ook. Ook. Ook.`
+
+```
++++++ +++++ [->++ +++++ +++<] >++++ +++++ .---- .<+++ [->++ +<]>+ .<+++
++[->- ---<] >.<
+```
 
 ### URL编码
 

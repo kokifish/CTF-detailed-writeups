@@ -1,7 +1,6 @@
 # 2021年TCTF_final—— Crypto —— babylogin
 
 ## 题目
-题目文件： https://attachment.ctf.0ops.sjtu.cn/client
 
 emmmmmm看不懂，我太菜了
 
