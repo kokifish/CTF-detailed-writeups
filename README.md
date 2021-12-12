@@ -1,4 +1,14 @@
 # CTF-detailed-writeups
+
+<p>
+<a href="https://github.com/hex-16/CTF-detailed-writeups"><img alt="updated time" src="https://badges.pufler.dev/updated/hex-16/CTF-detailed-writeups"></a>
+<a href="https://github.com/hex-16/CTF-detailed-writeups"><img alt="created time" src="https://badges.pufler.dev/created/hex-16/CTF-detailed-writeups"></a>
+<a href="https://github.com/hex-16/CTF-detailed-writeups"><img alt="commits" src="https://badges.pufler.dev/commits/monthly/hex-16"></a>
+<a href="https://github.com/hex-16/CTF-detailed-writeups"><img alt="visits" src="https://badges.pufler.dev/visits/hex-16/CTF-detailed-writeups"></a>
+<a href="https://github.com/hex-16/CTF-detailed-writeups"><img alt="GitHub repo file count (file type)" src="https://img.shields.io/github/directory-file-count/hex-16/CTF-detailed-writeups?style=flat-square&type=file"></a>
+</p>
+
+
 Very detailed CTF writeups. Try to make it understandable to CTF beginners. Bilingual in Chinese and English, mainly in Chinese.中英双语 中文为主
 
 This REPO is devoted to writing very detailed writeups so that CTF beginners (including me) can replicate the resolution process. 本repo致力于写十分详细的writeup，让CTF beginners也能复现解题过程。~~也可能因为懒，部分writeup会写的比较简洁~~
