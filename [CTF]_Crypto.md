@@ -41,6 +41,12 @@ https://www.dcode.fr/xor-cipher
 https://www.dcode.fr/tools-list#cryptography
 
 
+#### latex数学符号
+给出一堆latex数学符号，然后要求解flag。一般来说，把数学符号转换为latex公式的形式，然后取每个公式的首个字符就是flag。
+
+* https://blog.csdn.net/anscor/article/details/80878285 latex数学符号
+* http://detexify.kirelabs.org/classify.html latex手写公式识别
+
 #### Playfair
 ###### 原理 
 Playfair 密码（Playfair cipher or Playfair square）是一种替换密码，1854 年由英国人查尔斯 · 惠斯通（Charles Wheatstone）发明，基本算法如下：
@@ -558,6 +564,7 @@ BETA = BitArray("0x3f84d5b5b5470917")
     * Reference：https://doc.sagemath.org/html/en/reference/index.html
     * 官方网站：https://www.sagemath.org/
     * 简单使用：Windows上Sagemath安装完成后，运行``SageMath 9.2 Notebook``文件，然后会打开Jupyter Notebook，在里面进行编程即可。
+    * SageMath常用函数：https://blog.csdn.net/weixin_44338712/article/details/105320810
 
 * Crypto常用的python库
     * gmpy2 (pip 一般不能直接安装，要在网上下载.whl文件然后用pip进行安装)
@@ -729,7 +736,7 @@ $i$|$\alpha$
 
 具体思路：令$$g = gcd(p-1,q-1)$$易得$$deg=k(p-1)(q-1)+g$$令$$s=1-p-q$$记方程$W_i$为$$e_id_ig-k_iN=g+k_is \tag{Wi}$$。对于两个公钥指数的情况，有$$e_1d_1-k_1\varphi(N)=1 \newline e_2d_2-k_2\varphi(N)=1$$上式乘$k_2$减去下式乘$k_1$得$$e_1d_1k_2-e_2d_2k_1=k_2-k_1 \tag{G(1,2)}$$计算可得$W_1W_2$同样也是一个等式。由式$$k_1k_2=k_1k_2 \newline W_1*k_2 \newline G_{(1,2)} \newline W_1*W_2 $$四个等式可以构造如下等式$$A*L_2=B_2$$其中$$A=(k_1k_2,d_1gk_2,d_2gk_1,d_1d_2g^2)$$
 ![](crypto/images/Extended_Wieners_Attack_L.PNG)
-其中$L_2$矩阵都是已知的项构成的，我们可以把$L_2$看作一个格，然后$B_2$是其最短向量，使用**LLL定理**（见4.1节）可以求出其最短向量。而且若$B_2$为最短向量，则需要满足$||B_2||\leq \sqrt{n}det(L)^{\frac{1}{n}}$，即$$2N^{1+2\alpha}\leq 2N^{(\frac{13}{2}+\alpha)\frac{1}{4}}$$解得$\alpha\leq \frac{5}{14}$从而可以代入$M_2$中。(**编程实现的过程中可稍微缩小$\alpha$使得LLL算法必定有解**)求出最短向量$B_2$后，计算$B_2*L_2^{-1}$得到A。然后用a的前两项计算$$\frac{a[1]}{a[0]}e_1 = \frac{e_1d_1g}{k_1} = \varphi(N)$$从而把$\varphi(N)$恢复出来。
+其中$L_2$矩阵都是已知的项构成的，我们可以把$L_2$看作一个格，然后$B_2$是其最短向量，使用**LLL定理**（见4.1节）可以求出其最短向量。而且若$B_2$为最短向量，则需要满足$||B_2||\leq \sqrt{n}det(L)^{\frac{1}{n}}$，即$$2N^{1+2\alpha}\leq 2N^{(\frac{13}{2}+\alpha)\frac{1}{4}}$$解得$\alpha\leq \frac{5}{14}$从而可以代入$M_2$中。(**编程实现的过程中可稍微缩小$\alpha$使得LLL算法必定有解**)求出最短向量$B_2$后，计算$B_2*L_2^{-1}$得到$A$。然后用a的前两项计算$$\frac{a[1]}{a[0]}e_1 = \frac{e_1d_1g}{k_1} = \varphi(N)$$从而把$\varphi(N)$恢复出来。
 
 * 代码参考：https://blog.csdn.net/jcbx_/article/details/109306542
 * ***具体Sagemath9.2代码见``crypto/code/Extended_Wieners_Attack.py``*** 在代码中提供$\alpha,e_1,e_2,n$可恢复出$\varphi(N)$
@@ -739,7 +746,7 @@ $i$|$\alpha$
 
 * **参考文献：Bunder M , Nitaj A , Susilo W , et al. A generalized attack on RSA type cryptosystems[J]. Theoretical Computer Science, 2017:74-81.**
 
-* 攻击条件：$q < p < 2q$，$ex-(p^2-1)(q^2-1)y=z$，其中正整数$x,y$互素。且有 $$xy < 2N - 4\sqrt{2} N^{0.75}\ and\ |z| < (p-q)N^{0.25}y$$。可使用连分数与Coppersmith定理对$N$进行分解。
+* 攻击条件：$q < p < 2q$，$ex-(p^2-1)(q^2-1)y=z$，其中正整数$x,y$互素。且有 $$xy < 2N - 4\sqrt{2} N^{0.75}\ and\ |z| < (p-q)N^{0.25}y$$ 可使用连分数与Coppersmith定理对$N$进行分解。
 
 * 例子见参考文献
 ```python
@@ -1659,7 +1666,9 @@ $$ 注意：这里每一行代表一个向量，因此使用LLL算法求线性�
 
 * 参考：INTRODUCTION TO MODERN CRYPTOGRAPHY 第二版第13章
 
-Paillier加密系统用到了群$Z^*_{N^2}$。其中一个比较重要的性质是群 $Z^*_{N^2}$ 同构于群$Z_N \times Z_N^*$。其中三个重要性质如下：
+Paillier加密系统用到了群$Z^*_{N^2}$。而且一般来说$p = 2p'+1, q=2q'+1$都会取强素数。实质上模$N^2$的群并不是一个循环群，它与一个阶为2的群和一个阶为$2pp'qq'$的群同构，但是该阶为$2pp'qq'$的群也不是循环群，因为该群有一半的元素不是平方剩余，只有有平方剩余的元素才构成循环群。因此模$N^2$的循环群的阶为$pp'qq'$。生成的方式为任取模$N^2$中的元素$a$，则$g\equiv a^2\ mod\ N^2$是循环群的一个生成元。
+
+其中一个比较重要的性质是群 $Z^*_{N^2}$ 同构于群$Z_N \times Z_N^*$。其中三个重要性质如下：
 ![](crypto/images/Proposition_for_Paillier.PNG)
 
 * 一些有用的性质：
@@ -2023,6 +2032,10 @@ $$ 因此有 $$
 $$ 两式相减得 $$
 k(\delta_1 - \delta_2) \equiv H(x_1)-H(x_2)\ mod\ q$$  从而解出随机数$k$。然后使用第一个攻击方法恢复出私钥$a$。
 
+## Boneh-Boyen Scheme 签名算法
+
+TODO
+
 
 
 
@@ -2146,6 +2159,21 @@ a^2+b^2 == 19*19*97
 **定理内容：** 每个正整数均可表示成不超过四个整数的平方之和.
 
 
+### 4.5 模$p$下的复数乘法群
+
+关键在于要注意乘法群的形式，对于乘法群中的元素$a = x_1+y_1i$，$b = x_2 + y_2i$，有$$c = a\cdot b =x_3+y_3i\\ x_3 = x_1x_2-y_1y_2 \\ y_3 = x_1y_2+x_2y_1$$ 其中对于模$p$下的复数乘法群其阶为$p^2-1$，证明见： https://zhuanlan.zhihu.com/p/436496753 评论区中说也可以使用**陪集定理**进行证明。
+
+如果给出复数乘法群的元素$1+i$，那么这是一种特殊的结构，以它为基生成的元素可以和一个阶为$4(p-1)$的整数乘法群同构(不过至于那个整数乘法群长什么样子还不清楚emmmmmm)。
+
+另一种方法同样见上面的链接，就是对群中的元素取模长，然后模$p$。这种情况下就相当于$|x^2+y^2|\ mod\ p$，即控制了角度，也控制了长度，因此同样会同构于一个模$p$的乘法群。（未给出严格的证明，但是运行程序确实如此）
+
+因此如果要求以$1+i$为生成元生成的复数群中的离散对数，那么可以先对复数元素求模，然后求模$p$下的离散对数，此离散对数就是我们要求的。
+
+
+
+
+
+
 ## 5. 求环上固定阶的生成元
 **本原多项式**：一个次数为$n$的$F_q$上的本原多项式，就是它在域$F_q^n$上的所有根都是本原元（**本原元**能生成域$F_q^n$上的所有元素，相当于乘法的生成元）。
 * 所有在$F_q$上的本原多项式在$F_q$上是不可约的（不可分解）。
@@ -2203,17 +2231,46 @@ print(chinese_remainder([(3,2),(5,3),(7,4),(11,5)]))
     * $x^2-kxy+y^2-1 = 0$ 的解为$p = k, q = -1$。
     一般遇到这种不懂的题可以遍历一开始那些比较小的数，获得前几个数列的值，然后用求数列通项公式的网站获得通项公式，从而求出要求的数。
 
-* 拓展：佩尔方程 $$x^2-ny^2=c$$
+### 7.1 佩尔方程 Pell Equation
+#### 7.1.1 第一类佩尔方程
+$$x^2-dy^2=1$$ 其中$d>1$且$d$不是完全平方数。而且方程的解满足$x>0,y>0,x,y\in \mathbb{Z}$。
 
-## 8. 欧拉函数 (Euler's totient function)
-计算与$n$互素的所有小于$n$的数的个数。假设$p_1,\cdots,p_r$是$n$的素因数，则：
-$$\phi(n) = n(1-\frac{1}{p_1})\cdots(1-\frac{1}{p_r})$$
+* 定理：第一类佩尔方程有无数个解(这里不给出证明)
 
-## 9. 一些密码学基本概念
+如果知道了公式的一个最小整数解$(x_1,y_1)$，则给出其通解的迭代公式$$x_n=x_{n-1}x_1+dy_{n-1}y_1 \\ y_n = x_{n-1}y_1+y_{n-1}x_1$$ 
+
+> 证明：联立方程$$ x_1^2-dy_1^2=1 \\ x_2^2-dy_2^2=1 $$ 可以联立得到 $$(x_1x_2-dy_1y_2)^2-d(x_1y_2+x_2y_1)^2=1$$ 这样一来替换一下就可以得到通解了。
+
+* 求解佩尔方程
+    * 对于给定的$d$，可以通过暴力求解**最小整数解$x_1,y_1$**，然后用通项公式求解。
+    * 使用**连分数**进行求解。
+    * 使用矩阵快速幂进行求解： $$\left[ \begin{matrix}x_n \\ y_n \end{matrix}\right] = \left[ \begin{matrix}x_1 & dy_1\\ y_1 & x_1 \end{matrix}\right]^{n-1}  \left[ \begin{matrix}x_1 \\ y_1 \end{matrix}\right]$$
+
+* 连分数求解原理：
+首先简单介绍一下连分数，$n$阶简单连分数记为：$$[x_0,x_1,...,x_n]$$ 无限简单连分数记为:$$[x_0,x_1,x_2,...]$$ 可以将有限简单连分数叫做无限连分数式的第$n$个**渐进分数**。$x_n$叫做第$n$个**部分商**。
+  * 定理：无限简单连分数$[x_0,x_1,x_2,...]$是收敛的，存在实数$\theta$，使得$$\lim_{n\to +\infty}[x_0,x_1,x_2,...]=\theta$$
+  * 定理：设实数$\theta>1$的渐近分数为$\frac{P_n}{Q_n}$，则对任意$n\geq 1$，有$$|\theta^2Q_n^2 - P_n^2|<2\theta$$
+* 实际上对$d$进行连分数展开可以把$x^2-dy^2=1$的所有解全部求出。只要有$原式=1$，则为佩尔方程的解。网上说佩尔方程的解在不同的$d$中有不同的形式，但实质上直接连分数展开找到$原式=1$时的解即可。(理论上是可以证明的，但是我还没有去证)
+
+
+
+#### 7.1.2 第二类佩尔方程
+$$x^2-ny^2=c$$
+
+解第二类佩尔方程，需要用到第一类佩尔方程的解。
+
+> 证明：设 $ x^2-dy^2=1 $ 的解为$x_1, y_1$。设$x^2-dy^2=k$的解为$p,q$。
+> 联立方程$$ x_1^2-dy_1^2=1 \\ p^2-dq^2=k $$ 可以联立得到 $$(x_1p\pm dy_1q)^2-d(py_1\pm x_1q)^2=k$$ 这样一来替换一下就可以得到通解 $$x = x_1p_i\pm dy_1q_i \\ y = p_iy_1\pm x_1q_i$$ 化为矩阵乘法的形式为 $$ \left[ \begin{matrix}p_n \\ q_n \end{matrix}\right] = \left[ \begin{matrix}p & \pm dq\\ \pm q & p \end{matrix}\right]^{n-1}  \left[ \begin{matrix}x_1 \\ y_1 \end{matrix}\right] $$
+
+* 参考资料：
+  * https://blog.csdn.net/TheWayForDream/article/details/113772229
+  * https://www.cnblogs.com/lfri/p/11650132.html
+
+## 8. 一些密码学基本概念
 称一个机器是概率多项式时间的，如果它的运行步数是安全参数的多项式函数，简记为PPT。
 
-### 9.1 陷门置换的定义
-**定义 9.1-1** 一个陷门置换族是一个 PPT 算法元组(Gen, Simple, Eval, Invert):
+### 8.1 陷门置换的定义
+**定义 8.1-1** 一个陷门置换族是一个 PPT 算法元组(Gen, Simple, Eval, Invert):
 1. Gen($1^k$)是一个概率性算法，输入为安全参数$1^k$，输出为($i$, td)，其中$i$时定义域$D_i$上的一个置换$f_i$的标号，td时允许求$f_i$逆的陷门信息。
 2. Sample($1^k,i$)时一个概率性算法，输入$i$由Gen产生，输出为$x\leftarrow_R D_i$。
 3. Eval($1^k,i,x$)时一个确定性算法，输入$i$由Gen产生，$x\leftarrow_R D_i$由Sample($1^k,i$)产生，输出为$y\in D_i$。即Eval($1^k,i,\cdot$):$D_i\rightarrow D_i$时$D_i$上的一个置换。
@@ -2222,7 +2279,7 @@ $$\phi(n) = n(1-\frac{1}{p_1})\cdots(1-\frac{1}{p_r})$$
 * Invert($1^k,(i, td),\cdot$)其实就是置换$f_i$的逆置换$f_i^{-1}$。虽然$f_i^{-1}$总是存在的，单不一定时可有效计算的。上面的定义说，已知陷门信息td，你置换$f_i^{-1}$是可有效计算的。
 * **在以上定义中，没有考虑任何“困难性”或“安全性”的概念。但密码学中的陷门置换是指单向陷门置换，即当陷门信息td未知时，一个随机陷门置换的求逆是困难的。正式定义如下。**
 
-**定义 9.1-2: 单向陷门置换(TDP)** 一个陷门置换簇(Gen,Sample, Eval, Invert)是单向的，如果对于任意的 PPT 敌手A，存在一个可忽略的函数$\grave{o}(k)$，使得A在下面的游戏中，其优势${\rm Adv}_{\rm T-Perm,A}(k) \leq \grave{o}(k)$：
+**定义 8.1-2: 单向陷门置换(TDP)** 一个陷门置换簇(Gen,Sample, Eval, Invert)是单向的，如果对于任意的 PPT 敌手A，存在一个可忽略的函数$\grave{o}(k)$，使得A在下面的游戏中，其优势${\rm Adv}_{\rm T-Perm,A}(k) \leq \grave{o}(k)$：
 * ${\rm Exp_{T-Perm,A}}(k):$
     * ($i$,td)$\leftarrow$Gen($k$);
     * $y\leftarrow$ Sample($k,i$);
@@ -2232,6 +2289,26 @@ $$\phi(n) = n(1-\frac{1}{p_1})\cdots(1-\frac{1}{p_r})$$
 敌手的优势定义为${\rm Adv}_{\rm T-Perm,A}(k) = {\rm Pr[Exp_{T-Perm,A}}(k)=1]$。
 * 此定义主要用在安全性证明中。
 
+
+## 9. 欧拉函数 (Euler's totient function)
+计算与$n$互素的所有小于$n$的数的个数。假设$p_1,\cdots,p_r$是$n$的素因数，则：
+$$\phi(n) = n(1-\frac{1}{p_1})\cdots(1-\frac{1}{p_r})$$
+
+
+## 10. 卡迈克尔函数 (Carmichael function)
+使得$$a^m\equiv 1\ mod\ n$$成立的最小正整数$m$，其中$(a,n)=1$，一般来说我们将$m$记为$\lambda(n)$。
+
+## 11. 原根
+定义**阶**：设$n\geq 1, (a,n)=1$，使得$a^d\equiv 1\ mod\ n$成立的最小正整数$d$，称为$a$模$n$的阶，记为$\delta_n(a)$或$ord_n(a)$。
+
+定义**原根**：当$\delta_n(a)=\phi(n)$时，$a$为模$n$的原根。
+
+* 原根的定理
+    * 模$n$有原根$\Leftrightarrow n=1,2,4,p^l, 2p^l$
+
+* 推论1：正常的RSA方案的一个公钥指数至少对应两个私钥。
+  * $$a^{2k_1}\equiv 1\ mod\ n_1, \ \ a^{2k_2}\equiv 1\ mod\ n_2 \\ a^{2k_1k_2}\equiv 1\ mod\ n_1$$ 而$\phi(n) = 4k_1k_2$，因此实质上一个RSA方案一个公钥指数可以对应$gcd(p-1,q-1)$个私钥指数。
+* 推论2：能构成模$n$的循环群一定满足$n=2,4,p^l, 2p^l$
 
 # 常见Crypto攻击思想
 
@@ -2503,8 +2580,41 @@ Pr[f(D)=s]\leq Pr[f(D')=s]\times e^{\epsilon} $$ 其中$e\approx 2.718281828459$
 
 ### 群签名
 
+在一个群签名方案中，一个群体中的任意一个成员可以以匿名的方式代表整个群体对消息进行签名。与其他数字签名一样，群签名是可以公开验证的，而且可以只用单个群公钥来验证。
+
+* 群签名的一般流程(参考百度百科)：
+1. 创建：一个用以产生群公钥和私钥的概率多项式时间算法。
+2. 加入：一个用户和群管理员之间的使用户成为群管理员的交互式协议。执行该协议可以产生群员的私钥和成员证书，并使群管理员得到群成员的私有密钥。
+3. 签名：一个概率算法，当输入一个消息和一个群成员的私钥后，输出对消息的签名。
+4. 验证：一个概率算法，当输入一个坏消息和一个群成员的私钥后，输出对消息的签名。
+5. 打开：一个在给定一个签名及群私钥的条件下确认签名人的合法身份的算法。
+
+* 群签名的安全性要求： 
+    1. 匿名性(Anonymity)
+        给定一个群签名后，对除了唯一的群管理员以外的任何人来说，确定签名者的身份是不可行的，至少在计算上是困难的。
+    2. 不关联性(Unlinkability)
+        在不打开签名的情况下，确定两个不同的签名是否为同一个群成员所签的是不可行的，至少在计算上是困难的。
+    3. 不可伪造性(Unforgeability)
+        只有群成员才能产生有效的群签名。其他任何人包括群管理员也不能伪造一个合法的签名。
+    4. 可跟踪性(Traceability)
+        群管理员在发生纠纷的情况下可以打开一个签名来确定出签名者的身份，而且任何人都不能阻止一个合法签名的打开。
+    5. 正确性(Correctness)
+        当验证者检验一个签名时，一个合法的群成员按照签名算法产生的群签名一定能够通过验证算法。
+    6. 抵抗联合攻击(Coalition-Resistance)
+        即使一些群成员串通在一起也不能产生一个合法的不能被跟踪的群签名。
+
+* 常见的群签名方案：CS97方案
+
+
+* 参考资料：
+    * https://blog.csdn.net/zhang_hui_cs/article/details/8965338
+    * https://en.wikipedia.org/wiki/Group_signature
+
+
 ### 环签名
 
 ### OT（Oblivious Transfer，不经意传输）
 
-* 参考资料：https://zhuanlan.zhihu.com/p/424202269
+* 参考资料：
+    * https://zhuanlan.zhihu.com/p/424202269
+    * https://www.zhihu.com/column/c_1409550861031251968

@@ -57,4 +57,5 @@ updating
 - https://github.com/Audi-1/sqli-labs sqli challenges
 - https://buuoj.cn/ 纯刷题
 - http://ww1.viristotal.com/
+- https://cryptohack.org/   crypto刷题
 
