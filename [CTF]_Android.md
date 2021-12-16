@@ -1,5 +1,9 @@
 > 要想逆向，首先学正向的开发！！！
 
+
+
+
+
 # Android
 
 > https://xmsg.org/wordpress/2017/02/%E5%90%BE%E7%88%B1%E7%A0%B4%E8%A7%A3%E5%AE%89%E5%8D%93%E9%80%86%E5%90%91%E5%85%A5%E9%97%A8%E6%95%99%E7%A8%8B/
@@ -38,7 +42,11 @@ Dalvik 是 google 专门为 Android 操作系统设计的一个虚拟机，经�
 
 # Debug
 
+> https://developer.android.com/studio/releases/platform-tools  SDK Platform-Tools
 
+
+
+stuck：真机调试时，由于厂商的某些操作，有线或无线方式都无法在adb devices发现真机设备，可能的解决方向为安卓机处命令行执行某些命令。
 
 # Anti-Debug
 
@@ -81,7 +89,9 @@ PTRACE_DETACH，  结束追踪
 
 # Tools
 
-
+> https://www.androiddevtools.cn/ 工具导航
+>
+> 
 
 
 
