@@ -1,9 +1,7 @@
-writer: github.com/hex-16   data: from 2020   contact: hexhex16@outlook.com  recommended viewer/editor: Typora
+contact: hexhex16@outlook.com  recommended viewer/editor: Typora
 
 - 未加说明时，默认系统为kali 20.04(64bit), python3.7或以上, 其余套件为2021前后的最新版
-- 部分内容与 Reverse.md 有重叠/交叉，以下内容优先记录在 Reverse.md 
-  - 动态调试
-  - 汇编指令，机器码
+- 部分内容与 Reverse.md, Binary.md 有重叠/交叉，动态调试、汇编指令、机器码优先记录在 Reverse.md；二进制文件格式，编译链接过程，调用规范记录在Binary.md 
 
 # Pwn
 
@@ -2581,10 +2579,8 @@ typedef struct tcache_entry { // libc 2.29的 tcache_entry 结构体
 
 ![](https://raw.githubusercontent.com/hex-16/pictures/master/CTF_pic/tcache.png)
 
-> libc 2.32的tcache fd指针就不是直接指向下一chunk的fd了，而是经过了[`PROTECT_PTR`](https://elixir.bootlin.com/glibc/glibc-2.32.9000/source/malloc/malloc.c#L2941)处理的
-
 - glibc 2.29 tcahce 在bk域引入key，`tcache_get` 时清空key，`tcache_put` 时设置 key
-- glibc 2.32引入[`PROTECT_PTR`](https://elixir.bootlin.com/glibc/glibc-2.32.9000/source/malloc/malloc.c#L2941) 使得fw并非指向下一tcache chunk的fw
+- glibc 2.32引入[`PROTECT_PTR`](https://elixir.bootlin.com/glibc/glibc-2.32.9000/source/malloc/malloc.c#L2941) 使得fw并非指向下一tcache chunk的fw，即被简单加密过
 
 **malloc / free procedure:**
 
