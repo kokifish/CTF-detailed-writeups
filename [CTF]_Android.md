@@ -1,14 +1,16 @@
-> 要想逆向，首先学正向的开发！！！
-
-
-
-
+要想逆向，首先学正向的开发！！！
 
 # Android
 
 > https://xmsg.org/wordpress/2017/02/%E5%90%BE%E7%88%B1%E7%A0%B4%E8%A7%A3%E5%AE%89%E5%8D%93%E9%80%86%E5%90%91%E5%85%A5%E9%97%A8%E6%95%99%E7%A8%8B/
 
 apk实际是zip压缩包，改apk后缀为zip后解压可以看到内部结构。但不完全？用AndroidKiller可以完全解开
+
+
+
+
+
+
 
 apk组成
 
@@ -99,7 +101,7 @@ adb push \path\to\local_file /data/local/tmp # 本地推文件到安卓 前面�
 adb pull /device/file C:\path\to\store # 安卓拉取文件到本地
 ```
 
-> 在windows PS/cmd已经改成UTF-8(chcp: 65001)时，adb shell中`ls`仍然出现类似于`[1;36mbin[0m`的乱码，则可能是ANSI转义序列，adb shell中执行`alias ls="ls --color=never"`可解决，也可以用`sudo ls`代替`ls`
+> 在windows PS/cmd已经改成UTF-8(chcp: 65001)时，adb shell中`ls`仍然出现类似于` [1;36mbin [0m`的乱码，则可能是ANSI转义序列，adb shell中执行`alias ls="ls --color=never"`可解决，也可以用`sudo ls`代替`ls`
 
 
 
@@ -118,7 +120,7 @@ adb pull /device/file C:\path\to\store # 安卓拉取文件到本地
 远程调试，雷电模拟器+IDA Pro 7.6远程调试配置过程：
 
 1. 把IDA对应的server(在IDA目录下)推到模拟器中并运行：`adb -s device_sn push path\IDAPro7.6\dbgsrv\android_server /data/local/tmp; adb -s device_sn shell; sudo; cd /data/local/tmp; chmod 755 ./android_server ; ./android_server `
-2. 另起一个cmd: `adb forward tcp:23946 tcp:23946`，前面的是本地端口，后面的是模拟器里面的端口
+2. shell run: `adb forward tcp:23946 tcp:23946`，前面的是本机端口，后面的是设备端口
 3. IDA中选择Remote ARM Linux/Android debugger, 如果是本机则IP填127.0.0.1, Port=23946; 
 4. 然后Debugger->Attach to Process
 

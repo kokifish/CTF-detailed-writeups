@@ -1,15 +1,20 @@
 # CTF-detailed-writeups
 
 <p>
+<a href="https://github.com/hex-16/CTF-detailed-writeups/star"><img alt="stars" src="https://img.shields.io/github/stars/hex-16/CTF-detailed-writeups?style=social"></a>
+<a href="https://github.com/hex-16/CTF-detailed-writeups"><img alt="watchers" src="https://img.shields.io/github/watchers/hex-16/CTF-detailed-writeups?style=social"></a>    
 <a href="https://github.com/hex-16/CTF-detailed-writeups"><img alt="updated time" src="https://badges.pufler.dev/updated/hex-16/CTF-detailed-writeups"></a>
+<a href="https://github.com/hex-16/CTF-detailed-writeups"><img alt="last-commit" src="https://img.shields.io/github/last-commit/hex-16/CTF-detailed-writeups"></a>
 <a href="https://github.com/hex-16/CTF-detailed-writeups"><img alt="created time" src="https://badges.pufler.dev/created/hex-16/CTF-detailed-writeups"></a>
-<a href="https://github.com/hex-16/CTF-detailed-writeups"><img alt="commits" src="https://badges.pufler.dev/commits/monthly/hex-16"></a>
 <a href="https://github.com/hex-16/CTF-detailed-writeups"><img alt="visits" src="https://badges.pufler.dev/visits/hex-16/CTF-detailed-writeups"></a>
-<a href="https://github.com/hex-16/CTF-detailed-writeups"><img alt="GitHub repo file count (file type)" src="https://img.shields.io/github/directory-file-count/hex-16/CTF-detailed-writeups?style=flat-square&type=file"></a>
+<a href="https://github.com/hex-16/CTF-detailed-writeups"><img alt="license" src="https://img.shields.io/github/license/hex-16/CTF-detailed-writeups"></a>
 </p>
 
 
-Very detailed CTF writeups. Try to make it understandable to CTF beginners. Bilingual in Chinese and English, mainly in Chinese.中英双语 中文为主
+
+Very detailed CTF writeups. Try to make it understandable to CTF beginners. 
+
+Languages: Bilingual in Chinese and English, mainly in Chinese.中英双语 中文为主
 
 This REPO is devoted to writing very detailed writeups so that CTF beginners (including me) can replicate the resolution process. 本repo致力于写十分详细的writeup，让CTF beginners也能复现解题过程。~~也可能因为懒，部分writeup会写的比较简洁~~
 
@@ -55,7 +60,7 @@ updating
 
 - https://ctftime.org/event/list/upcoming   upcoming CTF
 - https://github.com/firmianay/CTF-All-In-One   CTF竞赛权威指南
-- https://github.com/ctf-wiki/ctf-wiki  https://ctf-wiki.org/  for beginners
+- https://github.com/ctf-wiki/ctf-wiki    https://ctf-wiki.org/  for beginners
 - https://github.com/MOCSCTF/CTF-Write-UP
 - https://github.com/ctfs/write-ups-2017
 - https://adworld.xctf.org.cn/ 含wp的刷题
