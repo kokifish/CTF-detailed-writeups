@@ -11,6 +11,8 @@
 >
 > `libso_xor.cpp`: libprotect.so里对rhs的逻辑实现和逆向
 >
+> `xxx.java`: apk中对user input加密过程及逆向(解密)的实现，爆破4B并调python计算block 3 cipher text
+>
 > 2021 job interviews
 
 apk整体逻辑：
@@ -25,11 +27,11 @@ apk整体逻辑：
 
 拿到apk后，zip解包，找到`libprotect.so`，注意用`.\lib\armeabi-v7a\libprotect.so`，arm高版本用的，虽然逻辑整体一致，但伪代码看起来略有不同。`libprotect.so`主要是把传入的一个字符串做一点变换之后，与一个固定的、由bss区数据生成的字符串`lhs`对比，若相同则success。
 
-IDA动态调试绕ptrace反调试之后就可以看到`lhs`的值，但发现传入的字符串与在app输入的内容（以后简称user inpu）不一样，且前16B与user input的前8个字符对应，传入so的字符串为16B的倍数，明显为块加密。
+IDA动态调试绕ptrace反调试之后就可以看到`lhs`的值，但发现传入的字符串与在app输入的内容（以后简称user input）不一样，且前16B与user input的前8个字符对应，传入so的字符串为16B的倍数，明显为块加密。
 
 分析apk中java代码调用`libprotect.so`前的代码，发现调用`PBEWITHMD5andDES`。`PBEWITHMD5andDES`是CBC+PKCS5Padding的DES，DES算法的key和IV由PBKDF1(passwd, salt, itercount, 16)计算得出。若user input长度为16，会得到24B的密文，转成hexstr表示后有48B，`libprotect.so`中取一半，即24B，从hexstr表示转成bytes形式(c++中仍为`char*`)，有12B，然后与bss区的一个32B table做异或，便成为最终的`rhs`。最后对比：`strcmp(lhs, rhs)`
 
-
+> hexstr表示形式：瞎造的名字，是想表达`\x1f`这种不可读字符（本wp称为bytes形式）转换为可读的两个字符`1f`的这种表示形式。
 
 # Solution
 
@@ -416,7 +418,7 @@ DerivedKey = PBKDF1(b"Google", b"AndroidN", c=50, dkLen=16)
 Brute Force Process:
 
 1. java random: 随机生成8个hex number(对应4B密文)，补全block2 ciphertext
-2. call python script: `python DES.py block2_ciphertext` 调python加密脚本，传block2 ciphertext
+2. call python script: `python DES.py block2_ciphertext`，调python加密脚本，传block2 ciphertext
 3. decrypt: 调`cipher.init(Cipher.DECRYPT_MODE, key, params);`然后解密
 4. is it readable: 判断明文所有字符是否是可读ascii.
    - NOT readable: go Step-1; 
@@ -439,8 +441,12 @@ flag{A!kU5j>ouTh
 
 ![](./yzdd_crackme_success.png)
 
+# Postscript
 
+这~~可能~~是gugugu最久的一题，如果咕wp不算咕的话......gu的主因除了当前主业进度不堪外，主要是因为第一次做安卓题，对安卓和java都不懂，容易陷入一些无关紧要的代码里。
 
+这题可能适合作为安卓的中等综合题，原因如下：
 
-
-# 
+- 对设备有要求，必须为真机调试。除非硬磕lhs的处理过程
+- 需要有一定密码学基础，了解块加密，看得懂文档（或者身边有大佬看得懂文档也行）。看懂并修改标准加密流程
+- 需要学会绕ptrace反调试
