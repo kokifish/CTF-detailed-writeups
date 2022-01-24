@@ -1,14 +1,16 @@
-> 要想逆向，首先学正向的开发！！！
-
-
-
-
+要想逆向，首先学正向的开发！！！
 
 # Android
 
 > https://xmsg.org/wordpress/2017/02/%E5%90%BE%E7%88%B1%E7%A0%B4%E8%A7%A3%E5%AE%89%E5%8D%93%E9%80%86%E5%90%91%E5%85%A5%E9%97%A8%E6%95%99%E7%A8%8B/
 
 apk实际是zip压缩包，改apk后缀为zip后解压可以看到内部结构。但不完全？用AndroidKiller可以完全解开
+
+
+
+
+
+
 
 apk组成
 
@@ -40,13 +42,7 @@ Dalvik 是 google 专门为 Android 操作系统设计的一个虚拟机，经�
 
 
 
-# Debug
 
-> https://developer.android.com/studio/releases/platform-tools  SDK Platform-Tools
-
-
-
-stuck：真机调试时，由于厂商的某些操作，有线或无线方式都无法在adb devices发现真机设备，可能的解决方向为安卓机处命令行执行某些命令。
 
 # Anti-Debug
 
@@ -87,6 +83,28 @@ PTRACE_DETACH，  结束追踪
 
 
 
+# **ADB** Debug
+
+> https://developer.android.com/studio/releases/platform-tools  SDK Platform-Tools
+
+ADB: **A**ndroid **D**ebug **B**ridge
+
+
+
+windows可以正常识别设备，拷贝文件，开启USB调试，但adb devices无法发现真机设备，可能原因是缺少对应的驱动程序。（LG G8X会出现）
+
+
+
+```bash
+adb -s LMG850UMc4ed5fb5 forward tcp:23946 tcp:23946# 指定设备 端口转发 # 前：本地端口，后：安卓端口
+adb push \path\to\local_file /data/local/tmp # 本地推文件到安卓 前面的是本地文件的路径 后面是安卓设备的路径
+adb pull /device/file C:\path\to\store # 安卓拉取文件到本地
+```
+
+> 在windows PS/cmd已经改成UTF-8(chcp: 65001)时，adb shell中`ls`仍然出现类似于` [1;36mbin [0m`的乱码，则可能是ANSI转义序列，adb shell中执行`alias ls="ls --color=never"`可解决，也可以用`sudo ls`代替`ls`
+
+
+
 # Tools
 
 > https://www.androiddevtools.cn/ 工具导航
@@ -101,8 +119,8 @@ PTRACE_DETACH，  结束追踪
 
 远程调试，雷电模拟器+IDA Pro 7.6远程调试配置过程：
 
-1. 把IDA对应的server(在IDA目录下)推到模拟器中并运行：`adb push path\IDAPro7.6\dbgsrv\android_server /data/local/tmp; adb shell; cd /data/local/tmp; chmod 755 ./android_server ; ./android_server `
-2. 另起一个cmd: `adb forward tcp:23946 tcp:23946`，前面的是本地端口，后面的是模拟器里面的端口
+1. 把IDA对应的server(在IDA目录下)推到模拟器中并运行：`adb -s device_sn push path\IDAPro7.6\dbgsrv\android_server /data/local/tmp; adb -s device_sn shell; sudo; cd /data/local/tmp; chmod 755 ./android_server ; ./android_server `
+2. shell run: `adb forward tcp:23946 tcp:23946`，前面的是本机端口，后面的是设备端口
 3. IDA中选择Remote ARM Linux/Android debugger, 如果是本机则IP填127.0.0.1, Port=23946; 
 4. 然后Debugger->Attach to Process
 
@@ -111,6 +129,8 @@ PTRACE_DETACH，  结束追踪
 > FFFFFFFF: got SIGILL signal (Illegal instruction) (exc.code 5, tid 1234). 这个错误的原因疑似为模拟器是x86结构，so程序是ARM架构。雷电模拟器+IDA会报这种错。houdini是Intel研发的ARM binary translator，可以让arm运行在x86架构的cpu上，为业界x86的兼容性方案。
 >
 > IDA无法在apk中的.so下断的原因（大概）：IDA下断在arm的.so的地址上，模拟器在加载so之后，so中指令实际上被转成了x86，但IDA中看到的指令仍是translate前的arm指令，并非实际执行的x86指令。解决方案：arm服务器运行arm模拟器，无指令集兼容问题；qemu运行arm镜像，但速度很慢；root的真机，google系最佳。M1也有兼容性问题，原因：TBD
+
+> 如果attach后进程显示不完整（e.g.只有一个进程），则可能是`dbg_server`不是运行在root权限的，LG G8X+magisk，授权shell root权限后，在运行`dbg_server`前sudo可以解决进程显示不全的问题
 
 
 
