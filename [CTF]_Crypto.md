@@ -1243,7 +1243,7 @@ ECC 全称为椭圆曲线加密，Elliptic Curve Cryptography，是一种基于�
 **椭圆曲线上的点加运算构成一个阿贝尔群。** 此点加运算有多种形式，下面给出常见的简化版的Weierstrass方程的两种形式。
 * 在素数域GF(q)上，椭圆曲线的点加公式如下：
 ![椭圆曲线素数域点加公式](crypto/images/GFq_PointAdd.PNG)
-* 在扩域GF(2^p)上，椭圆曲线的点加公式如下：
+* 在扩域GF($2^p$)上，椭圆曲线的点加公式如下：
 ![椭圆曲线扩域点加公式](crypto/images/GF2-131_PointAdd.jpg)
 
 **椭圆曲线的阶：** 如果椭圆曲线上一点$P$，存在最小的正整数$n$使得数乘$nP = O_{\infty}$，则将$n$成为点$P$的阶。若$n$不存在，则$P$是无限阶的。
@@ -2532,6 +2532,20 @@ Pr[f(D)=s]\leq Pr[f(D')=s]\times e^{\epsilon} $$ 其中$e\approx 2.718281828459$
 * 其中S为模拟器，$S(x)$表示输入为$x$时，S的输出$\{S(x)\}_{x\in L}$表示S输出的概率。$\{VIEW_{P,V^*}(x)\}_{x\in L}$表示$x\in L$时，$$VIEW_{P,V^*}(x)$的概率分布。
 
 
+##### 基于二次剩余的零知识证明
+
+已知y,N, 其中$N=p*q$，存在$x^2\equiv y\ mod\ N$。
+
+* 零知识证明协议
+Prover：选择随机数$r\in Z_N^*$，发送$z\equiv r^2\ mod\ N$
+Verifier: 发送$b\in\{0,1\}$
+Prover: 发送$v\equiv x^br\ mod\ N$
+Verifier: 检查$v^2==y^bz\ mod\ N$
+
+> 这个协议r只能玩一次，相当于一次一密。
+
+* Schnorr身份识别方案
+
 #### 非交互式零知识证明
 如果P和V不进行交互，证明由P产生后直接给V，V对证明直接进行验证，这种证明系统称为非交互式证明系统（简称为NIZK: Non-Interactive Zero-Knowledge）定义如下。
 
@@ -2613,8 +2627,83 @@ Pr[f(D)=s]\leq Pr[f(D')=s]\times e^{\epsilon} $$ 其中$e\approx 2.718281828459$
 
 ### 环签名
 
+环签名允许用户以一个自组织的用户群体 (被称为环) 的名义签名, 而不泄露签名者的确切身份。用到的思想是在$n$个公钥中隐藏自己拥有私钥的那个公钥。与群签名相比，没有了群管理员这个限制，因此使得签名一定程度上无法确定是由哪个成员签的。
+
+> 这里的环的意思是：公钥序列构成一个环，本来在生成签名的时候只构成一条链，但是因为自身知道私钥，可以构造出相应的签名，使得签名构成一个环。（这里的环不是抽象代数中的环，只是一个抽象的定义）
+
+![](crypto/images/ring_signature.png)
+
+因为环签名在隐私保护中用得比较多，网上都有比较详细的描述，这里就描述一下其抽象的原理。
+* KeyGen($1^{\lambda}$)
+  * 假设环签名需要$n$个成员，则收集$n-1$个公钥$P_1,...,P_{n-1}$并结合自身的公钥$P_n$构成环$R=\{P_1,...,P_n\}$。
+* Sign(sk,s,M,R)
+  * sk为私钥，s为位置(不重要,因为构成环，自身一定是最后一个)，M为需要签名的消息。
+  * 令加密算法记为$E_{k'}$，其中$k'$可以由消息M生成，也可以在加密的时候附上，反正必须要和消息M有关。记$f_i$为与公钥$P_i$有关的函数。
+  * 随机选取一个值作为初始值$v$，计算 $e_{s+1} = E_{k'}(f_{s}(v))$。
+  * 随机选取随机数$k_{s+1}$，计算$e_{s+2}=E_{k'}(f_{s+1}(k_{s+1} \oplus e_{s+1}))$。
+  * ...
+  * 随机选取随机数$k_{s-2}$，计算$e_{s-1}=E_{k'}(f_{s-2}(k_{s-2} \oplus e_{s-2}))$。
+  * 随机选取随机数$k_{s-1}$，计算$e_{s}=E_{k'}(f_{s-1}(k_{s-1} \oplus e_{s-1}))$。
+  * 通过私钥sk，解得$k_{s}$是方程$E_{k'}(f_{s}(v)) = e_{s+1} = E_{k'}(f_{s}(k_{s} \oplus e_{s}))$的解。（**关键步骤**）
+  * 输出签名$S = \{k_1,k_2,...,k_n,e_1,e_2,...,e_n\}$。
+* Verify(R,S,M)
+  * 对于$1\leq i\leq n$，判断$e_{i} == E_{k'}(f_{i-1}(k_{i-1} \oplus e_{i-1}))$，若$i-1==0$，则令$i-1=n$。
+  * 若都满足，则签名合法。
+
+* 常见的环签名
+  * AOS(Abe-Ohkubo-Suzuki) （区块链隐私领域）
+  * Borromean （门罗币）
+
+* 参考资料：
+  * https://blog.csdn.net/qq_31739317/article/details/103706858
+  * https://blog.csdn.net/jason_cuijiahui/article/details/84933744
+  * 冯翰文, 刘建伟, 伍前红. 后量子安全的群签名和环签名[J]. 密码学报, 2021, 8(2): 183–201. [DOI: 10.13868/j.cnki.jcr.000430]  **一篇综述**
+
 ### OT（Oblivious Transfer，不经意传输）
 
 * 参考资料：
     * https://zhuanlan.zhihu.com/p/424202269
     * https://www.zhihu.com/column/c_1409550861031251968
+
+
+
+
+
+
+## 区块链中的密码技术
+
+### 盲签名 (Blind Signature)
+
+* 非形式化定义：一种数字签名的方式,在消息内容被签名之前,对于签名者来说消息内容是不可见的。 **类比例子**:对文件签名就是通过在信封里放一张复写纸，签名者在信封上签名时，他的签名便透过复写纸签到文件上。
+
+* 性质
+  1. 签名者对其所签署的消息是不可见的，即签名者不知道他所签署消息的具体内容。
+  2. 签名消息不可追踪，即当签名消息被公布后，签名者无法知道这是他哪次的签署的。
+
+* 盲签名模型：本质上就是验证者对消息进行盲化，然后收到签名者签名后对消息进行去盲。
+
+* RSA盲签名：
+  1. 盲化消息：$m'\equiv mr^e\ mod\ N$
+  2. 签名消息：$s'\equiv (m')^d\ mod\ N$
+  3. 去盲消息：$s\equiv s'\cdot r^{-1}\ mod\ N$
+  4. 此时$s$就是签名者对消息$m$的签名。 
+
+
+* 参考资料：https://blog.csdn.net/zhang_hui_cs/article/details/8728776
+
+
+### keccak256 哈希算法 TODO
+
+## 区块链前沿隐私技术
+|名称|	类型|	技术实现|
+|:---:|:---:|:---:|
+|Zcash|	UTXO|	零知识证明技术zk-SNARK|
+|门罗币|	UTXO|	环签名技术Borromean|
+|Beam|	UTXO|	Mimble-Wimble|
+|EYBlockchain|	Account|	基于合约的zk-SNARK|
+|AZTEC|	Account|	同态证明&&rangeproof|
+|Zether|	Account|	Σ-Bullets ZK-proof零知识证明|
+|PGC|	Account|	bulletproof零知识证明|
+
+* 参考资料
+  * https://blog.csdn.net/qq_31739317/article/details/103706898

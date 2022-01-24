@@ -3,6 +3,7 @@
 > https://owasp.org/www-project-top-ten/ owasp top 10  十大 Web 应用程序安全风险
 
 
+* 参考资料： https://tech.meituan.com/ 美团安全团队
 
 # Git Leak
 
