@@ -51,6 +51,7 @@ dapp/genesis.json
     "byzantiumBlock": 0,
     "constantinopleBlock": 0,
     "petersburgBlock": 0,
+    "istanbulBlock": 0,
     "ethash": {}
   },
   "alloc"      : {
@@ -253,6 +254,27 @@ Solidity里的每个`address`类型的变量可以看成一个对象，对象里
 * `this`: 表示当前合约的地址
 * `selfdestruct(address payable recipient)`: 销毁合约，并把余额**强制**发送到指定 **地址**.
 
+#### 函数选择器 Function Selector
+
+原理可见ctf-wiki及官方文档，下面给出计算函数选择器的python代码:
+```python
+from Crypto.Hash import keccak
+
+def selector(func_name: bytes):
+    khash = keccak.new(digest_bits=256)
+    khash.update(func_name)
+    return khash.hexdigest()[:8]
+
+# selector(b'test1(bytes3)')    == '0d2032f1'
+# selector(b"test2(bytes3[2])") == '2b231dad'
+```
+
+#### 特殊变量和函数
+在全局命名空间中已经存在了（预设了）一些特殊的变量和函数，他们主要用来提供关于区块链的信息或一些通用的工具函数。
+
+https://learnblockchain.cn/docs/solidity/units-and-global-variables.html
+
+
 ---
 
 ## Blockchain Security
@@ -302,6 +324,69 @@ solidity智能合约编译后主要有abi (Application Binary Interface，应用
 
 
 
+
+### 重入攻击（Re-Entrancy）
+
+如果区块链合约是先转钱再记账，那么就可以使用fallback函数进行多次转账。
+
+例子：见重入攻击例子
+
+
+### 随机数
+
+#### 1. 使用私有变量的伪随机数
+即把随机数存放在private变量中，可以使用`web3.eth.getStorageAt`查看
+
+#### 2. 随机数由其它服务器生成
+
+#### 3. 用区块链的变量作为随机数
+比如用coinbase、timestamp、number、difficulty、gaslimit、blockhash等。
+
+### 薅羊毛攻击（Airdrop Hunting）
+
+薅羊毛攻击指使用多个不同的新账户来调用空投函数获得空投币并转账至攻击者账户以达到财富累计的一种攻击方式。这类攻击方式较为普通且常见，只要是有空投函数的合约都能够进行薅羊毛。
+
+
+### 短地址攻击
+原理：利用 EVM 在参数长度不够时自动在右方补 0 的特性，通过去除钱包地址末位的 0，达到将转账金额左移放大的效果。
+
+局限：这个目前没有题目，基本已经被修复。不过可以复现成功，但是不能通过 Remix 复现，因为客户端会检查地址长度；也不能通过 sendTransaction()，因为 web3 中也加了保护。
+
+
+### Delegatecall
+
+
+### Uninitialized Storage Pointer
+原理:未初始化的存储指针是指在 EVM 中未进行初始化的 storage 变量，这个变量会指向其他变量的区域，从而更改其他变量的值。
+
+主要有两种形式未初始化：结构体和数组。如果在合约成员函数中定义结构体或数组但是又没有对其进行初始化，那么就会导致在赋值这些结构体或数组的时候会覆盖合约内部的局部变量。
+
+
+
+### Arbitrary Writing
+动态数组的任意 Storage 存储写漏洞。因为ETH中数据在Storage的存储的位置遵循特定的规则，因此如果动态数组的长度非常大，那么就可以更改Storage中的任意数据。
+
+
+
+### CREATE2
+一个solidity指令集中的指令，它有一个漏洞可以使我们能在相同的合约地址部署不同的合约。
+
+
+
+### Jump Oriented Programming
+类似于 pwn 中的 ROP，EVM 中也有 JOP（Jump Oriented Programming）。JOP 的思想和 ROP 是相似的：串联起一个个小的代码片段（gadget），达成一定的目的。（不会pwn，不知道在说什么）
+
+
+
+### 智能合约逆向（Smart Contract Reverse）
+
+大部分时候智能合约不公布源代码，因此需要人工进行逆向。
+
+工具：
+* https://ethervm.io/decompile 
+* https://www.trustlook.com/services/smart.html
+
+
 ---
 
 ## JSON RPC API
@@ -323,6 +408,8 @@ solidity智能合约编译后主要有abi (Application Binary Interface，应用
 * `personal.newAccount(str[password])` **创建**一个账户
 * `personal.importRawKey(str[privateKey], str[password])` **根据椭圆曲线私钥导入**一个账户
   * `web3py`中使用`web3.geth.personal.import_raw_key(str[privateKey], str[password])` 进行导入，返回值是其公钥，也是**账户地址**。
+* `personal.unlockAccount(str[account_address], str[password])` 解锁账户
+  * `ww3.geth.personal.unlockAccount(str[account_address], str[password])`
 
 #### 查看账户信息
 * `eth.accounts` 查看客户端持有的**账户地址列表**。(上下两个一样)

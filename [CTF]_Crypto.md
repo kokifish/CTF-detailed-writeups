@@ -273,6 +273,8 @@ python中的random库使用的是**Mersenne Twister 算法作为核心生成器*
 * `os.urandom()`：函数调用计算机底层的模块生成随机数，并且它会从许多不可预测的来源中提取其熵源，有较强的随机性。
 * `secrets`：一个较为通用的强伪随机数生成器。
 
+> 一般来说需要仔细观察LFSR，然后看看是否有特殊的情况，然后看看能否用这种特殊的情况来进行破解。然后看看是否为LFSR，如果是的话看看能不能构造BM算法的求解方式，或者看看有没有这种情况。然后其中要考虑暴力破解的可能。然后有时候也能想一下是否能用`z3`去求解。
+
 
 
 
@@ -479,6 +481,14 @@ BETA = BitArray("0x3f84d5b5b5470917")
 
 
 #### 块加密攻击方法
+##### BitFlipping
+这是一种块加密的常用攻击方法，目的是构造相应的`iv`或者密文，使得通过黑盒解密得到的明文是我们想构造出的明文。适合于所有的块加密，只要出现密文或`iv`和某些东西异或得到明文，那么我们就可以通过修改密文或者`iv`使得在不破解黑盒(AES或其它块加密)的情况下修改明文，使得明文变成我们想要的结果。
+
+**适用分组模式**：CBC，CRT等。
+例子：
+![CBC_BitFlipping](crypto/images/CBC_BitFlipping.png)
+
+
 ##### 差分攻击
 差分攻击一般应用于块加密函数中非线性函数（比如说s盒或某些轮函数）设计缺陷导致差分信息较为明显，从而构造相应的输入对密码系统进行攻击。一般来说是选择明文攻击。
 
@@ -565,6 +575,9 @@ BETA = BitArray("0x3f84d5b5b5470917")
     * 官方网站：https://www.sagemath.org/
     * 简单使用：Windows上Sagemath安装完成后，运行``SageMath 9.2 Notebook``文件，然后会打开Jupyter Notebook，在里面进行编程即可。
     * SageMath常用函数：https://blog.csdn.net/weixin_44338712/article/details/105320810
+    * 常用函数及文档：
+      * `discrete_log`:在`Modules`文档中 https://doc.sagemath.org/html/en/reference/groups/sage/groups/generic.html#sage.groups.generic.discrete_log
+    * 常见使用文档：见`crypto/Sagemath_Usage.md`
 
 * Crypto常用的python库
     * gmpy2 (pip 一般不能直接安装，要在网上下载.whl文件然后用pip进行安装)
@@ -959,7 +972,7 @@ https://arxiv.org/pdf/1111.4877.pdf  **Cao Z , Sha Q , Fan X . Adleman-Manders-M
     当$q < N^{0.468}$ 且 $d_p,d_q \leq min\{(N/e)^{0.4}, N^{0.25} \}$ 时，此攻击可以对$N$进行分解。
     * https://link.springer.com/content/pdf/10.1007%2F11745853_1
     * D. Bleichenbacher, A. May, ”New Attacks on RSA with Small Secret CRTExponents”, Proceedings of PKC 2006, LNCS 3958 [2006], pp. 1–13.
-    * 已知式$$ed_p=k(p-1) \\ ed_q=l(q-1)$$相乘并展开得$$e^2d_pd_q+ed_p(l-1)+ed_q(k-1)-(N-1)kl=k+l-1$$我们令$$w = d_pd_q \\ x =d_p(l-1)+d_q(k-1) \\ y=kl \\ z=k+l-1$$则我们可以构造格$$L = \left[\begin{matrix}
+    * 已知式$$ed_p=1+k(p-1) \\ ed_q=1+l(q-1)$$相乘并展开得$$e^2d_pd_q+ed_p(l-1)+ed_q(k-1)-(N-1)kl=k+l-1$$我们令$$w = d_pd_q \\ x =d_p(l-1)+d_q(k-1) \\ y=kl \\ z=k+l-1$$则我们可以构造格$$L = \left[\begin{matrix}
     1 & 0 & e\\
     0 & 1 & 1-N\\
     0 & 0 & e^2\\
@@ -1005,6 +1018,21 @@ https://arxiv.org/pdf/1111.4877.pdf  **Cao Z , Sha Q , Fan X . Adleman-Manders-M
 
 
 
+##### 4.12 Unbalanced Small private CRT-exponents $d_p, d_q$
+
+当$p,q$相差比较大的时候，记$p=N^{1-\beta}, q = N^{\beta}$，其中$\beta < 0.38$，$d_p,d_q < N^{\delta}$，其中$\delta \leq 1-\frac{2}{3}\beta + \frac{2}{3}\sqrt{3\beta + \beta^2} -\epsilon$，此时使用May提出的方案可以把$N$分解。
+
+其中May一共提出了三个算法(前两个算法在[2]，第三个算法在[1])，正常来说题目一般只会出到May的第二个算法。
+
+在第二个算法中，由于界的问题，主要就是求解时的参数$t=\tau m$需要适当地增大，和界$X,Y$需要适当地减小。因为论文中有点理想化，因此求行列式的时候把界写小了，因此这里的参数$t$要适当地增大，直接取$t=3$或$t=5$，这样一般都能解出来。第二个坑就是界$X,Y$的选取，要求$$X=N^{\beta+\delta} \\ Y = N^{\beta}$$ 我们需要意识到方程$$ed_pq=(k−1)(N−q)+N$$ 有小根 $(k−1,q)$，则$X>k-1, Y> q$，因此$Y$可取$N^{\beta}$，但是仔细观察以下注意生成参数的时候$e,d_p,q$都比界要小，因此这里的$Y$会偏小，因此最好就是$Y = N^{\beta} // (2^5)$
+
+* 参考资料
+  * [1] https://www.iacr.org/archive/pkc2006/39580001/39580001.pdf
+  * [2] https://rd.springer.com/content/pdf/10.1007%2F3-540-45708-9_16.pdf
+  * [3] https://www.iacr.org/archive/eurocrypt2017/10210359/10210359.pdf
+
+* 题目：2022年TQLCTF——hardrsa
+* ***具体Sagemath9.2代码见``crypto/code/May__Unbalanced_prime_and_small_CRT_exponents.sage``***
 
 #### 五、变种RSA密码分析
 
@@ -1018,9 +1046,18 @@ https://arxiv.org/pdf/1111.4877.pdf  **Cao Z , Sha Q , Fan X . Adleman-Manders-M
 
 因此当$g\approx N^{1/2}$时，$O(\sqrt{a})$就很小，可以用Pollard rho算法进行求解。
 
-###### 5.1.2 已知$a,b$ TODO
+###### 5.1.2 已知$a,b$
+根据方程$N=2g(2gab+a+b)+1$，我们可以推出 $$4abg^2+2(a+b)g-N+1=0$$ 通过解一元二次方程就可以把$g$解出来。
 
-###### 5.1.3 已知$g$ TODO
+###### 5.1.3 已知$g$
+这里需要分3种情况。分别是$g>a+b$,$g=a+b$,$g < a+b$，且素数$p,q$需要是平衡的。
+* $g > a+b$
+  * 令$c=a+b$，有$$N=2g(2gab+a+b)+1\ (1)$$，则有$M=2gab+c$，因此$c=M\ mod\ g$，因此令$b=c-a$，代入方程(1)可以列出关于$a$的一元二次方程，从而求解出$a$。
+* $g = a+b$
+  * 和上面的类似
+* $g < a+b$
+  * 由方程(1)得$$\frac{N-1}{2g}=2gu+v$$ 其中$0\leq v < 2g$且$u,v$已知。然后$\exist c$令$$\begin{cases} a+b=v+2gc \\ ab=u-c \end{cases}$$ 则对于$gcd(x,N)=1$，有$x^{2gu}\equiv x^{2gab+2gc}\equiv x^{2gc}\ (mod\ N)$，令$y=x^{2g}$，则我们有同余方程$$y^u\equiv y^c\ (mod\ N)$$ 然后求离散对数就可以把$c$求出来。知道$c$之后代入方程组就可以把$a,b$求出，成功分解$N$。 
+  * 其中$c$的取值为$c\leq a+b \approx 2N^{0.5-\gamma}$，其中$\gamma\approx\frac{1}{4}-mlog(long(N))$，$m$为常数。算法复杂度约为$O(\sqrt(c))$。
 
 
 #### 六、选择明密文攻击
@@ -1173,6 +1210,27 @@ x=bsgs(base,a,bounds,operation)
 对于每一个素数$p_i$，因为$$a = \sum_{j=0}^{c_i-1}a_jp_i^j+sp_i^{c_i}$$我们有$$\beta^{n/p_i} = (\alpha^a)^{n/p_i} \newline =(\alpha^{a_0+a_1p_i+...+a_{c-1}p_i^{c-1}+sp_i^c})^{n/p_i} \newline =\alpha^{a_0n/p_i}\alpha^{Kn} \newline =\alpha^{a_0n/p_i}$$因此有$$\beta^{n/p_i} = \alpha^{a_0n/p_i}$$这就相当于归结为1个新的离散对数问题，但是此离散对数问题规约到一个阶为$p_i$的子群。因此我们可以使用**Pollard Rho**等算法算出这个离散对数。
 最后算出这$k$个离散对数$a_0$，从而利用中国剩余定理计算出$a\ mod\ n$。而算法的时间复杂度取决于$n$中最大的一个素因子$p_{max}$。因此算法的时间复杂度是$O(\sqrt{p_{max}})$。
 
+**Sagemath 手写Pohlig-Hellman算法**，实际上可以查看`discrete_log`函数的实现
+```python
+# Sagemath 9.2
+def Pohlig_Hellman():
+    E = EllipticCurve(GF(p), [0, 0, 0, A1, B1])
+    P = E(,)
+    Q = E(,)
+    
+    order = P.order()
+    factors = factor(order)
+    factors = [fac^m for fac,m in factors]
+    ans = []
+
+    for factor in factors:
+        this = bsgs(G * (order // factor), Q * (order // factor), (0, factor), operation='+')
+        ans.append(this)
+        print(this)
+
+    return crt(ans, factors)
+```
+
 ##### 5 基于有限域$GF(p)$上的特殊情况的离散对数
 
 已知本原根$g$，已知离散对数$a$，对于$x\in F_p$，其中$p$是奇素数，已知$y=x^a\ mod\ p$，要求x。理论上这是一个求n次剩余的问题。但是这里有一种特殊情况，就是当 $gcd(a,p-1)=1$的时候，根据欧拉定理存在$a$模$p-1$的逆元。因此可以求出$a$在模$p-1$下的逆记为$a^{-1}$。因此有
@@ -1263,8 +1321,8 @@ ECC 全称为椭圆曲线加密，Elliptic Curve Cryptography，是一种基于�
 原理：$$C_1-mC_2\newline=M+rQ-m(rP)\newline = M+rmP-mrP\newline=M$$
 
 #### 2 常见ECC攻击方法
-* 分布式Pollard Rho算法
-* Pohlig-Hellman攻击(同样用于基点$P$的阶是可被分解成比较小的质因数的情景)
+* 分布式Pollard Rho算法 （暴力破解）
+* Pohlig-Hellman攻击(**攻击条件**：用于基点$P$的阶$n$是光滑(可被分解成比较小的质因数的乘积)的情景)
 * 暴力枚举私钥
 * 常见曲线（理论上需要使用特定的方法把该曲线转换成Weierstrass曲线的形式）：https://www.hyperelliptic.org/EFD/index.html
 
@@ -1305,12 +1363,10 @@ d1 = crt([d1p, d1q], [P1p.order(), P1q.order()])
 
 #### 5 MOV攻击
 
-* **攻击原理**：使用双线性对进行攻击，本质上是构造一个双线性映射，将椭圆曲线$E(F_q)$的两个点映射到有限域$F_{q^k}$的一个元素，其中$k$是该曲线的**嵌入度**。设曲线$E$的阶为$n$，且$n,q$互素，我们要构造映射$$f:E[n]\times E[n]\rightarrow F_{q^k}$$ 嵌入度$k$满足关系$$n \mid q^k-1$$ 
+* **攻击原理**：使用双线性对进行攻击，本质上是构造一个双线性映射，将椭圆曲线$E(F_q)$的两个点映射到有限域$F_{q^k}$的一个元素，其中$k$是该曲线的**嵌入度**。设曲线$E$的阶为$n$，且$n,q$互素，我们要构造映射$$f:E[n]\times E[n]\rightarrow F_{q^k}$$ **嵌入度$k$的定义**为$$n \mid q^k-1$$ 
 这里的双线性对一般使用Weil对或者Tate对。其中双线性对有双线性性，即：对于椭圆曲线上的点$P,Q$和整数$r,s$，有 $$f(rP,sQ) = f(P,Q)rs$$ 因此若要计算离散对数问题 $P' = rP$ 中的$r$。有 $$u = f(P,Q) \\ v = f(P',Q) = f(rP,Q) = f(P,Q)r \\ v = ru$$ 其中$u,v\in F_{q^k}$ 此时变成求解$ F_{q^k}$上的离散对数。
 
 * **攻击条件**：嵌入度$k$需要足够小，对于超奇异曲线(supersingular curve)，其嵌入度足够小，一般$k\leq 6$，此时可以使用MOV攻击。非超奇异曲线的嵌入度一般会非常大。
-
-* **计算复杂度**： TODO
 
 * **Sagemath调包**：首先构造曲线；然后给出离散对数问题；接下来选择$Q$为曲线中生成元的倍点，其中倍数根据定理D.1. 或Table D.1 选择；然后生成Weil对；最后求解离散对数问题。
   **定理D.1. (Theorem)**：令$E(F_q)$是一个超奇异曲线，其阶为$q+1-t$，其中$q=p^m$，$p$为素数，则曲线$E$有以下6种类型。
@@ -1358,7 +1414,7 @@ print(d)
     * https://crypto.stanford.edu/pbc/thesis.pdf  双线性对
     * https://www.sagemath.org/files/thesis/hansen-thesis-2009.pdf sagemath求解MOV攻击
     * Elliptic_Curves_in_Cryptography 书
-    * https://www.zhihu.com/people/ZM_________J/posts 大佬的笔记
+    * https://zhuanlan.zhihu.com/p/421541257 大佬的笔记
 
 
 
@@ -1534,6 +1590,26 @@ $J_C(K)$的运算规则在这里就不给出了，毕竟有现成的轮子的东
 
 
 
+### 四 圆锥曲线
+> 圆锥曲线存在着$\mathbb{F}_p$上的曲线也存在着$\mathbb{Z}_N$上的曲线。
+
+圆锥曲线方程为$$C(\mathbb{F}_p):y^2=ax^2-bx \\ a,b\in \mathbb{F}_p$$ 其中当$a>0$时曲线为双曲线，$a=0$时曲线为抛物线，$a<0$时曲线为椭圆。这个曲线恒过$(0,0)$点。
+
+圆锥曲线的安全性是基于离散对数问题所决定的，不同的参数选取有着不同的安全性。在选取安全性最高的情况下，GF(p)有限域上的圆锥曲线的安全性相当于扩域$\mathbb{F}_{p^2}$上DLP的安全性。
+
+**漏洞**：其中当$a >=0$时，$a$有模$p$的二次剩余，此时可以通过同构映射映射到有限域$GF(p)$这个乘法群中。
+
+* 存在同构映射$$M:C(\mathbb{F}_p)(x,y)\longrightarrow \phi_a(t) = \frac{t+\theta_1}{t+\theta_2} \\ t = \frac{y}{x} \\ \theta_1^2 \equiv \theta_2^2 \equiv a\ (mod\ p)$$ 把曲线上的点映射到有限域的乘法群中。因为$p$的取值不大，因此可以直接用`discrete_log`函数求解离散对数。
+
+* 存在构造同构映射$$M:C(\mathbb{F}_p)(x,y)\longrightarrow \phi_a(t) = \frac{1}{t-\theta} \\ t = \frac{y}{x} \\ \theta^2 \equiv a\ (mod\ p)$$ 即$a$的二次剩余$\theta$有重根，把曲线上的点映射到有限域的加法群中，然后求个逆然后相乘可求解离散对数。
+
+- 参考资料：
+  - https://www.jiamisoft.com/blog/4068-yuanzhuiquxianjiamisuanfa.html
+  - 徐旭东, 靳岩岩, 赵磊. 圆锥曲线公钥密码算法的参数选择[J]. 计算机工程, 2007, 33(15):3.
+
+
+
+
 
 ## 格密码 
 
@@ -1567,6 +1643,25 @@ LLL算法本质上是将A lattice basis $B$转换为 LLL-reduced basis $\tilde{B
 主要性质（解决SPV-$\gamma$）：
 ![格LLL算法](crypto/images/LLL.PNG)
 
+
+### BKZ (Block Korkin-Zolotarev)
+有兴趣可以自己研读一下下面的文献，就是具体描述BKZ算法的文章。
+- https://rd.springer.com/content/pdf/10.1007%2F978-3-642-25385-0_1.pdf    BKZ 2.0: Better Lattice Security Estimates
+- Shor, P.W.: Algorithms for quantum computation: discrete logarithms and factoring. In: Proceedings 35th Annual Symposium on Foundations of Computer Science. pp. 124–134. IEEE, Santa Fe, NM, USA (Nov 1994)
+
+算法接受两个额外参数的输入，$\beta$和$\epsilon$，$\epsilon$ 是LLL算法的输入，$\beta$ 是BKZ独有的。基的输入为$B=(b_1,...,b_n)$
+
+**目标**：求出基$B$的LLL算法的结果，然后$\forall 1\leq j \leq n$，$\parallel b_j^* \parallel = \lambda_1(L_{j,k})$，其中$k=min(j+\beta+1, n)$
+
+**效率**：一般来说BKZ 2.0的效率和效果是格基规约算法中最好的，具体实现有兴趣可以研读论文。
+
+LLL算法和BKZ算法在Sagemath中的调用见`crypto/Sagemath_Usage.md`
+
+> 一般来说可以尝试一下BKZ中的$\beta$取20
+
+
+
+
 ### Babai's nearest plane algorithm
 * 此算法用来求CVP问题的近似解，算法复杂度归结于LLL算法。
 * 参考文献
@@ -1579,6 +1674,9 @@ LLL算法本质上是将A lattice basis $B$转换为 LLL-reduced basis $\tilde{B
 
 #### Babai’s Rounding Technique
 该算法是``Babai's nearest plane algorithm``的一个变种。
+
+参考文献
+- https://link.springer.com/content/pdf/10.1007/BF02579403.pdf  
 
 #### Hidden number problem
 * 该问题可以规约到CVP问题并使用Babai's nearest plane algorithm解决。
@@ -1655,6 +1753,23 @@ $$ 注意：这里每一行代表一个向量，因此使用LLL算法求线性�
 
 
 
+### Lattice-Based Signature
+
+> 相当于是用一篇文献，该文献的参考文献中就引出了很多英文文献
+
+* GGH signature scheme
+  * 使用了 **Hermite form of matrix**
+  * Goldreich, O., Goldwasser, S., Halevi, S.: Public-key cryptosystems from lattice reduction problems. In: Kaliski, B.S. (ed.) Advances in Cryptology - CRYPTO ’97: 17th Annual International Cryptology Conference, Santa Barbara, California, USA, August 17-21, 1997. Proceedings. Lecture Notes in Computer Science, vol. 1294, pp. 112–131. Springer Berlin Heidelberg, Berlin, Heidelberg (1997), https://doi.org/10.1007/BFb0052231
+  * Nguyen P Q ,  Regcv O . Learning a Parallelepiped: Cryptanalysis of GGH and NTRU Signatures[J]. Journal of Cryptology, 2009, 22(2):139-160.  （**给出大量签名，可以恢复出GGH和NTRU签名方案的私钥**）
+* NTLU Signature
+  * 迟欢欢,李金波,张平.基于NTRU格的数字签名方案[J].网络安全技术与应用,2021(12):34-36. 
+* LWE Signature 
+* GPV signature scheme
+
+
+> 使用BKZ或LLL算法有可能能获取签名方案中所设计的好基(good basis)
+
+
 
 ## 同态加密
 
@@ -1679,7 +1794,7 @@ Paillier加密系统用到了群$Z^*_{N^2}$。而且一般来说$p = 2p'+1, q=2q
 
 因此我们可以看成$Z^*_{N^2}$上的元素$c$和$Z_N \times Z_N^*$上的元素$(m,r)$是等价的。
 * Paillier 密码方案
-* **KeyGen:** 选取两个大素数$p,q$，保证$gcd(pq,(p-1)(q-1)=1$，$n=pq$。其中$N$为公钥，$p,q$为私钥。
+* **KeyGen:** 选取两个大素数$p,q$，保证$gcd(pq,(p-1)(q-1))=1$，$n=pq$。其中$N$为公钥，$p,q$为私钥。
 * **Encryption(m):**  
     1. 随机选取一个元素$r\in Z^*_N$.
     2. 计算$c = [(1+N)m\cdot r^N\ mod\ N^2]$
@@ -2000,8 +2115,8 @@ def proof_of_work(str, hashh):
 
 **攻击思想：** 因为要验证$$\beta^{\gamma}\gamma^{\delta}\equiv \alpha^{x}\ (mod\ p)$$ 只要选择一个消息$m$满足$m\equiv m'\ mod\ (p-1)$，选择$m$的签名$\gamma_m,\delta_m$，则有$$\alpha^{m'} \equiv \alpha^m \equiv \beta^{\gamma_m}\gamma_m^{\delta_m} $$
 
-## DSA
-DSA 最早在1991年8月被提出，1994年12月1日被采纳数字签名标准。DSA是ElGamal签名方案的一个变种。
+## DSA / DSS
+DSA 最早在1991年8月被提出，1994年12月1日被采纳数字签名标准。DSA是ElGamal签名方案的一个变种。这个签名有时也被称为DSS签名
 
 **具体方案：** 选择一个长度为$L$比特的素数$p$，在$Z_p$上的离散对数问题是难处理的，其中$L \equiv 0\ mod\ 64$且$512 \leq L \leq 1024$(可以更大)。选择$q$是一个$N$比特的素数，而且满足$q|p-1$。设$\alpha\in Z_p^*$是1模$p$的$q$次根，即$\alpha^q \equiv 1\ mod\ p$。设$\mathcal P = \{0,1\}^*,\mathcal A=Z_q^*\times Z_q^*$，并定义$$\mathcal K=\{(p,q,\alpha,a,\beta):\beta \equiv \alpha^a(mod\ p)\}$$ 其中$0\leq a \leq q-1$。$p,q,\alpha,\beta$是公钥，$a$为私钥。对于$K=(p,q,a,\alpha, \beta) \in \mathcal K$和一个秘密随机数$k, 1\leq K\leq q-1$，选择一个哈希函数$H(x)$，则有
 $$sig_K(x,k)=(\gamma, \delta)$$ 其中$$\gamma = (\alpha^k\ mod\ p)\ mod\ q 
@@ -2032,10 +2147,45 @@ $$ 因此有 $$
 $$ 两式相减得 $$
 k(\delta_1 - \delta_2) \equiv H(x_1)-H(x_2)\ mod\ q$$  从而解出随机数$k$。然后使用第一个攻击方法恢复出私钥$a$。
 
+#### 3. DSA/DSS with LCG Pseudo-Random 
+**攻击条件**：如果DSA签名中的随机数$k$使用的是线性同余生成器所生成的，那么参考1997年的一篇文章（见参考文献），用格的方式可以求解。 
+1. DSA签名
+2. 线性同余生成器生成随机数$k$
+3. 至少给出2对明文和签名对
+
+
+首先会遇到$$\begin{cases} s_1k_1-r_1x = m_1\ (mod\ q) \\ s_2k_2-r_2x=m_2\ (mod\ q) \\ -ak_1+k_2 = b\ (mod\ M) \end{cases}$$ 的情况，然后我们构造下面的格进行求解 
+$$\left[\begin{matrix} -r_1 & s_1 & 0 & q & 0 & 0 \\ -r_2 & 0 & s_2 & 0 & q & 0 \\ 0 & -a & 1 & 0 & 0 & M \\ \gamma_x^{-1} & 0 & 0 & 0 & 0 & 0 \\ 0 & \gamma_{k_1}^{-1} & 0 & 0 & 0 & 0 \\ 0 & 0 & \gamma_{k_2}^{-1}  & 0 & 0 & 0  \end{matrix}\right]$$ 
+有时候该LCG会有不同的情况，需要根据实际情况去构造格
+
+
+参考文献：
+- [1] Bellare M ,  Goldwasser S ,  Micciancio D . pseudo-random number generation within cryptographic algorithms: the dss case[J].  2017.
+- [2] "Pseudo-Random" Generators within cryptographic applications: the DSS case[J]. advances in cryptology—crypto ’, 1997.
+
+参考题目： VNCTF 2022 AreYouAdmin
+
+
+
+
+## ECDSA 椭圆曲线数字签名算法
+ECDSA算法有两种形式，第一种是类似于DSA算法的，第二种是类似于Elgamma签名方案的，本质上只是把其中的离散对数问题换成ECDLP。
+
+参考资料：
+- https://en.wikipedia.org/wiki/Elliptic_Curve_Digital_Signature_Algorithm#Signature_generation_algorithm
+
+
 ## Boneh-Boyen Scheme 签名算法
+主要算法见
+![Boneh-Boyen_signature](crypto/image/Boneh-Boyen_signature.PNG)
+签名算法主要基于q-SDH 问题，该问题主要见第2、3篇参考资料。
 
-TODO
+参考资料中有该签名算法的一个攻击
 
+参考资料：
+- Yoshida K . Boneh-Boyen signatures and the strong Diffie-Hellman problem. [J]. 2009. 
+- Dan Boneh and Xavier Boyen. Short signatures without random oracles. In Advances in Cryptology—EUROCRYPT 2004, volume 3027 of Lecture Notes in Computer Science, pages 56–73. Springer, 2004.
+- Dan Boneh and Xavier Boyen. Short signatures without random oracles and the SDH assumption in bilinear groups. Journal of Cryptology, 21(2):149–177, 2008.
 
 
 
@@ -2065,6 +2215,9 @@ $$
 
 ### $x^2+y^2=p$
 > 待完成
+
+### 1.3 光滑数
+光滑数的定义：B为一个正整数，如果一个自然数N的因子分解式中没有大于B的因子，我们就称N是一个B光滑数。
 
 ## 2. 近似最大公约数(Approximate Greatest Common Divisor)
 给定两个整数$n_1 = q_1p$，$n_2 = q_2p$，则两者的最大公约数为$p = gcd(n_1,n_2)$。
@@ -2154,7 +2307,6 @@ a^2+b^2 == 19*19*97
 
 
 ### 4.4 拉格朗日四平方定理
-> TODO
 
 **定理内容：** 每个正整数均可表示成不超过四个整数的平方之和.
 
@@ -2450,6 +2602,8 @@ http://oeis.org/search?q=1%2C4%2C15%2C56&sort=&language=english&go=Search
 
 # 近年来比较热的密码技术
 
+> 推荐知乎上一个人，介绍了很多密码学学术界的知识，如果有兴趣去研究可以去看一下ta写的文章： https://www.zhihu.com/people/steven-yue-72/posts
+
 ## 差分隐私
 > 最好多看几篇文章，这里就做简单叙述
 * reference: 
@@ -2486,7 +2640,7 @@ Pr[f(D)=s]\leq Pr[f(D')=s]\times e^{\epsilon} $$ 其中$e\approx 2.718281828459$
 
 
 
-## 安全多方计算 TODO
+## 安全多方计算
 
 ### Shamir秘密分享
 > 本质上是多项式的求解。Shamir的$(k,n)$秘密共享算法将秘密$S$分为$n$个子秘密，任意$k$个子秘密都可以恢复出$S$ ，而任意$k-1$个子秘密无法恢复出$S$。
@@ -2692,7 +2846,17 @@ Verifier: 检查$v^2==y^bz\ mod\ N$
 * 参考资料：https://blog.csdn.net/zhang_hui_cs/article/details/8728776
 
 
-### keccak256 哈希算法 TODO
+### keccak256 哈希算法
+
+目前为止此函数的安全性、灵活性、高效性还是可以的。
+
+```python
+from Crypto.Hash import keccak
+
+keccak_hash = keccak.new(digest_bits=512)   # 224, 256, 384, 512
+keccak_hash.update(b'Some data')
+print keccak_hash.hexdigest()
+```
 
 ## 区块链前沿隐私技术
 |名称|	类型|	技术实现|
