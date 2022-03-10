@@ -2,6 +2,11 @@
 
 # Blockchain
 
+**相关资料**
+- [区块链技术指南](https://yeasy.gitbook.io/blockchain_guide/)
+- [《精通比特币》第二版](https://wizardforcel.gitbooks.io/masterbitcoin2cn/content/)
+- [比特币多重签名](https://imzy.vip/archives/page/3/)
+
 ## Build Environment
 
 * 参考资料：
@@ -9,6 +14,7 @@
   * https://www.cnblogs.com/little-kwy/p/10394299.html
   * https://blog.csdn.net/u013096666/article/details/78647509
   * https://www.cnblogs.com/wanghui-garcia/p/10256520.html  geth参数
+  * https://blog.csdn.net/hantangduhey/article/details/81017602
 
 > ps:很多参考资料由于版本问题稍微有点过时，这里重新写一个能用的
 

@@ -170,6 +170,17 @@ https://lingojam.com/WingDing
 * 不可预测性：不能从过去的序列推测出下一个出现的数。
 * 不可重现性：除非数列保存下来，否则不能重现相同的数列。
 
+
+
+
+#### BBS生成器 (Blum-Blum-Shub)
+
+> 具体算法见：《密码学原理与实践》(第三版) 8.3节，这里作简要的叙述
+
+设$p,q$是满足$p\equiv q\equiv 3\ mod\ 4$ 的$k$比特素数。$n=pq$。设$s_0$是模$n$的二次剩余。对于$0\leq i\leq l-1$，有$$s_{i+1} = s_i^2\ mod\ n$$，定义$f(s_0) = (z_1,z_2,...,z_l)$，其中$z_i = s_i\ mod\ 2,\ \ 1\leq i\leq l$。这样一来$f$就是一个$(k,l)$的BBS生成器。
+
+
+
 #### 码安全伪随机数生成器
 
 * 例题：woodman - Google CTF
@@ -1128,7 +1139,7 @@ Oracle返回奇偶性信息造成了信息的泄露，因此可以使用选择�
 
 
 
-## 背包加密
+## 背包加密 (knapsack based cryptosystem)
 * 参考：https://ctf-wiki.org/crypto/asymmetric/knapsack/knapsack/#_9
 
 ![Knapsack_problem](crypto/images/Knapsack_problem.PNG)
@@ -1825,6 +1836,60 @@ Paillier加密系统用到了群$Z^*_{N^2}$。而且一般来说$p = 2p'+1, q=2q
 
 
 
+## 概率加密
+
+
+### Goldwasser-Micali cryptosystem
+
+Message encryption
+Suppose Bob wishes to send a message m to Alice:
+
+1. Bob first encodes m as a string of bits $(m_1, ..., m_n)$.
+2. For every bit ${\displaystyle m_{i}}m_{i}$, Bob generates a random value ${\displaystyle y_{i}}y_{i}$ from the group of units modulo $N$, or ${\displaystyle \gcd(y_{i},N)=1}\gcd(y_{i},N)=1$. He outputs the value ${\displaystyle c_{i}=y_{i}^{2}x^{m_{i}}{\pmod {N}}}c_{i}=y_{i}^{2}x^{{m_{i}}}{\pmod  {N}}$.
+Bob sends the ciphertext $(c_1, ..., c_n)$.
+
+Message decryption
+Alice receives $(c_1, ..., c_n)$. She can recover m using the following procedure:
+
+For each i, using the prime factorization $(p, q)$, Alice determines whether the value $c_i$ is a quadratic residue; if so, $m_i = 0$, otherwise $m_i = 1$.
+Alice outputs the message $m = (m_1, ..., m_n)$.
+
+参考资料：
+- https://en.wikipedia.org/wiki/Goldwasser%E2%80%93Micali_cryptosystem
+- 《密码学原理与实践》第三版 8.4节
+
+
+### Blum–Goldwasser cryptosystem
+
+> 此密码体制用到了BBS生成器生成的随机数,**并可以扩展到window的形式**
+
+- **Keygen:**
+  - $p\equiv q\equiv 3\ (mod\ 4)$, $n=pq$
+  - $r\in Z_n^*$
+  - $sk:p,q$，$pk:n$
+- **Encrypt:($m:(m_1,...,m_l)$, pk)**
+  - $s_0=r$，用BBS生成器生成$z_1,...,z_l$
+  - $s_{l+1}=s_0^{2^{l+1}}\ mod\ n$
+  - For $1\leq i\leq l$,计算$y_i=(x_i+z_i)\ mod\ 2$
+  - **return** $(y_1,...,y_l,s_{l+1})$
+- **Decrypt:(密文，sk)**
+  - $a_1 = ((p+1)/4)^{l+1}\ mod\ (p-1)$
+  - $a_2 = ((q+1)/4)^{l+1}\ mod\ (q-1)$
+  - $b_1 = s_{l+1}^{a_1}\ mod\ p$
+  - $b_2 = s_{l+1}^{a_2}\ mod\ q$
+  - 使用中国剩余定理找出$$r\equiv b_1(mod\ p),\ r\equiv b_2(mod\ q)$$
+  - 把$r$作为BBS生成器生成$z_1,...,z_l$
+  - $\forall 1\leq i\leq l$计算$m_i = (y_i+z_i)\ mod\ 2$
+  - 明文为$m = (m_1,...,m_l)$
+
+参考资料：
+- https://en.wikipedia.org/wiki/Blum%E2%80%93Goldwasser_cryptosystem
+- 《密码学原理与实践》第三版 8.4节
+
+
+
+
+
 # 哈希函数
 
 哈希函数（Hash Function）把消息或数据压缩成摘要，使得数据量变小。即把任意长度的消息hash成固定长度的序列。
@@ -2339,8 +2404,14 @@ a^2+b^2 == 19*19*97
 2. 计算$a = g^{\frac{n}{q}}$，则$a$为环$R$的一个$q$阶元素。
 
 
-## 6. Chinese remainder theorem(CRT) 中国剩余定理python实现
+## 6. Chinese remainder theorem(CRT) 中国剩余定理
+
+原理见https://en.wikipedia.org/wiki/Chinese_remainder_theorem
+
+遇到模数不是素数的情况下，用CTR分解一下，可能有奇效。
+
 ```python
+# python实现
 from functools import reduce
 
 def egcd(a, b):
@@ -2364,6 +2435,8 @@ def chinese_remainder(pairs):
 print(chinese_remainder([(3,2),(5,3),(7,4),(11,5)]))
 # 368
 ```
+
+在Sagemath中有函数`CRT`和`CRT_list`
 
 ## 7. 广义Fibonacci（斐波拉契）数列
 * 正常的Fibonacci数列：$F_n = F_{n-1} + F_{n-2} (n\geq 2)$
@@ -2461,6 +2534,33 @@ $$\phi(n) = n(1-\frac{1}{p_1})\cdots(1-\frac{1}{p_r})$$
 * 推论1：正常的RSA方案的一个公钥指数至少对应两个私钥。
   * $$a^{2k_1}\equiv 1\ mod\ n_1, \ \ a^{2k_2}\equiv 1\ mod\ n_2 \\ a^{2k_1k_2}\equiv 1\ mod\ n_1$$ 而$\phi(n) = 4k_1k_2$，因此实质上一个RSA方案一个公钥指数可以对应$gcd(p-1,q-1)$个私钥指数。
 * 推论2：能构成模$n$的循环群一定满足$n=2,4,p^l, 2p^l$
+
+## 12. Montgomery reduction 
+一般来说这个方法主要应用于快速计算素数阶有限域的乘法运算。原理是把需要计算的数映射到Montgomery表示形式中，然后在这种形式中进行乘法的计算。在Montgomery表示形式中，同样适用于加法和乘法运算。
+
+> Montgomery规约适用于模不是素数的情况，可见参考文献2中的内容，而且是在$GF(2^k)$上的。这里只说明在素数域的情况下如何去计算。
+
+已知：模数$p$，$n=log_2(p)$，乘数$a,b\ mod\ p$
+
+预计算：$r = 2^n$，把$a,b$转化成Montgomery表示形式，$a' = ar\ (mod\ p)\ \ b' = br\ (mod\ p)$
+
+根据Montgomery reduction定理有：$$\forall t, 0\leq t\le nr, st. \frac{(t+tpp^{-1})}{r} \equiv tr^{-1}\ mod\ p$$ 其中的除法运算就是整数的除法，不是乘以$r$的逆。
+
+因此使用Montgomery reduction对算法进行加速的时候有两个算法需要实现。第一个是如何把乘数变成Montgomery reduction的形式，然后第二点就是对乘法进行实现。如果确定了要把乘数变成Montgomery reduction的形式，然后一直都在这个形式下进行运算。假设当前的数为$t$，那么只需要执行$tr^{-1}\ mod\ n$就可以恢复成想要的结果。
+- 第一步中的乘法模运算可以使用最传统的方式进行预处理。然后乘法运算就用Montgomery乘法。
+- Montgomery reduction乘法：
+    1. $t = ab$
+    2. $m = tn^{-1}\ mod\ r $。其中求模运算只需要取乘法运算的低$n$比特即可。
+    3. $u=(t+mn)/r$
+    4. if $u\geq n$, then $u = u-n$
+    5. 输出$u$
+
+
+参考资料：
+1. https://cryptography.fandom.com/wiki/Montgomery_reduction#The_Montgomery_step
+2. https://www.researchgate.net/publication/225847328_Montgomery_Multiplication_in_GF2k   **Montgomery Multiplication in GF(2k)**
+
+
 
 # 常见Crypto攻击思想
 
@@ -2596,6 +2696,29 @@ for i in itertools.permutations(a):
 http://oeis.org/search?q=1%2C4%2C15%2C56&sort=&language=english&go=Search
 
 
+
+
+# 计算复杂性理论 （必要知识）
+
+大多数搜索型问题可以推广到判定型问题上去。
+
+P问题：有效求解的问题
+
+NP问题：有效验证解的问题（是不是还要加一点东西）
+
+NPC问题(NP完备问题)：需要引入多项式时间规约的概念。
+    1. 是一个NP问题
+    2. 所有的NP问题都可以(多项式时间)约化到它
+
+- Karp规约——判定型问题之间的规约
+- Levin规约——搜索型问题到搜索型问题之间的规约
+
+NP难问题：（分为两种情况）
+    1. 是一个NPC问题
+    2. 不是一个NP问题（没有有效验证解的问题）
+
+
+传统的NP问题的定义是利用确定性图灵机实现的。
 
 
 
@@ -2816,8 +2939,13 @@ Verifier: 检查$v^2==y^bz\ mod\ N$
 ### OT（Oblivious Transfer，不经意传输）
 
 * 参考资料：
-    * https://zhuanlan.zhihu.com/p/424202269
-    * https://www.zhihu.com/column/c_1409550861031251968
+    * https://en.wikipedia.org/wiki/Oblivious_transfer
+      * https://www.zhihu.com/column/c_1409550861031251968 更偏向于学术的OT
+
+**1-2 oblivious Transfer**: 方案见第一篇参考资料，写得非常的清晰了。
+
+其中一种攻击方式：
+现在已知$N,e,x_0,x_1,v$，我们可以精心构造$v$使得Alice计算出的$k_0 = k'k_1$，其中$k'$是一个常数。因此联立方程$$\begin{cases} k_0 = k'k_1\ mod\ N \\ k_0^e \equiv v - x_0\ mod\ N \\ k_1^e \equiv v - x_1\ mod\ N \end{cases}$$ 解得$v = (k'^ex_1 - x_0) / (k'^e - 1) \ mod\ N$。因此可以计算出$$m \equiv m'_0k' - m'_1 \equiv k'x - y\ (mod\ N)$$
 
 
 
