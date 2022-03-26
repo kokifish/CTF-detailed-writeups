@@ -6,6 +6,7 @@
 - [区块链技术指南](https://yeasy.gitbook.io/blockchain_guide/)
 - [《精通比特币》第二版](https://wizardforcel.gitbooks.io/masterbitcoin2cn/content/)
 - [比特币多重签名](https://imzy.vip/archives/page/3/)
+- [区块链技术入门](http://c.biancheng.net/blockchain/)
 
 ## Build Environment
 
@@ -242,6 +243,13 @@ Solidity里的每个`address`类型的变量可以看成一个对象，对象里
 
 
 ### 智能合约基础
+
+#### abi相关
+solidity只会把编译好了的二进制文件上链，但是合约的源码和abi都不会发布在链上。
+
+* 以太坊上的所有合约代码都是二进制代码，很容易被以太坊虚拟机执行，但几乎不可读。虽然大多数开发人员使用Solidity语言编写智能合约，但部署的不是Solidity，而是二进制代码。
+
+* **合约验证**有助于在使用智能合约的客户和部署合同的项目方之间建立信任。Etherscan区块链已经实现了一个在线工具来帮助开发人员验证他们的代码。但是在自己搭建的私链上就没有这样的步骤。因此需要根据实际情况判断是否需要对solidity的二进制文件逆向从而获得abi。
 
 #### 合约调用合约
 

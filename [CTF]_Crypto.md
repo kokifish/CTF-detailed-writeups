@@ -274,7 +274,7 @@ python中的random库使用的是**Mersenne Twister 算法作为核心生成器*
 1. https://docs.python.org/zh-cn/3/library/random.html
 2. https://en.wikipedia.org/wiki/Mersenne_Twister
 
-> 具体的算法流程还没有完全了解，目前只需要知道怎么去破解即可。
+维基百科上提供了梅森旋转算法的伪代码，有兴趣的读者可以自己实现一版。然后在攻击的predictor中的`mt19937predictor.py`文件中也有相应的生成算法的代码。
 
 参考：`crypto/random_number_Mersenne_Twister_2021NahamconCTF_Dice_Roll`中的writeup。
 破解代码见`crypto/code/mersenne-twister-predictor-master.zip`。
@@ -500,6 +500,15 @@ BETA = BitArray("0x3f84d5b5b5470917")
 ![CBC_BitFlipping](crypto/images/CBC_BitFlipping.png)
 
 
+##### The Padding Oracle Attack
+程序中有Padding相关的判断条件返回的时候，我们可以构造出相应的密文给oracle，（可能是构造padding让oracle作判断）。oracle然后根据构造的明文padding返回对应的结构。
+
+**攻击原理：** 本质上是BitFlipping的一种。根据CBC或者其它填充模式，通过改变iv或者改变某些密文，使得我们需要的位置构造成我们需要的信息（比如使得明文等于padding，或者使得明文等于串字符串。）
+
+参考资料：[The Padding Oracle Attack](https://robertheaton.com/2013/07/29/padding-oracle-attack/)
+
+
+
 ##### 差分攻击
 差分攻击一般应用于块加密函数中非线性函数（比如说s盒或某些轮函数）设计缺陷导致差分信息较为明显，从而构造相应的输入对密码系统进行攻击。一般来说是选择明文攻击。
 
@@ -684,9 +693,9 @@ Bob有私钥<N,d>，公钥<N,e>。敌手Alice想要Bob对M进行签名，但是B
 参考例子：
 ```python
 e= 65537
-n = 9637571466652899741848142654451413405801976834328667418509217149503238513830870985353918314633160277580591819016181785300521866901536670666234046521697590230079161867282389124998093526637796571100147052430445089605759722456767679930869250538932528092292071024877213105462554819256136145385237821098127348787416199401770954567019811050508888349297579329222552491826770225583983899834347983888473219771888063393354348613119521862989609112706536794212028369088219375364362615622092005578099889045473175051574207130932430162265994221914833343534531743589037146933738549770365029230545884239551015472122598634133661853901
-c = 5971372776574706905158546698157178098706187597204981662036310534369575915776950962893790809274833462545672702278129839887482283641996814437707885716134279091994238891294614019371247451378504745748882207694219990495603397913371579808848136183106703158532870472345648247817132700604598385677497138485776569096958910782582696229046024695529762572289705021673895852985396416704278321332667281973074372362761992335826576550161390158761314769544548809326036026461123102509831887999493584436939086255411387879202594399181211724444617225689922628790388129032022982596393215038044861544602046137258904612792518629229736324827
-dp = 81339405704902517676022188908547543689627829453799865550091494842725439570571310071337729038516525539158092247771184675844795891671744082925462138427070614848951224652874430072917346702280925974595608822751382808802457160317381440319175601623719969138918927272712366710634393379149593082774688540571485214097
+n = 
+c = 
+dp = 
 for i in range(1,e+1):
     if (dp*e-1)%i == 0:
         if n%(((dp*e-1)/i)+1)==0:
@@ -717,6 +726,27 @@ for i in range(1,e+1):
     print(long_to_bytes(m))
     ```
     实际上打比赛的过程中，如果知道了$p,q$直接计算$\phi(N)$就行，没必要用这种方法。
+
+
+##### 2.6 小公钥指数攻击 （非Coppersmith）
+***本质上是当公钥指数较小$e\leq 5$，把问题变成求解$f(x)\equiv 0\ mod\ N$的问题，其中$f(x)=\sum_{i=0}^{e} a_ix^i，a_i\in Z_N$。主要应用场景在e很小，方程的根比较小的情况。***
+###### 2.6.1 Hastad的广播攻击
+假设$e=3$，并且加密者使用了三个不同的模数$n_1,n_2,n_3$给三个不同的用户发送了加密后的消息$m$: $$c_1=m^3\ mod\ n_1 \newline 
+c_2=m^3\ mod\ n_2 \newline 
+c_3=m^3\ mod\ n_3$$
+其中$n_1,n_2,n_3$不互素，$m < n_i$。
+* 攻击方法：首先通过中国剩余定理得到$m^3\equiv C\ mod\ n_1n_2n_3$。因此只要对$C$开三次根就可以得到$m$的值。开根可以使用``SageMath``中的``iroot``函数。
+    * 代码参考：https://github.com/yifeng-lee/RSA-In-CTF/blob/master/exp2.sage
+    * ***具体Sagemath9.2代码见``crypto/code/Hastad_Broadcast_Attact.sage``***
+* **拓展：** 具有线性填充的广播攻击也能通过Coppersmith's Theorem被攻破。(Coppersmith's Theorem见RSA第四部分)
+* 因此广播攻击的避免方式可以使用随机填充(padding)
+
+
+###### 2.6.2 Franklin-Reiter 相关信息攻击
+(**Franklin-Reiter**)当 Alice 使用同一公钥对两个具有某种线性关系的消息 M1 与 M2 进行加密，并将加密后的消息 C1，C2 发送给了 Bob 时，我们就可能可以获得对应的消息 M1 与 M2。这里我们假设模数为 N，两者之间的线性关系为$M_1\equiv f(M_2)\ mod\ N，f=ax+b$。则此时可以比较容易地恢复出$M$。
+* 方法：当$e=3$时，$C_1=M_1^e\ mod\ N$，则有$M_2$是$g_1(x) = f(x)^e - C_1\equiv 0\ mod\ N$的根，而且$M_2$也是$g_2(x)=x^e - C_2\equiv 0\ mod\ N$的根。如果$g_1,g_2$的最大公因子是线性的，那么$M_2 = gcd(g_1,g_2)$。
+* 当$e>3$时，$g_1,g_2$不一定是线性的，此时无法用此方法求解。
+
 
 
 #### 三、小解密指数攻击
@@ -834,14 +864,18 @@ M & e_1 & e_2 & \cdots & e_r \\
 
 
 
-#### 四、小公钥指数攻击(Coppersmith's Theorem)
-##### 4.1 攻击原理
-***本质上是当公钥指数较小$e\leq 5$，把问题变成求解$f(x)\equiv 0\ mod\ N$的问题，其中$f(x)=\sum_{i=0}^{e} a_ix^i，a_i\in Z_N$。主要应用场景在e很小，方程的根比较小的情况。***
-* **Theorem 3 (Coppersmith)：** $N$是整数，$f\in Z[x]$是度数为**d**的首一多项式。令$X=N^{\frac{1}{d}-\epsilon}$*（$X$是实数）*。则给定$<N,f>$，敌手可以快速找出所有的整数$\{x_0|\ \ |x_0|<X\ 且\ f(x_0)\equiv 0\ mod\ N\}$。运行时间为运行*LLL*算法所花费的时间，记为$O(w), w=min(1/\epsilon,log_2 N)$
-* **Coppersmith方法**主要通过找到与$f\ mod\ N$有 **(1.相同根 2.系数为整数域 3.系数更小)** 性质的多项式$g$，从而找出$g$的根(因为容易找出整数域上的多项式根)
+#### 四、Coppersmith's Theore
+
+1996年，Coppersmith 提出了一种针对于模多项式（单变量，二元变量）找所有小整数根的多项式时间的方法。然后后面许多工作都围绕着这方面来进行（多元变量，界的提升等）。因此说到Coppersmith，指的就是找出**模多项式（单变量，二元变量）的所有小整数根**。
+
+
+
+* **Theorem 3 (Coppersmith)：** $N$是整数，$f\in Z[x]$是度数为$d$的首一多项式。令$X=N^{\frac{1}{d}-\epsilon}$（$X$是实数）。则给定$N,f$，敌手可以快速找出所有的整数$\{x_0|\ \ |x_0|<X\ 且\ f(x_0)\equiv 0\ mod\ N\}$。运行时间为运行**LLL**算法所花费的时间，记为$O(w), w=min(1/\epsilon,log_2 N)$。 **需要认清本质上是一种格的算法，很多解法都是可以通过构造格来进行实现的。**
+<!-- * **Coppersmith方法**主要通过找到与$f\ mod\ N$有 **(1.相同根 2.系数为整数域 3.系数更小)** 性质的多项式$g$，从而找出$g$的根(因为容易找出整数域上的多项式根)
     * $f到g$的转换方式：预定义一个整数m，定义$$g_{u,v}(x)=N^{m-v}x^uf(x)^v$$。因此$x_0$是$g_{u,v}(x)\ mod\ N^m$的一个根，其中$u\geq 且0\leq x_0\leq m$与此同时有$f(x_0)\equiv 0\ mod\ N$
     * 因此我们可以找到一组$g_{u,v}$的线性组合$h(x)$，满足$h(xX)$有小于$N^m$的范式(根)，其中$X$是$x_0$中满足$X<N^{\frac{1}{d}}$的上界。只要m足够大，那么一定能找到这样的$h(x)$。**此时表示我们找到了这样的$h(x)$，它在整数中有同样的根$x_0$**。
-##### $h(x)$的寻找方法
+
+**$h(x)$的寻找方法**
 * 定义$h(x)=\sum a_ix^i \in Z[x]$，则$\|h(x)\| = \sum a_i$
 * **Lemma 4 (Howgrave-Graham)：** Let $h(x)\in Z[x]$ be a polynomial of degree $dg$ and let $X$ be a positive integer. Suppose $\|h(xX)\| < N/\sqrt{dg}$. If $|x_0| < X$ satisfies $h(x_0)=0\ mod\ N$, then $h(x_0)=0$ holds over the integer.（$h(x_0)=0$在整数上成立）
     * 首先我们把多项式$g_{u,v}(xX)$作为向量，并记格$L$是由它所生成的。固定一个m，我们就可以写出格$L$的表达式，形如下图。其中带``*``号的表示非0系数，空的位置代表0。下图是当$m=3,dg=2$时所构造出的格$L$。
@@ -849,39 +883,37 @@ M & e_1 & e_2 & \cdots & e_r \\
     * 通过**LLL定理**，可以找出格L中的一个向量$v\in L$，满足$\|v\|\leq 2^{w/4}det(L)^{1/w}$，w表示格的维数。接下来需要证明：$2^{w/4}det(L)^{1/w} < N^m/\sqrt{w}，其中w=dg(m+1)$。当m足够大的时候，上式可以被满足。因此通过LLL定理找出的向量$v$就是所求的$h(x)$。
     * 参数的确定:当由$X=N^{\frac{1}{dg}-\epsilon}$时，有$m=O(k/dg)，k=min(\frac{1}{\epsilon},log\ N)$
 
-**LLL定理：** Let L be a lattice spanned by $<u_1,...,u_w>$. When $<u_1,...,u_w>$ are given as input, then the LLL algorithm outputs a point $v\in L$ satisfying $$\|v\|\leq 2^{w/4}det(L)^{1/w}$$ LLL的运行时间是输入长度$w$的四次方。
+**LLL定理：** Let L be a lattice spanned by $<u_1,...,u_w>$. When $<u_1,...,u_w>$ are given as input, then the LLL algorithm outputs a point $v\in L$ satisfying $$\|v\|\leq 2^{w/4}det(L)^{1/w}$$ LLL的运行时间是输入长度$w$的四次方。 -->
 * **Coppersmith定理所使用的攻击方法一般都被写在了``Magma``的``SmallRoots``函数中，以及``SageMath``的``small_root``函数中。**
 * 详细实现过程参考：https://github.com/mimoo/RSA-and-LLL-attacks
-* 参考文献： Wong D. Survey: Lattice Reduction Attacks on RSA. 
+* 参考文献： 
+  * Wong D. Survey: Lattice Reduction Attacks on RSA. 
+  * [Don Coppersmith. Small Solutions to Polynomial Equations, and Low Exponent RSA Vulnerabilities](https://link.springer.com/content/pdf/10.1007/s001459900030.pdf)
+  * [Using LLL-Reduction for Solving RSA and Factorization Problems 相对简单的攻击](https://www.cits.ruhr-uni-bochum.de/imperia/md/content/may/paper/lll.pdf)
 
-##### 4.2 Hastad的广播攻击
-假设$e=3$，并且加密者使用了三个不同的模数$n_1,n_2,n_3$给三个不同的用户发送了加密后的消息$m$: $$c_1=m^3\ mod\ n_1 \newline 
-c_2=m^3\ mod\ n_2 \newline 
-c_3=m^3\ mod\ n_3$$
-其中$n_1,n_2,n_3$不互素，$m < n_i$。
-* 攻击方法：首先通过中国剩余定理得到$m^3\equiv C\ mod\ n_1n_2n_3$。因此只要对$C$开三次根就可以得到$m$的值。开根可以使用``SageMath``中的``iroot``函数。
-    * 代码参考：https://github.com/yifeng-lee/RSA-In-CTF/blob/master/exp2.sage
-    * ***具体Sagemath9.2代码见``crypto/code/Hastad_Broadcast_Attact.sage``***
-* **拓展：** 具有线性填充的广播攻击也能通过Coppersmith's Theorem被攻破。
-* 因此广播攻击的避免方式可以使用随机填充(padding)
+##### 4.1 小公钥指数攻击（Coppersmith）
 
-##### 4.3 Franklin-Reiter 相关信息攻击
-(**Franklin-Reiter**)当 Alice 使用同一公钥对两个具有某种线性关系的消息 M1 与 M2 进行加密，并将加密后的消息 C1，C2 发送给了 Bob 时，我们就可能可以获得对应的消息 M1 与 M2。这里我们假设模数为 N，两者之间的线性关系为$M_1\equiv f(M_2)\ mod\ N，f=ax+b$。则此时可以比较容易地恢复出$M$。
-* 方法：当e=3时，$C_1=M_1^e\ mod\ N$，则有$M_2$是$g_1(x) = f(x)^e - C_1\equiv 0\ mod\ N$的根，而且$M_2$也是$g_2(x)=x^e - C_2\equiv 0\ mod\ N$的根。如果$g_1,g_2$的最大公因子是线性的，那么$M_2 = gcd(g_1,g_2)$。
-* 当e>3时，$g_1,g_2$不一定是线性的，此时无法用此方法求解。
-##### 4.4 Coppersmith’s short-pad attack （短填充攻击）
+###### 4.1.1 Coppersmith’s short-pad attack （短填充攻击）
 假设N长度为n，令$m=\lfloor n/e^2\rfloor$，加密消息M的长度不超过(n-m) bits。若有$$M_1=2^mM+r_1 \newline M_2=2^mM+r_2$$$0\leq r_1,r_2\leq 2^m$是不同的整数，则若知道$e,M_1,M_2,C_1,C_2$，容易恢复出M。
 * 令$$g_1(x,y)=x^e-C_1 \newline g_2(x,y) = (x+y)^e-C_2$$ 
 其中$y=r_2-r_1$，则$M_1$是两个方程的根。因此有$M_1=gcd(g_1(x,y),g_2(x,y))$，过程：
 
 ![Coppersmith短填充攻击](crypto/images/Coppersmith_ShortPadAttack.PNG)
-* 当padding的长度小于信息长度的1/9的时候，可以使用此攻击。
-##### 4.5 Known High Bits Message Attack(已知高比特信息攻击)
-已知$C\equiv m^e\ mod\ N$，假设已知很大一部分$m_0$,则有$C\equiv(m_0+x)^e\ mod\ N$。直接使用Coppersmith定理求解$x$，但记得其中的$x$需要满足Coppersmith定理中的约束，即$x < N^{\frac{1}{e}}$。
+* **攻击条件**：$\Delta < 2^m < N^{1/e^2}$ ，可以使用此攻击。可见这时$e<5$。
+
+###### 4.1.2 Known High Bits Message Attack(已知高比特信息攻击)
+    
+* 已知$C\equiv m^e\ mod\ N$，假设已知很大一部分$m_0$,则有$C\equiv(m_0+x)^e\ mod\ N$。直接使用Coppersmith定理求解$x$，但记得其中的$x$需要满足Coppersmith定理中的约束，即$x < N^{1/e}$，可见这里的$e<5$。
 
 * ***具体Magma代码见``crypto/code/Known_High_Bits_Message_Attack.m``***
 
-##### 4.6 Factoring with High Bits Known(已知高比特分解)
+###### 4.1.3 消息长度较短
+* **攻击条件：** $e < 5, m < N^{0.44}$
+
+    根据$m ^ e = kN + c$构造出$f = m^e - c\ (mod\ N)$，然后使用Coppersmith方法求解（直接调用`small_root`）
+
+
+##### 4.2 Factoring with High Bits Known(已知高比特分解) $p,q$
 已知$p$或$q$中其中一个数的高位比特，我们就有一定几率来分解 $N$。
 **这里的原理就是Theorem 10，但是原理的具体流程没有找到。这里只是使用现成的代码能做到已知p的高比特部分，代码运行之后能得到相应的$p$。**
 原理则是求解$x+p_{fake}\equiv 0\ mod\ Factor(N)$，Sage里面恰好有这样的一个函数，可以直接使用。
@@ -890,54 +922,59 @@ c_3=m^3\ mod\ n_3$$
 * 代码参考：https://github.com/yifeng-lee/RSA-In-CTF/blob/master/exp6.sage
 * ***具体Sagemath9.2代码见``crypto/code/Factoring_with_High_Bits_Known.py``***
 
-##### 4.6.2 Improve Factoring with High Bits Konwn
+###### 4.2.2 Improve Factoring with High Bits Konwn
 这里试4.6节的变种，就是现在已知$p$或$q$的高位比特和低位比特，只有中间的bit不知道，而且高位bit和低位bit占所有bit的56%或以上。如果不足则可以暴力枚举某些比特使得已知比特的数量大于56%，从而实用该攻击
 * 攻击原理：求解$$2^lx + p_{low} + p_{high} \equiv 0\ mod\ N$$ 同样是使用sagemath中的`small_root`函数。就是需要加上`f = f.monic()`一句保证多项式`f`是首一的。
 * 攻击要求与4.6节的一致。
 * 具体代码同样见4.6节的代码。
 
-##### 4.7 Partial Key Exposure attack （部分密钥泄露攻击）
-此时公钥$e$很小
+##### 4.3 Partial Key Exposure attack （部分密钥泄露攻击）
+* **攻击条件：** $e<65537$
 * **Theorem 9 (BDF)：** 给定私钥<$N,d$>，$N$长为$n$比特，并给出私钥$d$的$\lceil n/4\rceil$位最低有效位(即$d$的低位)，那么可以在时间$O(elog_2\ e)$中恢复出$d$。
 * **Theorem 10 (Coppersmith)：**$N=pq$，$N$为$n$比特。给出私钥$p$的高或低$n/4$比特，那么可以快速分解$N$。
 
-我们主要讨论定理10，
-
-**原理：** 首先已知$ed-k(N-p-q+1)=1$，因为$d<\varphi(N)$，所以有$0< k\leq e$。然后又因为$q=N/p$。则有$$(ed)p-kp(N-p+1)+kN=p\ mod\ (2^{n/4})$$因为敌手Marvin得到了$d$的$n/4$个最低有效位$d_0$，所以他知道$ed\equiv ed_0\ mod\ 2^{n/4}$。因此，他得到了一个关于$k$和$p$的方程。对于$k$的每一个可能的值$[0,e]$，Marvin求解了关于$p$的二次方程$$(ed_0)x-kx(N-x+1)+kN=x\ mod\ (2^{n/4})$$得到了一些$p$的候选值$x\ mod\ 2^{n/4}$的候选值。对于每一个候选值，执行定理10的算法(**4.6节**)去尝试分解$N$。可以看出，对于$p\ mod\ 2^{n/4}$的候选值的总数最多为$elog_2\ e$。因此，最多尝试$elog_2\ e$次后，$N$将被因式分解。然后就可以通过$e$和$\varphi (N)$求出私钥$d$。
+**原理：** 首先已知$ed-k(N-p-q+1)=1$，因为$d<\varphi(N)$，所以有$0< k\leq e$。然后又因为$q=N/p$。则有$$(ed)p-kp(N-p+1)+kN=p\ mod\ (2^{n/4})$$因为敌手Marvin得到了$d$的$n/4$个最低有效位$d_0$，所以他知道$ed\equiv ed_0\ mod\ 2^{n/4}$。因此，他得到了一个关于$k$和$p$的方程。对于$k$的每一个可能的值$[0,e]$，Marvin求解了关于$p$的二次方程$$(ed_0)x-kx(N-x+1)+kN=x\ mod\ (2^{n/4})$$得到了一些$p$的候选值$x\ mod\ 2^{n/4}$的候选值。对于每一个候选值，执行定理10的算法(**4.3节**)去尝试分解$N$。可以看出，对于$p\ mod\ 2^{n/4}$的候选值的总数最多为$elog_2\ e$。因此，最多尝试$elog_2\ e$次后，$N$将被因式分解。然后就可以通过$e$和$\varphi (N)$求出私钥$d$。
 * 定理10的代码见4.6节。
 
 * 代码参考：https://github.com/yifeng-lee/RSA-In-CTF/blob/master/exp8.sage
 * ***具体Sagemath9.2代码见``crypto/code/Partial_Key_Exposure_attack.py``***
 
-##### 4.8 Boneh and Durfee attack
+##### 4.4 Boneh and Durfee attack
 当 $d$ 较小时，满足 $d < N^{0.292}$ 时，我们可以利用该攻击，比 Wiener's Attack 要强一些。
 
 * 注意：4.2~4.7节的公钥指数$e$都是非常小(一般为3)。而本节仅仅是私钥指数$d$比较的小，而一般假设$e$非常的大。
 
-###### 4.8.1 攻击原理
+###### 4.4.1 攻击原理
 假设$gcd(p-1, q-1)=2$，已知$\varphi(N)=N-p-q+1$，则有
 $$ed\equiv 1\ mod\ \varphi(N)/2$$
 $$ed+k(\frac{N+1}{2}-\frac{p+q}{2})=1$$
 令$A=\frac{N+1}{2}, s=-\frac{p+q}{2}$，则有$$k(A+s)\equiv 1\ (mod\ e)$$
 而且满足$|k|< e^{\delta}$以及$|s|< e^{0.5}$，其中$\delta < 0.292$
-这里$k$和$s$是未知数，因此我们相当于求一个二元二次方程的解。这里用到的是Coppersmith算法的广义的形式。
+这里$k$和$s$是未知数，因此我们相当于求一个二元二次方程的解。这里用到的是**Coppersmith算法的广义的形式**。
 
 * 代码参考：https://github.com/mimoo/RSA-and-LLL-attacks/blob/master/boneh_durfee.sage
 * ***具体Sagemath9.2代码见``crypto/code/boneh_and_durfee.sage``***
 
-##### 4.9 低加密指数攻击
-$m ^ e = kN + c$其中一般 $e = 3$，$k$比较小($k$小于10亿爆破时间一般小于半小时)
+###### 4.4.2 拓展Coppersmith攻击
+* 由于Coppersmith本质上是对多项式求小根，因此就出现了各种各样的多项式构造方式。
+  * 若有$ed_pq = (k − 1)(N − q) + N$，此时$q,k$比较的小，从而构造$$f = x(N-y)+N\ mod\ e$$然后Coppersmith。 
+    * 参考：[New Attacks on RSA with Small Secret CRT-Exponents](https://www.iacr.org/archive/pkc2006/39580001/39580001.pdf)
+  * 若有$$f(x, y) = 1 + x(A + y) mod e$$ 一般有$X=N^{\delta}, Y = N^{0.5}, U = N^{\delta + 0.5}$，那么根据$det(L) \leq e^{m\ dim(L)}$推得$\delta\leq 0.5(2-\sqrt{2}) \approx 0.292$，这就是经典的Boneh and Durfee。 
+    * 参考：[Maximizing Small Root Bounds by Linearization and Applications to Small Secret Exponent RSA](https://link.springer.com/content/pdf/10.1007%2F978-3-642-13013-7_4.pdf)
+  * 若有$eu-k(q^2-1)(p^2-1)v = w$，则可构造出方程$$v(p\pm q)^2-(N+1)^2v - w \equiv 0\ (mod\ e)$$其中有$e = N^{\beta}, u = N^{\delta}$，如果有$v < 2N^{\beta + \delta-2} = X,\ p\pm q < 3N^{0.5} = Y, w < N^{\gamma} = Z$，那么可以构造方程$$f(x,y,z) = xy^2 + a_1x+z\ (mod\ e)$$ 然后使用然后Coppersmith。 
+    * 参考：[A Generalized Attack on Some Variants of the RSA Cryptosystem](https://hal-normandie-univ.archives-ouvertes.fr/hal-02321006/file/sac2018paper4.pdf)
+  * 若有$ed-k(p^2-1)(q^2-1) = 1$，且有$e = N^{\alpha}, d = N^{\delta}, |p-q|<N^{\beta}$，若$$\delta < 2-\sqrt{2\alpha\beta}=\epsilon$$则可以构造出$-(k)(p-q)^2-(N-1)^2(-k)+1\equiv 0\ (mod\ e)$ 即$$f(x,y) = xy+Ax+1\ mod\ e$$然后使用Coppersmith方法求解。
+    * 参考：[Cryptanalysis of RSA Variants with Primes Sharing Most Significant Bits](https://eprint.iacr.org/2021/1632.pdf) 其中有一步是线性化的过程，即令$u=xy+1$，然后再构造出格，LLL算法后把$u$用$xy+1$代入求出的方程，然后再求$x,y$的根。（可以看作是Coppersmith的一种）
 
-##### 4.10 公钥$e$与$\varphi(N)$不互素
+
+##### 4.5 公钥$e$与$\varphi(N)$不互素
 * 攻击前提：$p,q,e$已知，但是由于$e$与$\varphi(N)$不互素，所以我们无法求解得到私钥$d$。只有当他们互素时，才能保证$e$的逆元$d$唯一存在。
-###### 4.10.1 $e \nmid \varphi(N)$
-已知$p,q,e,m,c$，假设$gcd(e, \phi(N)) = a$，则有$e = ab$，其中$gcd(b,\phi(N)=1$。计算$$c' = c^{-b} = (m^{ab})^{-b} = m^a\ mod\ N$$一般来说$a$都会比较小，这就相当于对$c' = m^a$开$a$次方，既求$c'$的$a$次剩余。**见4.10.2节**。
+###### 4.5.1 $e \nmid \varphi(N)$
+已知$p,q,e,m,c$，假设$gcd(e, \phi(N)) = a$，则有$e = ab$，其中$gcd(b,\phi(N)=1$。计算$$c' = c^{-b} = (m^{ab})^{-b} = m^a\ mod\ N$$一般来说$a$都会比较小，这就相当于对$c' = m^a$开$a$次方，既求$c'$的$a$次剩余。**见4.5.2节**。
 
 
-<!-- 一般情况下会对同一个信息$m$给出两对$c_1,e_1,n_1,c_2,e_2,n_2$信息，且$n_1 = pq_1$、$n_2=pq_2$。于此同时还有$$gcd(e_1,(p-1)*(q_1-1)) = gcd(e2,(p-1)*(q_2-1)) = b$$然后令$e_i=a_ib$则$a_i$与$\varphi(N)$互素，又因为$ed\equiv 1\ mod\ \varphi(N)$因此每个$a_i$都唯一确定一个$bd_i$，则有$c_i^{bd_i} \equiv m^b\ mod\ N$记$c_i^{bd_i}=res_i$从而我们可以得到$$res_1 \equiv m^b\ mod\ n_1 \newline res_2 \equiv m^b\ mod\ n_2$$展开得$$res_1 \equiv m^b\ mod\ p \newline res_1 \equiv m^b\ mod\ q_1 \newline res_2 \equiv m^b\ mod\ q_2$$通过中国剩余定理计算可得$$res \equiv m^b\ mod\ q_1q_2$$此时求出$b' = gcd(b,q_1q_2)$，$d'=e/b'$，$d'd'^{-1}\equiv 1\ mod\ \varphi(q_1q_2)$，则$$res^{d'^{-1}} \equiv m^{bd'^{-1}} \equiv m^{b'}\ mod\ q_1q_2$$一般来说$b'$为2，此时$res^{d'^{-1}}$已知，因此之需要开个平方就可以得到$m$，**若$b'$不为2，则相当于变成了4.10.2节的情况**。 -->
-
-###### 4.10.2 $e\ |\ \varphi(N)$
-* 攻击前提：$e$比较小，不大于65536。而且有$e\ |\ (p-1)$ 和 $e\ |\ (q-1)$。若有其中一个条件不满足，则下面讲到的AMM算法就无法求解。
+###### 4.5.2 $e\ |\ \varphi(N)$
+* **攻击条件**：$e$比较小，不大于65536。而且有$e\ |\ (p-1)$ 和 $e\ |\ (q-1)$。若有其中一个条件不满足，则下面讲到的AMM算法就无法求解。
 
 现在相当于是这样的一种情况，我们有这样的一个方程$$c\equiv m^e\ mod\ N, \tag{4.10}$$其中$c,N,e,p,q$已知，需要求$m$。但是此时有$e | \varphi(N)$。因此这个方程可以化为$$c\equiv m^e\ mod\ p \newline c\equiv m^e\ mod\ q$$因为$e$与$p,q$互素，因此两个方程各有$e$个根，从而方程$(4.10)$有$e^2$个根。我们的目的就是找到这$e^2$个根中我们需要的那个，**就是找到有特殊字符串开头比如``flag{``开头的根$m$**。
 
@@ -960,7 +997,7 @@ https://arxiv.org/pdf/1111.4877.pdf  **Cao Z , Sha Q , Fan X . Adleman-Manders-M
 * 代码参考：https://blog.csdn.net/cccchhhh6819/article/details/112766888 本质上这里的代码是参考starctf2021_Crypto_little_case题目中的writeup。
 * ***具体Sagemath9.2代码见``crypto/code/AMM.sage``***
 
-###### 4.10.3 $e\ |\ \varphi(N)\ v2$
+###### 4.5.3 $e\ |\ \varphi(N)\ v2$
 同样有$e\ |\ \varphi(N)$，但是密文$c$没有$e$个根，因为此时有$e \nmid (p-1)$。不失一般性，假设有$gcd(e, p-1) = a$，$gcd(e, q-1) = b$，其中$1 < a,b < e$。**暂时还没有找到有效的算法进行计算。** 只能将就着使用Sagemath中的求根函数，此时当$e > 100$时，函数基本上不能求解，因为时间太长了。
 
 * 参考代码：
@@ -975,7 +1012,7 @@ https://arxiv.org/pdf/1111.4877.pdf  **Cao Z , Sha Q , Fan X . Adleman-Manders-M
 因为题目给出的$m$一般比较的小，因此当得到了$$c' = m^e \ mod\ N,$$的时候，可以尝试用`gmpy2.iroot`函数对$c'$开$e$次方根，当$m^e < N$时可以恢复出$m$。
 
 
-##### 4.11 Small private CRT-exponents $d_p, d_q$
+##### 4.6 Small private CRT-exponents $d_p, d_q$
 
 > 这一小节主要介绍Bleichenbacher-May Attack
 
@@ -1029,7 +1066,7 @@ https://arxiv.org/pdf/1111.4877.pdf  **Cao Z , Sha Q , Fan X . Adleman-Manders-M
 
 
 
-##### 4.12 Unbalanced Small private CRT-exponents $d_p, d_q$
+##### 4.7 Unbalanced Small private CRT-exponents $d_p, d_q$
 
 当$p,q$相差比较大的时候，记$p=N^{1-\beta}, q = N^{\beta}$，其中$\beta < 0.38$，$d_p,d_q < N^{\delta}$，其中$\delta \leq 1-\frac{2}{3}\beta + \frac{2}{3}\sqrt{3\beta + \beta^2} -\epsilon$，此时使用May提出的方案可以把$N$分解。
 
@@ -1047,7 +1084,7 @@ https://arxiv.org/pdf/1111.4877.pdf  **Cao Z , Sha Q , Fan X . Adleman-Manders-M
 
 #### 五、变种RSA密码分析
 
-见Cryptanalysis of RSA and It's Variants的Section 11 Common Prime RSA中的内容。
+见Cryptanalysis of RSA and It's Variants的Section 11 Common Prime RSA中的内容。但是书是2009年出版的，因此后来的算法书中就没有记录了。
 
 ##### 5.1 Common Prime RSA (素数中含有公约数)
 对于$N=pq$，若有$p-1=2ag,\ q-1 = 2bg$。则此RSA为Common Prime RSA. 
@@ -1069,6 +1106,17 @@ https://arxiv.org/pdf/1111.4877.pdf  **Cao Z , Sha Q , Fan X . Adleman-Manders-M
 * $g < a+b$
   * 由方程(1)得$$\frac{N-1}{2g}=2gu+v$$ 其中$0\leq v < 2g$且$u,v$已知。然后$\exist c$令$$\begin{cases} a+b=v+2gc \\ ab=u-c \end{cases}$$ 则对于$gcd(x,N)=1$，有$x^{2gu}\equiv x^{2gab+2gc}\equiv x^{2gc}\ (mod\ N)$，令$y=x^{2g}$，则我们有同余方程$$y^u\equiv y^c\ (mod\ N)$$ 然后求离散对数就可以把$c$求出来。知道$c$之后代入方程组就可以把$a,b$求出，成功分解$N$。 
   * 其中$c$的取值为$c\leq a+b \approx 2N^{0.5-\gamma}$，其中$\gamma\approx\frac{1}{4}-mlog(long(N))$，$m$为常数。算法复杂度约为$O(\sqrt(c))$。
+
+##### 5.2 Multi-Power RSA 
+对于$N=p^rq$，若有$r > 1$。则此RSA为Common Prime RSA.
+
+- 2009年后的相关攻击：[New attacks on RSA with Moduli $N = p^rq$](https://eprint.iacr.org/2015/399.pdf)
+
+
+##### 5.3 Polynomial based RSA
+参考资料：[Polynomial based RSA](http://www.diva-portal.se/smash/get/diva2:823505/FULLTEXT01.pdf)
+
+一般来说多项式环的RSA的模多项式$N$有快速的分解算法，因此基于多项式环的RSA是不安全的。其阶若$N = P*Q$，$deg(P) = r, deg(Q) = s$，其素数域为$GF(p)$，则模$N$的商环$R$中的元素的最大阶为$s = (p^r-1)(p^s-1)$
 
 
 #### 六、选择明密文攻击
@@ -1143,6 +1191,8 @@ Oracle返回奇偶性信息造成了信息的泄露，因此可以使用选择�
 * 参考：https://ctf-wiki.org/crypto/asymmetric/knapsack/knapsack/#_9
 
 ![Knapsack_problem](crypto/images/Knapsack_problem.PNG)
+
+### 超递增序列
 背包问题需要满足$a_i$为超递增序列的时候才能满足解密的要求，但此时其他人也可以截获密文进行破译。因此出现了**Merkle-Hellman**算法，从而设计出背包加密。所谓的超递增序列是指满足$$a_i>\sum_{k=1}^{i-1}a_k$$的序列。
 
 * **Merkle-Hellman算法**
@@ -1157,9 +1207,18 @@ Oracle返回奇偶性信息造成了信息的泄露，因此可以使用选择�
 * **使用格规约算法进行求解，详细参考HASH函数中FNV部分。**
 
 
+### 非超递增序列
+> 本质上是属于子集合问题(subset sum problem (SSP))，与奇数序列子集合问题odd order decision SSP (OSSP)一起都是属于NP完全问题。但是目前根据SSP问题所提出的密码体制中仍然有一些有漏洞。下面几篇文章都是子集合问题相关的文章，一般来说比较新的文章对SSP问题的发展会有一个比较全面的Introduction。
 
+主要方案：
+1. 2012年：[A public-key cryptosystem based on decision version of subset sum problem](https://ieeexplore.ieee.org/abstract/document/6401039/)
+2. 2014年：[A knapsack public-key cryptosystem using two random sequences](https://ieeexplore.ieee.org/abstract/document/6979893/)
 
-
+攻击方案：
+1. [Cryptanalytic results on knapsack cryptosystem using binary particle swarm optimization](https://link.springer.com/chapter/10.1007/978-3-319-07995-0_37)
+2. [An improved attack on the basic merkle–hellman knapsack cryptosystem](https://ieeexplore.ieee.org/abstract/document/8701428/)
+3. [Equivalent key attack against a public-key cryptosystem based on subset sum problem](https://ieeexplore.ieee.org/iel7/4149673/8513921/08513952.pdf)
+4. [Quantum algorithm and experimental demonstration for the subset sum problem](https://idp.springer.com/authorize/casa?redirect_uri=https://link.springer.com/content/pdf/10.1007/s11432-021-3334-1.pdf&casa_token=wn2Iknf01a8AAAAA:hgja8xVUFtHJDOhGNFSlRAnaJp6oFZWd6XZIFXA-Wj5H0SMxMm_sk4rkyTVkUCHHlVKniPrYAEmSJ9Z6uP0)
 
 
 
@@ -1624,12 +1683,30 @@ $J_C(K)$的运算规则在这里就不给出了，毕竟有现成的轮子的东
 
 ## 格密码 
 
-
-
-
 ### 格的基本定义
 
 ![格的定义](crypto/images/Lattice.png)
+
+### 格相关研究现状
+
+参考资料：https://ctf-wiki.org/crypto/asymmetric/lattice/overview/
+
+1. 格中计算问题的困难性，即这些问题的计算复杂性，主要包括
+   - SVP 问题
+   - CVP 问题
+2. 如何求解格中的困难性问题，目前既有近似算法，也有一些精确性算法。
+3. 基于格的密码分析，即如何利用格理论分析一些已有的密码学算法，目前有如下研究
+   - Knapsack cryptosystems
+   - DSA nonce biases
+   - Factoring RSA keys with bits known
+   - Small RSA private exponents
+   - Stereotyped messages with small RSA exponents
+4. 如何基于格困难问题设计新的密码体制，这也是后量子密码时代的重要研究方向之一，目前有以下研究
+   - Fully homomorphic encryption
+   - The Goldreich–Goldwasser–Halevi (GGH) cryptosystem
+   - The NTRU cryptosystem
+   - The Ajtai–Dwork cryptosystem and the LWE cryptosystem
+
 
 ### 格上的困难问题
 * **最短向量问题 (Shortest Vector Problem，SVP)**：给定格 $L$ 及其基向量 $B$ ，找到格 $L$ 中的非零向量 $v$ 使得对于格中的任意其它非零向量 $u$，有$||v||\leq||u||$。
@@ -1642,6 +1719,8 @@ $J_C(K)$的运算规则在这里就不给出了，毕竟有现成的轮子的东
 
 * **最近向量问题 (Closest Vector Problem，CVP)**：给定格 $L$ 和目标向量$t\in R^m$，找到一个格中的非零向量 $v$，使得对于格中 $\forall u$，满足$||v-t||\leq||u-t||$。即在格$L$上找到一个离$t$最近的向量。
 
+* **最短整数求解 (Short integer solution, SIS)**：给定$n\times m$的格$L$，找出一个非零向量解$x\in \mathbb{Z}^m$，使得$\parallel x\parallel \leq \beta$和$Lx=0\in \mathbb{Z}_q^n$成立。其中$m,n,q,\beta$是给定的数，要保证方程有非奇异解，需要满足$\beta \geq \sqrt{nlog(q)}$和$m\geq nlog(q)$。对于**ring-SIS**，只需要满足$m\approx nlog(q)$。
+
 ### 格基规约算法(Lenstra–Lenstra–Lovasz, LLL)
 * 参考论文: https://cims.nyu.edu/~regev/teaching/lattices_fall_2004/ln/lll.pdf
 
@@ -1653,6 +1732,8 @@ LLL算法本质上是将A lattice basis $B$转换为 LLL-reduced basis $\tilde{B
 
 主要性质（解决SPV-$\gamma$）：
 ![格LLL算法](crypto/images/LLL.PNG)
+
+- **经常使用的界：** 对于一个$\omega\times\omega$的格基，其LLL算法规约后的格基$v_1,...,v_{\omega}$，（$det$表示的是行列式）有$$\parallel v_1\parallel \leq 2^{\frac{\omega-1}{4}}det(L)^{\frac{1}{\omega}}$$
 
 
 ### BKZ (Block Korkin-Zolotarev)
@@ -1693,7 +1774,7 @@ LLL算法和BKZ算法在Sagemath中的调用见`crypto/Sagemath_Usage.md`
 * 该问题可以规约到CVP问题并使用Babai's nearest plane algorithm解决。
 
 **HNP:** Recover $\alpha \in F_p$ such that for many known random $t\in F_p$ we are given $MSP_{l,p}(\alpha t)$ for some $l > 0$. 
-**MSB:** $MSP_{l,p}(x)$ denotes any integer $u$ such that $$|\lfloor x \rfloor_p-u |\leq \frac{p}{2^{l+1}}$$ $MSP_{l,p}(x) \approx l$ most significant bits of $x$.
+**MSB:** $MSB_{l,p}(x)$ denotes any integer $u$ such that $$|\lfloor x \rfloor_p-u |\leq \frac{p}{2^{l+1}}$$ $MSB_{l,p}(x) \approx l$ **M**ost **S**ignificant **B**its of $x$. **表示的就是在模$p$下的$l$比特最高有效位**
 **B&V, 1996:** a polynomial time algorithm to solve HNP with $l \approx log^{1/2}p = (log(p))^{1/2}$.
 
 又参考文献 https://www.isg.rhul.ac.uk/~sdg/igor-slides.pdf 可知当$l \approx log^{\frac{1}{2}}p$时，可以讲此问题规约到一个CVP问题。
@@ -1715,11 +1796,46 @@ $$ 注意：这里每一行代表一个向量，因此使用LLL算法求线性�
     * 算法第二步有$\pmb{u}$需要减去向量$$\sum_{i=1}^{n+1}c_i\pmb{b_i} = \newline  (\sum_{i=1}^{n+1}c_i(b_{i,1}p+m_{n+1,i}t_i), ... ,  \sum_{i=1}^{n+1}c_im_{n+1,i}\frac{1}{2^{l+1}}) \newline = (z_1p+\alpha t_1, ..., z_np+\alpha t_n, \alpha\frac{1}{2^{l+1}}) \newline \equiv (\alpha t_1, \alpha t_2, ..., \frac{\alpha}{2^{l+1}}) \ mod\ p$$ 其中$m_{n+1,i}$表示LLL算法的转换矩阵的最后一行的第$i$个元素。
     因此可以求出在格上离距离向量$\pmb{u}$最短的向量$\pmb{v} = (\alpha t_1, \alpha t_2, ..., \frac{\alpha}{2^{l+1}})$，此时$\alpha$就可以求出。
 
+
+参考文献：
+- 标准HNP
+  1. https://www.anquanke.com/post/id/204846#h2-1
+  2. https://blog.soreatu.com/posts/intended-solution-to-nhp-in-gxzyctf-2020/
+  3. https://www.anquanke.com/post/id/197749#h2-5
+
+
+##### Hidden Number Problem with Hidden multiplier
+
+- 参考资料：
+  - [Analysis of Hidden Number Problem with Hidden Multiplier](https://www.aimsciences.org/article/doi/10.3934/amc.2017059)
+  - [Hidden Number Problem with Hidden Multipliers](https://www.jstor.org/stable/4099844?seq=1#metadata_info_tab_contents)
+  - [The Multivariate Hidden Number Problem](https://eprint.iacr.org/2015/111.pdf)
+
+直观来说就是在标准的Hidden Number Problem问题$$at_i\equiv (S_i+e_i)\ (mod\ m)$$中，变成了$$a(t_i + e_{t_i})\equiv (S_i+e_i)\ (mod\ m)$$ 或者$$(a+e_a)(t_i + e_{t_i})\equiv (S_i+e_i)\ (mod\ m)$$的形式，这时一般来说都是用到第1，2篇文章进行求解。但是有时候也能自己构造格，然后进行求解。
+
+
+
+
+
+#### Extend Hidden Number Problem (EHNP)
+
+定义参考文献：[Extended Hidden Number Problem and Its Cryptanalytic Applications](https://link.springer.com/content/pdf/10.1007/978-3-540-74462-7_9.pdf)
+
+该攻击可以用到DSA和ECDSA密码方案中。已知多个明文和签名对，而且知道每对签名中的随机数nonce的某个mask中的数。（即知道nonce的很多间隔的bit）。这时候可以转化位EHNP问题进行求解。已知有两篇论文提出了相关的求解，但是比较的复杂，还没有看懂。
+
+另一个方案是先把方案转化为HPN问题，然后对HPN问题进行求解。
+
+参考资料：[D3CTF_2022_leak_dsa](https://github.com/shal10w/D3CTF-2022-crypto-d3share_leakdsa)
+
+
+
+
 #### BCTF 2018 - guess_number
 比赛是一个典型的**Hidden number problem**，可以把这道题目的求解堪称是Hidden number problem的一个典型的解法。
 
 * 题目代码``crypto/code/Hidden_Number_Problem/server.py``
 * 解题代码``crypto/code/Hidden_Number_Problem/Hidden_Number_Problem.sage``
+
 
 
 #### GGH公钥密码体制
@@ -1760,6 +1876,18 @@ $$ 注意：这里每一行代表一个向量，因此使用LLL算法求线性�
 * 参考文献：
     * https://zhuanlan.zhihu.com/p/337003376
     * https://staff.emu.edu.tr/alexanderchefranov/Documents/CMSE491/CMSE491%20Fall2020/Hoffstein2015%20Introduction%20to%20Mathematical%20Cryptography%20409-412%20GGH.pdf
+
+
+
+
+### Short integer solution, SIS
+如果能构造出一个$n\times m$的格$L$使得$$Lx=0$$ 而且解$x$是长度比较小的向量。那么就可以先求解出格$L$的零空间，然后对零空间使用LLL算法，把长度比较短的解$x$求出。
+
+**约束条件**：首先解$x$需要有一个界，其次格的维数有一定的约束，列向量的维数$m$需要大于某个界，具体的界还没有弄清楚。
+
+
+参考题目：N1CTF 2019 Guess_ex
+
 
 
 
@@ -1881,6 +2009,9 @@ Alice outputs the message $m = (m_1, ..., m_n)$.
   - 把$r$作为BBS生成器生成$z_1,...,z_l$
   - $\forall 1\leq i\leq l$计算$m_i = (y_i+z_i)\ mod\ 2$
   - 明文为$m = (m_1,...,m_l)$
+
+
+> 在Sagemath中有此密码系统的加解密接口
 
 参考资料：
 - https://en.wikipedia.org/wiki/Blum%E2%80%93Goldwasser_cryptosystem
@@ -2004,6 +2135,15 @@ print(cmac)
 ```
 
 
+
+
+## Chaffing and winnowing
+
+* 参考资料：https://en.wikipedia.org/wiki/Chaffing_and_winnowing
+
+当通过不安全的通道发送数据时，可以在不使用加密的情况下实现机密性。这个名字来源于农业:在谷物被收获和脱粒后，它仍然与不可食用的纤维状谷壳混合在一起。然后通过簸谷将谷壳和谷粒分离，然后丢弃谷壳。这种密码技术是由Ron Rivest构想出来的，并于1998年3月18日发表在一篇在线文章中。
+
+这个方案用到了MAC的技术。不对明文加密，但是会对明文的每一byte进行带密钥的MAC，然后随机生成一些不存在的MAC用来进行混淆。这样攻击者就无法识别到底用到了哪个明文。然后解密者和加密者有共同的私钥，对于正确的明文，解密者取满足MAC的明文，然后抛弃混淆的MAC。这样一来就在没有对明文加密的情况下实现了机密通信。
 
 
 
@@ -2141,9 +2281,14 @@ def proof_of_work(str, hashh):
 * 破解方案与RSA破解类似
 
 ## ElGamal数字签名
+> 没有加入hash
+
 **具体方案：** 设$p$是一个使得在$Z_p$上的离散对数问题是难处理的素数，设$\alpha\in Z_p^*$是一个本原元(生成元)。设$\mathcal P = Z_p, \mathcal A = Z_P^*\times Z_{p-1}$，定义$$\mathcal K = \{(p,\alpha, a, \beta):\beta \equiv \alpha^a\ (mod\ p)\}$$ 其中$p,\alpha,\beta$是公钥，$a$是私钥。
 
-对于$K=(p,\alpha, a, \beta) \in \mathcal K$和一个(秘密)随机数$k\in Z_{p-1}^*$，则：$$sig_K(x,k)=(\gamma,\delta)$$ 其中 $$\gamma = \alpha^k\ mod\ p \newline \delta = (x-a\gamma)k^{-1}\ mod\ (p-1)$$ 对于$x,\gamma\in Z_p^*$和$\delta\in Z_{p-1}$，有 $$ver_K(x,(\gamma,\delta)) = true \newline \Leftrightarrow \beta^{\gamma}\gamma^{\delta}\equiv \alpha^{x}\ (mod\ p)$$
+- **Sign**
+对于$K=(p,\alpha, a, \beta) \in \mathcal K$和一个(秘密)随机数$k\in Z_{p-1}^*$，$x$为需要签名的消息。则：$$sig_K(x,k)=(\gamma,\delta)$$ 其中 $$\gamma = \alpha^k\ mod\ p \newline \delta = (x-a\gamma)k^{-1}\ mod\ (p-1)$$ 
+- **Verify**
+对于$x,\gamma\in Z_p^*$和$\delta\in Z_{p-1}$，有 $$ver_K(x,(\gamma,\delta)) = true \newline \Leftrightarrow \beta^{\gamma}\gamma^{\delta}\equiv \alpha^{x}\ (mod\ p)$$
 
 ### 常见Elgamal攻击
 #### 1.完全破译攻击
@@ -2151,7 +2296,7 @@ def proof_of_work(str, hashh):
 此时的攻击方法于Elgamal加密方案的破解方法一致，即使用大步小步法或者Pohlig-Hellman算法。
 
 * 随机数$k$复用
-如果签名者复用了随机数 k，那么攻击者就可以轻而易举地计算出私钥。
+如果签名者复用了随机数 $k$，那么攻击者就可以轻而易举地计算出私钥。
 
 容易得$$\gamma = \alpha^k\ mod\ p \newline \delta_1 = (m_1-a\gamma)k^{-1}\ mod\ (p-1) \newline \delta_2 = (m_2-a\gamma)k^{-1}\ mod\ (p-1)$$ 进而有 $$\delta_1k \equiv m_1 - a\gamma\ mod\ (p-1) \newline \delta_2k \equiv m_2 - a\gamma\ mod\ (p-1)$$ 两式相减得 $$k(\delta_1-\delta_2)\equiv m_1-m_2\ mod\ (p-1)$$ 容易计算出随机数$k$，如果$gcd(\delta_1-\delta_2, p-1) \neq 1$，存在多个解，逐个去试即可。因此有私钥$$a = (m-k\delta)\gamma^{-1}\ mod\ (p-1)$$
 
@@ -2183,11 +2328,16 @@ def proof_of_work(str, hashh):
 ## DSA / DSS
 DSA 最早在1991年8月被提出，1994年12月1日被采纳数字签名标准。DSA是ElGamal签名方案的一个变种。这个签名有时也被称为DSS签名
 
-**具体方案：** 选择一个长度为$L$比特的素数$p$，在$Z_p$上的离散对数问题是难处理的，其中$L \equiv 0\ mod\ 64$且$512 \leq L \leq 1024$(可以更大)。选择$q$是一个$N$比特的素数，而且满足$q|p-1$。设$\alpha\in Z_p^*$是1模$p$的$q$次根，即$\alpha^q \equiv 1\ mod\ p$。设$\mathcal P = \{0,1\}^*,\mathcal A=Z_q^*\times Z_q^*$，并定义$$\mathcal K=\{(p,q,\alpha,a,\beta):\beta \equiv \alpha^a(mod\ p)\}$$ 其中$0\leq a \leq q-1$。$p,q,\alpha,\beta$是公钥，$a$为私钥。对于$K=(p,q,a,\alpha, \beta) \in \mathcal K$和一个秘密随机数$k, 1\leq K\leq q-1$，选择一个哈希函数$H(x)$，则有
+**具体方案：** 选择一个长度为$L$比特的素数$p$，在$Z_p$上的离散对数问题是难处理的，其中$L \equiv 0\ mod\ 64$且$512 \leq L \leq 1024$(可以更大)。选择$q$是一个$N$比特的素数，而且满足$q|p-1$。设$\alpha\in Z_p^*$是1模$p$的$q$次根，即$\alpha^q \equiv 1\ mod\ p$。设$\mathcal P = \{0,1\}^*,\mathcal A=Z_q^*\times Z_q^*$，并定义$$\mathcal K=\{(p,q,\alpha,a,\beta):\beta \equiv \alpha^a(mod\ p)\}$$ 其中$0\leq a \leq q-1$。$p,q,\alpha,\beta$是公钥，$a$为私钥。
+
+- **Sign:**
+对于$K=(p,q,a,\alpha, \beta) \in \mathcal K$和一个秘密随机数$k, 1\leq K\leq q-1$，选择一个哈希函数$H(x)$，$x$为需要签名的消息。则有
 $$sig_K(x,k)=(\gamma, \delta)$$ 其中$$\gamma = (\alpha^k\ mod\ p)\ mod\ q 
 \newline
 \delta = (H(x) + a\gamma)k^{-1}\ mod\ q$$
 且有$\gamma \neq 0$且$\delta \neq 0$。 
+
+- **Verify：**
 对于$x\in\{0,1\}^*$和$\gamma, \delta \in Z_q^*$，计算出： 
 $$e_1 = H(x)\delta^{-1}\ mod\ q
 \newline
@@ -2240,9 +2390,57 @@ ECDSA算法有两种形式，第一种是类似于DSA算法的，第二种是类
 - https://en.wikipedia.org/wiki/Elliptic_Curve_Digital_Signature_Algorithm#Signature_generation_algorithm
 
 
+
+## Schnorr签名算法
+
+参考资料：https://en.wikipedia.org/wiki/Schnorr_signature
+
+- **KeyGen**
+  - 选择一个有限群$G$，其阶为素数$q$，生成元为$g$；选取一个hash函数$H$。
+  - 随机选取$x\in \mathbb{Z}_q^*$，计算$y = g^x$。
+  - 私钥为$x$，公钥为$y$。
+- **Sign：(sk($x$), $M$)**
+  - $M$为需要签名的消息，选取随机数$k\in \mathbb{Z}_q$，计算$r =g^k$。
+  - 计算$e = H(r\parallel M)$
+  - 计算$s = (k-xe)\ mod\ q$ 
+  - 返回签名对$(s,e)$
+- **Verify:(pk($y$), $(s,e), M$)**
+  - 计算$r_v = g^sy^e$
+  - 计算$e_v = H(r_v\parallel M)$
+  - 如果$e_v = e$返回True，否则返回False
+
+
+### EdDSA
+
+参考资料：https://en.wikipedia.org/wiki/EdDSA
+> 本质上就是schnorr算法的椭圆曲线的版本
+
+- **KeyGen**
+  - 选择一个椭圆曲线群$E(\mathbb{F}_q)$，其阶为素数$q$，生成元为$G\in E(\mathbb{F}_q)$；选取一个hash函数$H$。
+  - 随机选取$x\in \mathbb{Z}_q^*$，计算$A = xG$。
+  - 私钥为$x$，公钥为$A$。
+- **Sign：(sk($x$), $M$)**
+  - $M$为需要签名的消息，选取随机数(强调：一定要是随机的)$k\in \mathbb{Z}_q$，计算$R =kG$。
+  - 计算$e = H(R\parallel xG \parallel M)$
+  - 计算$s = (k+xe)\ mod\ q$ 
+  - 返回签名对$(s,R)$
+- **Verify:(pk($A$), $(s,R), M$)**
+  - 计算$e_v = H(R\parallel A \parallel M)$
+  - 计算$R_v = sG-eA$
+  - 如果$R_v = R$返回True，否则返回False
+
+**Schnorr多签名**：[Simple Schnorr Multi-Signatures with Applications to Bitcoin](https://eprint.iacr.org/2018/068.pdf)
+
+### schnorr 算法的常见攻击
+- 随机数$k$相同，手动推一下，很简单的。
+
+
+- 多变量签名，如果允许多方的公钥相加，那么就能在不知道对方私钥的情况下伪造出满足条件的签名
+
+
 ## Boneh-Boyen Scheme 签名算法
 主要算法见
-![Boneh-Boyen_signature](crypto/image/Boneh-Boyen_signature.PNG)
+![Boneh-Boyen_signature](crypto/images/Boneh-Boyen_signature.PNG)
 签名算法主要基于q-SDH 问题，该问题主要见第2、3篇参考资料。
 
 参考资料中有该签名算法的一个攻击
@@ -2415,11 +2613,13 @@ a^2+b^2 == 19*19*97
 from functools import reduce
 
 def egcd(a, b):
-    if 0 == b:
-        return 1, 0, a
-    x, y, q = egcd(b, a % b)
-    x, y = y, (x - a // b * y)
-    return x, y, q
+    prevx, x = 1, 0; prevy, y = 0, 1
+    while b:
+        q = a//b
+        x, prevx = prevx - q*x, x
+        y, prevy = prevy - q*y, y
+        a, b = b, a % b
+    return prevx, prevy, a
 
 def chinese_remainder(pairs):
     mod_list, remainder_list = [p[0] for p in pairs], [p[1] for p in pairs]
@@ -2544,14 +2744,17 @@ $$\phi(n) = n(1-\frac{1}{p_1})\cdots(1-\frac{1}{p_r})$$
 
 预计算：$r = 2^n$，把$a,b$转化成Montgomery表示形式，$a' = ar\ (mod\ p)\ \ b' = br\ (mod\ p)$
 
-根据Montgomery reduction定理有：$$\forall t, 0\leq t\le nr, st. \frac{(t+tpp^{-1})}{r} \equiv tr^{-1}\ mod\ p$$ 其中的除法运算就是整数的除法，不是乘以$r$的逆。
+根据Montgomery reduction定理有：$$\forall t, 0\leq t\le nr, st. \frac{(t-tpp^{-1})}{r} \equiv tr^{-1}\ mod\ p$$ 其中的除法运算就是整数的除法，不是乘以$r$的逆。且有$pp^{-1}\equiv 1\ mod\ r$和$rr^{-1}\equiv 1\ mod\ p$
 
 因此使用Montgomery reduction对算法进行加速的时候有两个算法需要实现。第一个是如何把乘数变成Montgomery reduction的形式，然后第二点就是对乘法进行实现。如果确定了要把乘数变成Montgomery reduction的形式，然后一直都在这个形式下进行运算。假设当前的数为$t$，那么只需要执行$tr^{-1}\ mod\ n$就可以恢复成想要的结果。
+
+> 或者令$rr^{-1}+pp' = 1$，其中有$p' = -p^{-1}$
+
 - 第一步中的乘法模运算可以使用最传统的方式进行预处理。然后乘法运算就用Montgomery乘法。
 - Montgomery reduction乘法：
     1. $t = ab$
-    2. $m = tn^{-1}\ mod\ r $。其中求模运算只需要取乘法运算的低$n$比特即可。
-    3. $u=(t+mn)/r$
+    2. $m = -tp^{-1}\ mod\ r $。其中求模运算只需要取乘法运算的低$n$比特即可。
+    3. $u=(t+mp)/r$
     4. if $u\geq n$, then $u = u-n$
     5. 输出$u$
 
@@ -2821,7 +3024,7 @@ Verifier: 检查$v^2==y^bz\ mod\ N$
 
 > 这个协议r只能玩一次，相当于一次一密。
 
-* Schnorr身份识别方案
+* Schnorr身份识别方案(签名)，见数字签名一章。
 
 #### 非交互式零知识证明
 如果P和V不进行交互，证明由P产生后直接给V，V对证明直接进行验证，这种证明系统称为非交互式证明系统（简称为NIZK: Non-Interactive Zero-Knowledge）定义如下。
@@ -2985,6 +3188,24 @@ keccak_hash = keccak.new(digest_bits=512)   # 224, 256, 384, 512
 keccak_hash.update(b'Some data')
 print keccak_hash.hexdigest()
 ```
+
+
+### Merkle 树
+> 也称为默克尔树
+
+其主要特点为：
+- 最下面的叶节点包含存储数据或其哈希值；
+- 非叶子节点（包括中间节点和根节点）都是它的两个孩子节点内容的哈希值。
+
+比较突出的作用：
+1. 证明某个集合中存在或不存在某个元素
+2. 快速比较大量数据
+3. 快速定位修改
+
+### 布隆过滤器（Bloom Filter)
+一般来说我们会使用数据的哈希值进行搜索索引。但是当hash值限制在一定范围且数据量较大的时候，就会出现碰撞。
+
+布隆过滤器：对同一个输入来说，布隆过滤器使用多个 Hash 函数计算出多个地址，分别在位串的这些地址上标记为 1。在查找时，进行同样的计算过程，并查看对应元素，如果都为 1，则说明较大概率是存在该输入。
 
 ## 区块链前沿隐私技术
 |名称|	类型|	技术实现|
