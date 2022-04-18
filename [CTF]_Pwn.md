@@ -632,6 +632,7 @@ kernel.randomize_va_space = 2
 ```bash
 echo 0 > /proc/sys/kernel/randomize_va_space # 关闭Linux系统的ASLR
 sudo bash -c "echo 0 > /proc/sys/kernel/randomize_va_space" # kali20.04测试时需用
+# Output redirection (via the > operator) is done by the shell, not by echo.
 sudo sysctl -w kernel.randomize_va_space=0    <== disable
 ```
 

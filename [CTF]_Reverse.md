@@ -21,29 +21,35 @@
 
 > 记录做题史中犯过的低级错误
 
-- 特别注意Python**位操作**与其他常见操作符之间的优先级关系
+- python运算优先级：Python**位操作**与其他常见操作符之间的优先级关系
+- `__init__ __default__`：存储历史信息，反直觉
 
-| 运算符说明 | Python运算符             | 优先级 | 结合性 |
-| ---------- | ------------------------ | ------ | ------ |
-| 小括号     | `( )`                    | 19     | 无     |
-| 索引运算符 | `x[i], x[i1: i2 [:i3]]`  | 18     | 左     |
-| 属性访问   | `x.attribute`            | 17     | 左     |
-| 乘方       | `**`                     | 16     | 右     |
-| 按位取反   | `~`                      | 15     | 右     |
-| 符号运算符 | `+`（正号）、`-`（负号） | 14     | 右     |
-| 乘除       | `*, /, //, %`            | 13     | 左     |
-| 加减       | `+, -`                   | 12     | 左     |
-| 位移       | `>>, <<`                 | 11     | 左     |
-| 按位与     | `&`                      | 10     | 右     |
-| 按位异或   | `^`                      | 9      | 左     |
-| 按位或     | `|`                      | 8      | 左     |
-| 比较运算符 | `==, !=, >, >=, <, <= `  | 7      | 左     |
-| is 运算符  | `is, is not`             | 6      | 左     |
-| in 运算符  | `in, not in`             | 5      | 左     |
-| 逻辑非     | `not`                    | 4      | 右     |
-| 逻辑与     | `and`                    | 3      | 左     |
-| 逻辑或     | `or`                     | 2      | 左     |
-| 逗号运算符 | `exp1, exp2`             | 1      | 左     |
+
+
+```python
+from collections import defaultdict
+
+
+class inner():
+    def __init__(self, aset=set(), num=0): # 如果不写在init para list里
+        self.aset = aset # 而是写在这 i.e. self.aset = set() # 那么就不会存储历史信息
+        self.num = num
+
+    def __str__(self):
+        s = str(self.aset) + " num=" + str(self.num) + " ; "
+        return s
+
+d_feat = defaultdict(inner)
+d_feat[1].aset.add(1)
+d_feat[1].num += 1
+d_feat[2].aset.add(2)
+d_feat[2].aset.add(3)
+d_feat[2].num += 1
+for k, v in d_feat.items():
+    print("k:", k, "v:", id(v), v)
+print(inner.__init__.__defaults__)
+
+```
 
 
 
