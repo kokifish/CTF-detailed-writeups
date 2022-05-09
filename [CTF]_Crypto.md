@@ -221,6 +221,18 @@ class SecurePrng(object):
 主要流程参见`crypto/linear_congruential_generator.md`
 
 
+##### 截断线性同余生成器 TLCG(truncated linear congruential generator)
+- **TLCG**：在$X_{n+1}=(aX_n+c)\ mod\ m$的基础上，令$k = \lfloor log\ m\rfloor + 1$，然后令$$X_i = 2^{k-s}y_i + z_i,\ \ where 0\leq z_i < 2^{k-s}$$ 然后每次返回$y_i$.
+- **攻击方法**：构造一组多项式，然后通过类似Hidden Number Problem的方法进行求解，然后解线性方程组。因为用到了LLL算法，因此有一定的条件限制。
+
+- 参考资料：
+  - [Contini S., Shparlinski I. E., "On Stern's Attack Against Secret Truncated Linear Congruential Generators"](https://link.springer.com/content/pdf/10.1007/11506157_5.pdf)
+  - [crypto-attack Truncated LCG parameter recovery](https://github.com/jvdsn/crypto-attacks/blob/master/attacks/lcg/truncated_parameter_recovery.py)
+  - [Frieze, A. et al., "Reconstructing Truncated Integer Variables Satisfying Linear Congruences"]
+  - [crypto-attack Truncated LCG state recovery](https://github.com/jvdsn/crypto-attacks/blob/master/attacks/lcg/truncated_state_recovery.py)
+
+
+
 #### 反馈移位寄存器
 ![反馈移位寄存器](crypto/images/Feedback_shift_register.jpg)
 * $a_0, a_1, ... , a_{n-1}$位初态
@@ -287,6 +299,14 @@ python中的random库使用的是**Mersenne Twister 算法作为核心生成器*
 > 一般来说需要仔细观察LFSR，然后看看是否有特殊的情况，然后看看能否用这种特殊的情况来进行破解。然后看看是否为LFSR，如果是的话看看能不能构造BM算法的求解方式，或者看看有没有这种情况。然后其中要考虑暴力破解的可能。然后有时候也能想一下是否能用`z3`去求解。
 
 
+
+#### RC4 TODO
+
+RC4属于对称密码算法中的序列密码(stream cipher,**流密码**)，它是**可变密钥长度**，**面向字节操作的序列密码**。它是一种基于非线性数据表变换的序列密码，它以一个足够大的数据表为基础，对表进行非线性变换，产生非线性的序列密钥。
+
+- 参考资料 
+  - [RC4](https://blog.csdn.net/weixin_42369053/article/details/117028245)
+  - [crypto-attack Fluhrer-Mantin-Shamir attack](https://github.com/jvdsn/crypto-attacks/blob/master/attacks/rc4/fms.py) 使用Fluhrer-Mantin-Shamir attack恢复RC4的部分密钥，需要有`encrypt_oracle`
 
 
 
@@ -475,6 +495,11 @@ BETA = BitArray("0x3f84d5b5b5470917")
 
 - **OFB**：输出反馈模式（Output feedback）
 - **CTR**：计数器模式（Counter mode）
+- **GCM**：（Galois/Counter mode ）
+  - **G**指代GMAC( Galois message authentication code mode, 伽罗瓦消息验证码 )；**C**指代CTR；所以GCM可以提供对消息的加密和完整性校验。
+  - 针对GCM的攻击
+    - [Joux A., "Authentication Failures in NIST version of GCM"](https://csrc.nist.gov/csrc/media/projects/block-cipher-techniques/documents/bcm/joux_comments.pdf)
+    - [crypto-attack Forbidden attack](https://github.com/jvdsn/crypto-attacks/blob/master/attacks/gcm/forbidden_attack.py)
 
 **注：ECB模式的AES是不安全的。建议仔细进行确认，网上有些填充模式说得不对。**
 
@@ -495,7 +520,7 @@ BETA = BitArray("0x3f84d5b5b5470917")
 ##### BitFlipping
 这是一种块加密的常用攻击方法，目的是构造相应的`iv`或者密文，使得通过黑盒解密得到的明文是我们想构造出的明文。适合于所有的块加密，只要出现密文或`iv`和某些东西异或得到明文，那么我们就可以通过修改密文或者`iv`使得在不破解黑盒(AES或其它块加密)的情况下修改明文，使得明文变成我们想要的结果。
 
-**适用分组模式**：CBC，CRT等。
+**适用分组模式**：CBC，CTR等。
 例子：
 ![CBC_BitFlipping](crypto/images/CBC_BitFlipping.png)
 
@@ -506,6 +531,26 @@ BETA = BitArray("0x3f84d5b5b5470917")
 **攻击原理：** 本质上是BitFlipping的一种。根据CBC或者其它填充模式，通过改变iv或者改变某些密文，使得我们需要的位置构造成我们需要的信息（比如使得明文等于padding，或者使得明文等于串字符串。）
 
 参考资料：[The Padding Oracle Attack](https://robertheaton.com/2013/07/29/padding-oracle-attack/)
+
+
+
+##### CRIME Attack 
+全称：Compression Ratio Info-Leak Mass Exploitation
+适用于AES—CTR模式，并且给出了Encrypt oracle，并且oracle中有对明文的压缩函数。这个时候才能使用。我们可以对明文进行单byte填充来猜测明文某个byte的值，然后如果猜中了那么加密的结果会比没有猜中的结果要短。
+
+一般在HTTPS或者TLS/SSL中会对明文进行压缩，并使用AES-CRT模式，此时如果给出encrypt oracle则可以用这种攻击。
+
+* 参考资料
+  * [crime attack](https://shainer.github.io/crypto/2017/01/02/crime-attack.html)
+  * [crypto-attack](https://github.com/jvdsn/crypto-attacks/blob/c26872bdac2e2d95c5be00e6e593c891c849f446/attacks/ctr/crime.py)
+
+##### Separator Oracle Attack
+适用于AES—CTR模式，
+攻击原理：分隔符预言攻击是一种自适应选择密文攻击。 攻击者将修改后的密文发送到预言机。 分隔符是一个特殊字符，例如 `;` 或`|`。如果未使用密文/明文中正确数量的分隔符，则分隔符 oracle 将引发 SeparatorException，或者返回false。
+
+* 参考资料
+  * [Separator Oracle Attack](https://github.com/mprechtl/separator-oracle)
+  * [crypto-attack](https://github.com/jvdsn/crypto-attacks/blob/master/attacks/ctr/separator_oracle.py)
 
 
 
@@ -603,14 +648,19 @@ BETA = BitArray("0x3f84d5b5b5470917")
     * gmpy2 (pip 一般不能直接安装，要在网上下载.whl文件然后用pip进行安装)
     * Crypto (安装命令``pip install pycryptodome``)
 
+* [crypto-attack](https://github.com/jvdsn/crypto-attacks/tree/master)
+  * 一个常用的整理好了的各种各样的攻击，里面有着非常详细的sagemath代码
+
+
 #### 一、分解大整数N
-目前最快的分解大整数N的方法是广义数域筛法(General Number Field Sieve)。对于n-bit的整数，时间为$O(exp((c+o(1))n^{\frac{1}{3}}log^{\frac{2}{3}}n))$
+目前最快的分解大整数$N$的方法是广义数域筛法(General Number Field Sieve)。对于n-bit的整数，时间为$O(exp((c+o(1))n^{\frac{1}{3}}log^{\frac{2}{3}}n))$
 
 另一种分解大整数的方法：已知私钥$d$，和公钥$e$，则可快速对$N$进行分解。反之亦然，即已知$N$的分解$N=pq$，则可以快速恢复出$d$。
 
 * 常见大整数$N$分解工具：
     * yafu (p,q相差过大或过小yafu可分解成功)，一般来说在300bit以下的$N$都能在1小时内分解
-    * http://www.factordb.com
+    * http://www.factordb.com   (**可能出题人会把分解的结果放在这里，然后就能直接查到**)
+    * cado-nfs 一般来说600bit以下的$N$都能在1天以内分解
 
 ##### 1.1 已知 $(N, e, d)$ 求 $(p, q)$ V1
 * 攻击条件，$e$或$d$足够小
@@ -668,6 +718,24 @@ BETA = BitArray("0x3f84d5b5b5470917")
 这里可以使用离散对数的数域筛(Number Field Sieve)算法，见离散对数数域筛算法。
 
 参考题目：https://zhuanlan.zhihu.com/p/428567414
+
+
+##### 1.7 Complex multiplication (elliptic curve) factorization
+* **攻击条件**：$N=pq$满足，$4p-1=Ds^2$，其中$D$是非平方剩余。且$D\equiv 3\ (mod\ 8)$，当$D=3$时有更简单的解法。
+* **攻击原理**：通过把系数摸$p$，映射 $\mathbb{Z}_n \longrightarrow^{(mod\ p)} \mathbb{F}_p$ 诱导出同态映射 $E(\mathbb{Z}_n) \longrightarrow E(\mathbb{F}_p)$
+* **攻击步骤**：简单版
+  1.  选择曲线$E(\mathbb{Z}_n)$
+  2.  选择随机点$P\in E(\mathbb{Z}_n)$
+  3.  计算点$mP = (\frac{\phi_m(P)}{\psi_m(P)^2}, \frac{\omega_m(P)}{\psi_m^3(P)})$,其中$\phi_m(P),\psi_m(P),\omega_m(P)\in \mathbb{Z}_n$
+  4.  计算$gcd(\psi_m(P), N)$
+
+Cheng的$4p-1$方法构造了一条anomalous曲线，并在计算点$mP$的时候用了complex multiplication (CM) method。具体见参考资料。
+
+* 参考资料
+  * [Sedlacek V. et al., "I want to break square-free: The 4p - 1 factorization method and its RSA backdoor viability"](https://www.researchgate.net/publication/335162606)
+  * [crypto-attack](https://github.com/jvdsn/crypto-attacks/blob/master/attacks/factorization/complex_multiplication.py)
+
+
 
 
 
@@ -742,10 +810,26 @@ c_3=m^3\ mod\ n_3$$
 * 因此广播攻击的避免方式可以使用随机填充(padding)
 
 
-###### 2.6.2 Franklin-Reiter 相关信息攻击
+###### 2.6.2 Franklin-Reiter 相关信息攻击 Related message attack
 (**Franklin-Reiter**)当 Alice 使用同一公钥对两个具有某种线性关系的消息 M1 与 M2 进行加密，并将加密后的消息 C1，C2 发送给了 Bob 时，我们就可能可以获得对应的消息 M1 与 M2。这里我们假设模数为 N，两者之间的线性关系为$M_1\equiv f(M_2)\ mod\ N，f=ax+b$。则此时可以比较容易地恢复出$M$。
 * 方法：当$e=3$时，$C_1=M_1^e\ mod\ N$，则有$M_2$是$g_1(x) = f(x)^e - C_1\equiv 0\ mod\ N$的根，而且$M_2$也是$g_2(x)=x^e - C_2\equiv 0\ mod\ N$的根。如果$g_1,g_2$的最大公因子是线性的，那么$M_2 = gcd(g_1,g_2)$。
 * 当$e>3$时，$g_1,g_2$不一定是线性的，此时无法用此方法求解。
+
+
+###### 2.6.3 消息长度较短
+* **攻击条件：** $e < 5, m^e \approx N$
+
+    根据$m ^ e = kN + c$构造出$f = m^e - c\ (mod\ N)$，然后暴力枚举$k$，当$k < 2^{32}$时约半个小时能求解。 （Coppersmith是无法求解的,因为$m$仍然太大了）
+
+
+##### 2.7 费马
+* **攻击条件：** 当$p$和$q$非常接近的时候，大约$|p-q| < 10^9$。
+* 直接对$N$开根号，然后暴力搜索$p$
+
+
+##### 2.8 已知元素的阶
+已知$a^s \equiv 1\ mod\ N$。遍历所有的$s$的因数$r$，则存在一个$r$，使得$a^{s/r}$一定是$p$或$q$的倍数。
+
 
 
 
@@ -891,6 +975,33 @@ M & e_1 & e_2 & \cdots & e_r \\
   * [Don Coppersmith. Small Solutions to Polynomial Equations, and Low Exponent RSA Vulnerabilities](https://link.springer.com/content/pdf/10.1007/s001459900030.pdf)
   * [Using LLL-Reduction for Solving RSA and Factorization Problems 相对简单的攻击](https://www.cits.ruhr-uni-bochum.de/imperia/md/content/may/paper/lll.pdf)
 
+* [crypto-attack](https://github.com/jvdsn/crypto-attacks/tree/master/shared/small_roots) 这里面封装了各种Coppersmith方法的通用方法，比如在构建好多项式$h,g$后需要构造格，LLL算法，恢复多项式，用（Groebner基、resultant、variety(三角分解)）求根等。在`attacks/factorization`目录下的每个攻击几乎都用到了这些通用的方法。
+
+* 无论是单变元还是多变元的Coppersmith方法，其本质都是构造多项式，构造矩阵，LLL，然后求根。关键在于界应该要怎么取，参数应该怎么调。因为本质上都是LLL算法的界，通过LLL算法的界和构造的矩阵反推出各个变元的界，从而判断当前的方法是否适用。
+
+
+- **一些Coppersmith方法**
+  - Coron Method 
+    - [Finding Small Roots of Bivariate Integer Polynomial Equations Revisited](https://link.springer.com/content/pdf/10.1007/978-3-540-24676-3_29.pdf)
+    - [crypto-attack](https://github.com/jvdsn/crypto-attacks/blob/master/shared/small_roots/coron.py)
+  - Coron Method (Direct)
+    - [Finding Small Roots of Bivariate Integer Polynomial Equations: a Direct Approach](https://link.springer.com/content/pdf/10.1007/978-3-540-74143-5_21.pdf)
+    - [crypto-attack](https://github.com/jvdsn/crypto-attacks/blob/master/shared/small_roots/coron_direct.py)
+  - Ernst Method 见4.3.4节
+  - Herrmann-May method (unravelled linearization) 经典的Boneh and Durfee, 可见4.4.2节
+  - Herrmann-May method (modular multivariate) 见4.2.4节 
+  - Howgrave-Graham method 见4.2.3节 
+  - Jochemsz-May method (Common Prime GCD with small $d$)
+    - [A Strategy for Finding Roots of Multivariate Polynomials with New Applications in Attacking RSA Variants](https://link.springer.com/content/pdf/10.1007/11935230_18.pdf)
+    - [crypto-attack Jochemsz-May method (modular roots)](https://github.com/jvdsn/crypto-attacks/blob/master/shared/small_roots/jochemsz_may_modular.py)
+    - [crypto-attack Jochemsz-May method (integer roots)](https://github.com/jvdsn/crypto-attacks/blob/master/shared/small_roots/jochemsz_may_integer.py)
+  - Nitaj-Fouotsa method
+    - [A New Attack on RSA and Demytko's Elliptic Curve Cryptosystem](https://eprint.iacr.org/2019/1050.pdf)
+    - [crypto-attack Nitaj-Fouotsa](https://github.com/jvdsn/crypto-attacks/blob/master/shared/small_roots/nitaj_fouotsa.py)
+
+
+
+
 ##### 4.1 小公钥指数攻击（Coppersmith）
 
 ###### 4.1.1 Coppersmith’s short-pad attack （短填充攻击）
@@ -901,16 +1012,14 @@ M & e_1 & e_2 & \cdots & e_r \\
 ![Coppersmith短填充攻击](crypto/images/Coppersmith_ShortPadAttack.PNG)
 * **攻击条件**：$\Delta < 2^m < N^{1/e^2}$ ，可以使用此攻击。可见这时$e<5$。
 
-###### 4.1.2 Known High Bits Message Attack(已知高比特信息攻击)
+###### 4.1.2 Known High Bits Message Attack(已知高比特信息攻击) 
+
+> Stereotyped message attack
     
 * 已知$C\equiv m^e\ mod\ N$，假设已知很大一部分$m_0$,则有$C\equiv(m_0+x)^e\ mod\ N$。直接使用Coppersmith定理求解$x$，但记得其中的$x$需要满足Coppersmith定理中的约束，即$x < N^{1/e}$，可见这里的$e<5$。
 
 * ***具体Magma代码见``crypto/code/Known_High_Bits_Message_Attack.m``***
 
-###### 4.1.3 消息长度较短
-* **攻击条件：** $e < 5, m < N^{0.44}$
-
-    根据$m ^ e = kN + c$构造出$f = m^e - c\ (mod\ N)$，然后使用Coppersmith方法求解（直接调用`small_root`）
 
 
 ##### 4.2 Factoring with High Bits Known(已知高比特分解) $p,q$
@@ -923,23 +1032,85 @@ M & e_1 & e_2 & \cdots & e_r \\
 * ***具体Sagemath9.2代码见``crypto/code/Factoring_with_High_Bits_Known.py``***
 
 ###### 4.2.2 Improve Factoring with High Bits Konwn
-这里试4.6节的变种，就是现在已知$p$或$q$的高位比特和低位比特，只有中间的bit不知道，而且高位bit和低位bit占所有bit的56%或以上。如果不足则可以暴力枚举某些比特使得已知比特的数量大于56%，从而实用该攻击
+这里是4.2节的变种，就是现在已知$p$或$q$的高位比特和低位比特，只有中间的bit不知道，而且高位bit和低位bit占所有bit的56%或以上。如果不足则可以暴力枚举某些比特使得已知比特的数量大于56%，从而实用该攻击
 * 攻击原理：求解$$2^lx + p_{low} + p_{high} \equiv 0\ mod\ N$$ 同样是使用sagemath中的`small_root`函数。就是需要加上`f = f.monic()`一句保证多项式`f`是首一的。
-* 攻击要求与4.6节的一致。
-* 具体代码同样见4.6节的代码。
+
+###### 4.2.3 Coppersmith univariate
+这里是最基础的Coppersmith，Sagemath中的`small_roots`函数就是根据03年的文章进行实现的，只支持单变元的函数。求解的方法参考论文和代码。
+
+* **Theorem 10 (Coppersmith)**：已知$N=pq$，已知一个模数$b\geq N^{\beta}$，令$f_b(x)=0\ mod\ b$，$f_b(x)$是一元的首一多项式且其度数为$\delta$，则我们可以找到所有的满足$|x_0|\leq c_NN^{\frac{\beta^2}{\delta}}$
+* 当$b=N^{0.5}, \delta = 0.25, c_N = 2$时，定理10就编程了定理11。
+* **Theorem 11 (Factor known p MSB)** $N=pq$，$N$为$n$比特。给出私钥$p$的高或低$n/4$比特，那么可以快速分解$N$。
+* 参考资料：
+  * [May A., "New RSA Vulnerabilities Using Lattice Reduction Methods" (Section 3.2)](https://www.researchgate.net/publication/36147050_New_RSA_vulnerabilities_using_lattice_reduction_methods)
+  * [crypto-attack](https://github.com/jvdsn/crypto-attacks/blob/master/attacks/factorization/coppersmith.py)
+
+
+###### 4.2.4 Coppersmith multivariate
+Coppersmith也能推广到多变元上去，详细算法见论文和代码，原理都是差不多，相当于是给定一个多变元的模多项式$f_b(x_1,x_2,...,x_n) = 0\ mod\ b$，$b\geq N^P{\beta}$，其中$|x_1|\leq N^{\gamma_1},...,|x_n|\leq N^{\gamma_n}$，如果有 $$ \sum_i^n\gamma_i\leq 1-(1-\beta)^{\frac{n+1}{n}}-(n+1)(1-\sqrt[n]{1-\beta}(1-\beta)-\epsilon$$ 则可以求出$f_b(x_1,x_2,...,x_n)$ 的所有小根。
+
+* 参考资料：
+  * [Herrmann M., May A., "Solving Linear Equations Modulo Divisors: On Factoring Given Any Bits" (Section 3 and 4)](https://link.springer.com/content/pdf/10.1007%2F978-3-540-89255-7_25.pdf)
+  * [crypto-attack](https://github.com/jvdsn/crypto-attacks/blob/master/attacks/factorization/coppersmith.py)
+
 
 ##### 4.3 Partial Key Exposure attack （部分密钥泄露攻击）
+###### 4.3.1 n/4个$d$的最低有效位
 * **攻击条件：** $e<65537$
 * **Theorem 9 (BDF)：** 给定私钥<$N,d$>，$N$长为$n$比特，并给出私钥$d$的$\lceil n/4\rceil$位最低有效位(即$d$的低位)，那么可以在时间$O(elog_2\ e)$中恢复出$d$。
-* **Theorem 10 (Coppersmith)：**$N=pq$，$N$为$n$比特。给出私钥$p$的高或低$n/4$比特，那么可以快速分解$N$。
 
-**原理：** 首先已知$ed-k(N-p-q+1)=1$，因为$d<\varphi(N)$，所以有$0< k\leq e$。然后又因为$q=N/p$。则有$$(ed)p-kp(N-p+1)+kN=p\ mod\ (2^{n/4})$$因为敌手Marvin得到了$d$的$n/4$个最低有效位$d_0$，所以他知道$ed\equiv ed_0\ mod\ 2^{n/4}$。因此，他得到了一个关于$k$和$p$的方程。对于$k$的每一个可能的值$[0,e]$，Marvin求解了关于$p$的二次方程$$(ed_0)x-kx(N-x+1)+kN=x\ mod\ (2^{n/4})$$得到了一些$p$的候选值$x\ mod\ 2^{n/4}$的候选值。对于每一个候选值，执行定理10的算法(**4.3节**)去尝试分解$N$。可以看出，对于$p\ mod\ 2^{n/4}$的候选值的总数最多为$elog_2\ e$。因此，最多尝试$elog_2\ e$次后，$N$将被因式分解。然后就可以通过$e$和$\varphi (N)$求出私钥$d$。
-* 定理10的代码见4.6节。
+
+**原理：** 首先已知$ed-k(N-p-q+1)=1$，因为$d<\varphi(N)$，所以有$0< k\leq e$。然后又因为$q=N/p$。则有$$(ed)p-kp(N-p+1)+kN=p\ mod\ (2^{n/4})$$因为敌手Marvin得到了$d$的$n/4$个最低有效位$d_0$，所以他知道$ed\equiv ed_0\ mod\ 2^{n/4}$。因此，他得到了一个关于$k$和$p$的方程。对于$k$的每一个可能的值$[0,e]$，求解关于$p$的二次方程$$(ed_0)x-kx(N-x+1)+kN=x\ mod\ (2^{n/4})$$得到一些$p$的候选值$x\ mod\ 2^{n/4}$。对于每一个候选值，执行定理11的算法(**4.2.3节**)去尝试分解$N$。可以看出，对于$p\ mod\ 2^{n/4}$的候选值的总数最多为$elog_2\ e$。因此，最多尝试$elog_2\ e$次后，$N$将被因式分解。然后就可以通过$e$和$\varphi (N)$求出私钥$d$。
 
 * 代码参考：https://github.com/yifeng-lee/RSA-In-CTF/blob/master/exp8.sage
 * ***具体Sagemath9.2代码见``crypto/code/Partial_Key_Exposure_attack.py``***
 
-##### 4.4 Boneh and Durfee attack
+
+###### 4.3.2 Attack on Medium Exponent RSA
+- **攻击条件1**：已知$t\in [\frac{n}{4},...,\frac{n}{2}]$，且有$2^t<e<2^{t+1}$且知道$e$的分解，并且直到私钥$d$的$t$位最高有效位(Most signanificant bits)，那么$N$可以被有效分解。
+- **攻击原理1**：
+  1. 令$$k' = (ed_0-1)/N \\ |e(d-d_0)| < c_1N \\ ed_0 < c_2N^{3/2}$$则有$$|k'-k| < 8c_2+2c_1$$ 因此通过暴力搜索可以找出$k$，其中$k$满足$ed-k\phi(N) = 1$.
+  2. 计算$s\equiv N+1-k^{-1}\ (mod\ e)$，然后构造方程$x^2-sx+N=0\ (mod\ e)$，求出方程的根$x_0 = p$，因此已知$p$的低$t$比特。
+  3. 通过 **4.2.3**节已知部分$p$攻击分解$N$。
+- **攻击局限**：求解步骤2中的方程要么$e$是素数，要么需要知道$e$的分解。
+
+- **攻击条件2**：在攻击条件1的情况下**不知道$e$的分解**。
+- **攻击原理2**：见参考资料的4.2节定理8
+
+- 参考资料
+  - [Boneh D., Durfee G., Frankel Y., "An Attack on RSA Given a Small Fraction of the Private Key Bits"](https://link.springer.com/content/pdf/10.1007/3-540-49649-1_3.pdf)
+  - [crypto-attack BDF](https://github.com/jvdsn/crypto-attacks/blob/master/attacks/rsa/partial_key_exposure.py)
+
+
+###### 4.3.3  MSBs Known: A Method for $e \in [N^{0.5} , N^{0.725}]$
+- **攻击条件**：如果有$\alpha = log_N(e) \in [0.5, \frac{\sqrt{6}-1}{2}]$，已知$d$的最高有效位$d'$满足$$|d-d'| \leq N^{\frac{1}{8}(5-2\alpha-\sqrt{36\alpha^2+12\alpha-15}-\epsilon)}$$ 则$N$可以被分解。
+- **攻击原理：**同样先猜测出大致的$k'$，然后列一个函数$f_N(x,y,z) = ex+(k'+y)z+ed'-1$，然后使用Coppersmith方法求解。
+
+###### 4.3.4 已知私钥的LSB，且有$e < N^{0.875}$
+- **攻击条件**：如果有$\alpha = log_N(e) < \frac{7}{8} $，已知$d$的最低有效位$d_0 = d\ mod\ M$，且有$$M\geq N^{\frac{1}{6}+\frac{1}{3}\sqrt{1+6\alpha}+\epsilon}$$ 则$N$可以被分解。
+- **攻击原理**：同样是构造一个函数，然后使用Coppersmith方法求解。
+
+- 4.3.3和4.3.4参考资料
+  - [Blomer J., May A., "New Partial Key Exposure Attacks on RSA"](https://link.springer.com/content/pdf/10.1007/978-3-540-45146-4_2.pdf)
+  - [crypto-attack BM](https://github.com/jvdsn/crypto-attacks/blob/master/attacks/rsa/partial_key_exposure.py)
+
+
+
+###### 4.3.5 paritial $d$ known with full size exponent
+
+> 这里的攻击方案是4.3.3节的拓展，有着更高的界。都是构造拥有小根的多项式然后使用Coppersmith的方法进行求解。
+
+- **攻击条件1 MSB small d**：令$n = log_2(e)$，$\beta n = log_2(d)$，给出$d$的$(\beta - \delta)n$位MSB，如果满足$$\delta\leq\frac{5}{6}-\frac{1}{3}\sqrt{1+6\beta} or \\ \delta\leq \frac{3}{16}-\epsilon\ and\ \beta\leq\frac{11}{16}$$则$N$能被分解。其中$0 < \delta < \beta < 1$.
+- **攻击条件2 MSB small e**：令$n = log_2(d)$，$\alpha n = log_2(e)$，给出$d$的$(1 - \delta)n$位MSB，如果满足$$\delta\leq\frac{1}{3}+\frac{1}{3}\alpha-\frac{1}{3}\sqrt{4\alpha^2+2\alpha-2}-\epsilon$$ 则$N$能被分解，其中$0 < \delta < \frac{1}{2} < \alpha < 1$.
+- **攻击条件3 LSB small d**：令$n = log_2(e)$，$\beta n = log_2(d)$，给出$d$的$(\beta - \delta)n$位LSB，如果满足$$\delta < \frac{5}{6}-\frac{1}{3}\sqrt{1+6\beta} - \epsilon$$ 则$N$能被分解，其中$0 < \delta < \beta < 1$.
+
+- 参考资料：
+  - [Ernst M. et al., "Partial Key Exposure Attacks on RSA Up to Full Size Exponents"](https://link.springer.com/content/pdf/10.1007/11426639_22.pdf)
+  - [crypto-attack Ernst](https://github.com/jvdsn/crypto-attacks/blob/master/attacks/rsa/partial_key_exposure.py)
+
+
+
+##### 4.4 Boneh and Durfee attack （Coppersmith）
 当 $d$ 较小时，满足 $d < N^{0.292}$ 时，我们可以利用该攻击，比 Wiener's Attack 要强一些。
 
 * 注意：4.2~4.7节的公钥指数$e$都是非常小(一般为3)。而本节仅仅是私钥指数$d$比较的小，而一般假设$e$非常的大。
@@ -959,12 +1130,14 @@ $$ed+k(\frac{N+1}{2}-\frac{p+q}{2})=1$$
 * 由于Coppersmith本质上是对多项式求小根，因此就出现了各种各样的多项式构造方式。
   * 若有$ed_pq = (k − 1)(N − q) + N$，此时$q,k$比较的小，从而构造$$f = x(N-y)+N\ mod\ e$$然后Coppersmith。 
     * 参考：[New Attacks on RSA with Small Secret CRT-Exponents](https://www.iacr.org/archive/pkc2006/39580001/39580001.pdf)
-  * 若有$$f(x, y) = 1 + x(A + y) mod e$$ 一般有$X=N^{\delta}, Y = N^{0.5}, U = N^{\delta + 0.5}$，那么根据$det(L) \leq e^{m\ dim(L)}$推得$\delta\leq 0.5(2-\sqrt{2}) \approx 0.292$，这就是经典的Boneh and Durfee。 
+  * 若有$$f(x, y) = 1 + x(A + y) mod\ e$$ 一般有$X=N^{\delta}, Y = N^{0.5}, U = N^{\delta + 0.5}$，那么根据$det(L) \leq e^{m\ dim(L)}$推得$\delta\leq 0.5(2-\sqrt{2}) \approx 0.292$，这就是经典的Boneh and Durfee。 
     * 参考：[Maximizing Small Root Bounds by Linearization and Applications to Small Secret Exponent RSA](https://link.springer.com/content/pdf/10.1007%2F978-3-642-13013-7_4.pdf)
   * 若有$eu-k(q^2-1)(p^2-1)v = w$，则可构造出方程$$v(p\pm q)^2-(N+1)^2v - w \equiv 0\ (mod\ e)$$其中有$e = N^{\beta}, u = N^{\delta}$，如果有$v < 2N^{\beta + \delta-2} = X,\ p\pm q < 3N^{0.5} = Y, w < N^{\gamma} = Z$，那么可以构造方程$$f(x,y,z) = xy^2 + a_1x+z\ (mod\ e)$$ 然后使用然后Coppersmith。 
     * 参考：[A Generalized Attack on Some Variants of the RSA Cryptosystem](https://hal-normandie-univ.archives-ouvertes.fr/hal-02321006/file/sac2018paper4.pdf)
   * 若有$ed-k(p^2-1)(q^2-1) = 1$，且有$e = N^{\alpha}, d = N^{\delta}, |p-q|<N^{\beta}$，若$$\delta < 2-\sqrt{2\alpha\beta}=\epsilon$$则可以构造出$-(k)(p-q)^2-(N-1)^2(-k)+1\equiv 0\ (mod\ e)$ 即$$f(x,y) = xy+Ax+1\ mod\ e$$然后使用Coppersmith方法求解。
     * 参考：[Cryptanalysis of RSA Variants with Primes Sharing Most Significant Bits](https://eprint.iacr.org/2021/1632.pdf) 其中有一步是线性化的过程，即令$u=xy+1$，然后再构造出格，LLL算法后把$u$用$xy+1$代入求出的方程，然后再求$x,y$的根。（可以看作是Coppersmith的一种）
+  * 若有$eu-(p-s)(q-r)v = w$，其中$e = N^{\beta}$，$|r|,|s| < N^{\alpha} < N^{\frac{1}{4}}$, $0 < u < N^{\delta},\ 0<v,\ |w| < N^{\gamma}$。如果满足$$\delta < \frac{7}{6} + \frac{1}{3}\alpha - \gamma - \frac{1}{3}\sqrt{(2\alpha+1)(2\alpha + 6\beta - b\gamma +1)}-\epsilon$$ 则可以用Coppersmith方法求出$(p-s)(q-r)$. 方法是构造函数$f(x,y,z) = xy-Nx+z$，则有$(x,y,z) = (v,pr+qs-rs,-w)$
+    * 参考：[A New Attack on RSA and Demytko's Elliptic Curve Cryptosystem](https://eprint.iacr.org/2019/1050.pdf)
 
 
 ##### 4.5 公钥$e$与$\varphi(N)$不互素
@@ -974,7 +1147,7 @@ $$ed+k(\frac{N+1}{2}-\frac{p+q}{2})=1$$
 
 
 ###### 4.5.2 $e\ |\ \varphi(N)$
-* **攻击条件**：$e$比较小，不大于65536。而且有$e\ |\ (p-1)$ 和 $e\ |\ (q-1)$。若有其中一个条件不满足，则下面讲到的AMM算法就无法求解。
+* **攻击条件**：$e$比较小，不大于65536。而且有$e\ |\ (p-1)$ 和 $e\ |\ (q-1)$。
 
 现在相当于是这样的一种情况，我们有这样的一个方程$$c\equiv m^e\ mod\ N, \tag{4.10}$$其中$c,N,e,p,q$已知，需要求$m$。但是此时有$e | \varphi(N)$。因此这个方程可以化为$$c\equiv m^e\ mod\ p \newline c\equiv m^e\ mod\ q$$因为$e$与$p,q$互素，因此两个方程各有$e$个根，从而方程$(4.10)$有$e^2$个根。我们的目的就是找到这$e^2$个根中我们需要的那个，**就是找到有特殊字符串开头比如``flag{``开头的根$m$**。
 
@@ -998,15 +1171,17 @@ https://arxiv.org/pdf/1111.4877.pdf  **Cao Z , Sha Q , Fan X . Adleman-Manders-M
 * ***具体Sagemath9.2代码见``crypto/code/AMM.sage``***
 
 ###### 4.5.3 $e\ |\ \varphi(N)\ v2$
-同样有$e\ |\ \varphi(N)$，但是密文$c$没有$e$个根，因为此时有$e \nmid (p-1)$。不失一般性，假设有$gcd(e, p-1) = a$，$gcd(e, q-1) = b$，其中$1 < a,b < e$。**暂时还没有找到有效的算法进行计算。** 只能将就着使用Sagemath中的求根函数，此时当$e > 100$时，函数基本上不能求解，因为时间太长了。
+同样有$e\ |\ \varphi(N)$，但是$e\nmid (p-1)$且$e\nmid (p-1)$。假设有$gcd(e, p-1) = a$，$gcd(e, q-1) = b$，其中$1 < a,b < e$。计算出$$c_p\equiv c^{-\frac{e}{a}} \equiv m^a\ mod\ p \\ c_q\equiv c^{-\frac{e}{b}} \equiv m^b\ mod\ q$$ 其中$-\frac{e}{a} = invert(\frac{e}{a}, p-1)$. 因此我们可以用AMM算法对$c_p$在模$p$下求出$a$个根，对$c_q$在模$q$下求出$b$个根，然后用中国剩余定理求解出$m$。
 
-* 参考代码：
-    ```python
-    P.<x> = GF(p)[]
-    c_ = 
-    f = x^e - c_
-    print(f.roots())
-    ```
+###### 4.5.4 $gcd(\phi / e, e) = 1$
+实际上这里也可以用AMM算法进行求解。不过在这种情况下有一种直观一点的解法，可以顺便加深一下对数论的了解。
+- **方法：**
+  1. 计算$\phi' = (p-1)(q-1)/e$.令$G$是阶为$\phi'$的一个子群。
+  2. 任意选取$g$，计算$g_E = g^{\phi'}\ mod\ N$，直到$g_E\neq 1$.其中$E$表示的是阶为$e$的一个子群，$g_E$是该群的生成元。
+  3. 因此消息$m$可以写成$G$和$E$中两个元素的乘积$m = al,\ a\in G,\ l\in E$。因此有$$c = m^e\equiv(al)^e\equiv a^e\ mod\ N$$，因此思路是先求出$a = c^{e^{-1}\ mod\ \phi'}\ mod\ N$。
+  4. 遍历$i\in \{0,...,e-1\}$，计算$m'\equiv a\cdot g_E^i\ mod\ N$，找出满足条件的$m'$，就是我们想要的消息$m$。
+
+
 
 ###### 小技巧
 因为题目给出的$m$一般比较的小，因此当得到了$$c' = m^e \ mod\ N,$$的时候，可以尝试用`gmpy2.iroot`函数对$c'$开$e$次方根，当$m^e < N$时可以恢复出$m$。
@@ -1082,9 +1257,27 @@ https://arxiv.org/pdf/1111.4877.pdf  **Cao Z , Sha Q , Fan X . Adleman-Manders-M
 * 题目：2022年TQLCTF——hardrsa
 * ***具体Sagemath9.2代码见``crypto/code/May__Unbalanced_prime_and_small_CRT_exponents.sage``***
 
+
+##### 4.8 Special $e$ and small CRT-exponent $d_p$
+- **攻击条件1**：$q<p<2q$，$ex+y\equiv 0\ (mod\ p),\ |x|<N^{\gamma},\  |y|< N^{\delta}$，且有$ex+y\not\equiv 0\ (mod\ p),\ \gamma+\delta\leq\frac{\sqrt{2}-1}{2}$.
+- **攻击原理**：构造函数$f(x,y) = ex+y\ (mod\ N)$，然后使用Coppersmith方法求解。把$x,y$求解出来后就能求出$p$
+
+- **攻击条件2**：$q<p<2q$，$e<N^{\frac{\sqrt{2}}{2}}$且$ed_p = 1+k_p(p-1)$。如果有$$d_p<\frac{N^{\frac{\sqrt{2}}{4}}}{\sqrt{e}}$$ 则可以对$N$进行分解。
+- **攻击原理**：同样是构造出函数$f(x,y) = ex+y\ (mod\ N)$，这里的$x$就表示$d_p$. 然后使用Coppersmith方法求解。
+
+- 参考资料：
+  - [Nitaj A., "A new attack on RSA and CRT-RSA"](https://link.springer.com/content/pdf/10.1007/978-3-642-31410-0_14.pdf)
+  - [crypto-attack](https://github.com/jvdsn/crypto-attacks/blob/master/attacks/rsa/nitaj_crt_rsa.py)
+
+
+
+
+
 #### 五、变种RSA密码分析
 
-见Cryptanalysis of RSA and It's Variants的Section 11 Common Prime RSA中的内容。但是书是2009年出版的，因此后来的算法书中就没有记录了。
+见[Cryptanalysis of RSA and It's Variants](https://www.researchgate.net/publication/266171887_Cryptanalysis_of_RSA_and_Its_Variants)的Section 11 Common Prime RSA中的内容。但是书是2009年出版的，因此后来的算法书中就没有记录了。
+
+> **书中的许多攻击包含了Winner攻击和使用Coppersmith方法的攻击。**
 
 ##### 5.1 Common Prime RSA (素数中含有公约数)
 对于$N=pq$，若有$p-1=2ag,\ q-1 = 2bg$。则此RSA为Common Prime RSA. 
@@ -1107,6 +1300,8 @@ https://arxiv.org/pdf/1111.4877.pdf  **Cao Z , Sha Q , Fan X . Adleman-Manders-M
   * 由方程(1)得$$\frac{N-1}{2g}=2gu+v$$ 其中$0\leq v < 2g$且$u,v$已知。然后$\exist c$令$$\begin{cases} a+b=v+2gc \\ ab=u-c \end{cases}$$ 则对于$gcd(x,N)=1$，有$x^{2gu}\equiv x^{2gab+2gc}\equiv x^{2gc}\ (mod\ N)$，令$y=x^{2g}$，则我们有同余方程$$y^u\equiv y^c\ (mod\ N)$$ 然后求离散对数就可以把$c$求出来。知道$c$之后代入方程组就可以把$a,b$求出，成功分解$N$。 
   * 其中$c$的取值为$c\leq a+b \approx 2N^{0.5-\gamma}$，其中$\gamma\approx\frac{1}{4}-mlog(long(N))$，$m$为常数。算法复杂度约为$O(\sqrt(c))$。
 
+
+
 ##### 5.2 Multi-Power RSA 
 对于$N=p^rq$，若有$r > 1$。则此RSA为Common Prime RSA.
 
@@ -1117,6 +1312,56 @@ https://arxiv.org/pdf/1111.4877.pdf  **Cao Z , Sha Q , Fan X . Adleman-Manders-M
 参考资料：[Polynomial based RSA](http://www.diva-portal.se/smash/get/diva2:823505/FULLTEXT01.pdf)
 
 一般来说多项式环的RSA的模多项式$N$有快速的分解算法，因此基于多项式环的RSA是不安全的。其阶若$N = P*Q$，$deg(P) = r, deg(Q) = s$，其素数域为$GF(p)$，则模$N$的商环$R$中的元素的最大阶为$s = (p^r-1)(p^s-1)$
+
+
+##### 5.4 Special constructed RSA 
+###### 5.4.1 N = pq = (a^m+r_p)(b^m+r_q)
+* **攻击条件**：特殊构造的RSA，有$N = pq = (a^m+r_p)(b^m+r_q)$，其中有$r_q<r_p<2a^{m/2}$和$$r_p\equiv p\ (mod\ 2^m) \\ r_q\equiv q\ (mod\ 2^m)$$，且$max\{r_p,r_q\}<2^k$。如果$2^{k-1}(2^{\frac{m}{2}+1})$足够小且$r_p, r_q$已知，那么$N$就可以被分解。
+* 更详细的条件$m$一定需要是偶数，$r_p,r_q<N^{0.039}$
+
+* 参考资料
+  * [Ghafar AHA. et al., "A New LSB Attack on Special-Structured RSA Primes"](https://www.mdpi.com/2073-8994/12/5/838)
+  * [crypto-attack Ghafar-Ariffin-Asbullah attack ](https://github.com/jvdsn/crypto-attacks/blob/master/attacks/factorization/gaa.py)
+
+
+
+###### 5.4.2 RSALib-cve 
+- **漏洞**：https://asecuritysite.com/encryption/copper
+- **漏洞原理**：`RSALib`中的素数是由以下方式构造的：$$p=k\cdot M+(65537^q\ mod\ M)$$ 其中$M = \prod_{i=1}^n P_i$，$P_i$表示从0开始的第i个素数，其中$k,a$未知。 当其中的$k,a$选择不当的时候，能使得$N$能被快速分解。
+- **攻击原理**：
+  1. 首先$a$的替代数$a'$能被快速求解(因为$M$是小素因子的乘积)
+  2. 然后构造出函数$f(x) = x+(M'^{-1}\ mod\ N) * (65537^{a'}\ mod\ M')(mod\ N)$，使用Coppersmith方法求出小素因子$k'$
+  3. 计算出候选的$p$，然后判断是否是$N$的因子。
+  4. 文章提出了一些改进时间复杂度的方法，比如重新选择模数$M'$使得候选的$a'$的数量减少，但又不会使得Coppersmith的运行时间过大，文章进行了一定的平衡从而找到时间复杂度最少的参数。
+
+- 参考资料：
+  - [Nemec M. et al., "The Return of Coppersmith’s Attack: Practical Factorization of Widely Used RSA Moduli"](https://dl.acm.org/doi/pdf/10.1145/3133956.3133969)
+  - [crypto-attack ROCA](https://github.com/jvdsn/crypto-attacks/blob/master/attacks/factorization/roca.py) 
+
+
+
+
+##### 5.5 Unbalanced RSA
+###### 5.5.1 Implicit Factorization
+* **攻击条件**：已知k组模数$N_1=p_1q_1,...,N_k=p_kq_k$，存在一组整数$a_1,...,a_k$其中有$a_1p_1,...,a_kp_k$拥有相同的MSB或者LSB。则可以对$N_1,...,N_k$进行分解。
+  * 当$k=2$时用到了连分数的方法，且需要满足$$|a_1p_1-a_2p_2|<\frac{p_1}{2a_2q_1q_2}$$ 且$a_1p_1,a_2p_2$有相同的$t$bit的数，$q_1,q_2$是$\alpha$bit的，$a_1,a_2 \leq 2^{\beta}$，$t\geq 2\alpha+2\beta+1$。满足以上条件可以对$N_1,N_2$进行分解。
+  * 当$k>2$时用到了格的方法。需要满足条件$$t>\frac{k}{k-1}\alpha+\frac{k^2}{k-1}\beta + \frac{k}{2(k-1)}(1+log_2(\pi e))$$
+
+- 参考资料
+  - [Nitaj A., Ariffin MRK., "Implicit factorization of unbalanced RSA moduli"](https://link.springer.com/content/pdf/10.1007/s12190-014-0806-1.pdf)
+  - [crypto-attack Implicit factorization](https://github.com/jvdsn/crypto-attacks/blob/master/attacks/factorization/implicit.py)
+
+
+###### 5.5.2 Factor with some known bits
+- **攻击条件**：已知$N=pq > q^3$，且$p$的部分bit已知。
+- 分为三种情况，
+  1. 知道$p$的低$Q$位bit，Easy
+  2. $p$的低$W$bit未知，但是其后的$L$bit已知。同构构造函数$f(x,y) = x(a+y)\ mod\ 2^{W+L}$，然后使用Coppersmith方法求解。
+  3. 断层地知道部分bit，改进的Boneh and Durfee的Coppersmith算法。
+
+- 参考资料：
+  - [Brier E. et al., "Factoring Unbalanced Moduli with Known Bits"](https://link.springer.com/content/pdf/10.1007/978-3-642-14423-3_5.pdf)
+  - [crypto-attack Factorization of unbalanced moduli](https://github.com/jvdsn/crypto-attacks/blob/master/attacks/factorization/unbalanced.py)
 
 
 #### 六、选择明密文攻击
@@ -1169,11 +1414,15 @@ Oracle返回奇偶性信息造成了信息的泄露，因此可以使用选择�
 
 详细例子见：https://ctf-wiki.org/crypto/asymmetric/rsa/rsa_side_channel/
 
-#### 八、基于具体RSA实现的攻击
-##### 8.1  Bleichenbacher's Attack on PK CS 1
+#### 八、基于具体RSA实现（标准）的攻击
+##### 8.1  Bleichenbacher's Attack on PKCS 1
 即在PKCS 1(Public Key Cryptography Standard 1)中实现时可以找出实现时的漏洞，然后相当于敌手获得一个oracle，使得敌手可以不断猜测一个伪造的签名，知道猜测成功。
 
 这种攻击主要针对PKCS 1实现时的攻击。
+
+- 参考资料
+  - [Chosen ciphertext attacks against protocols based on the RSA encryption standard PKCS #1](https://link.springer.com/content/pdf/10.1007/BFb0055716.pdf)
+  - [crypto-attack](https://github.com/jvdsn/crypto-attacks/blob/master/attacks/rsa/bleichenbacher.py)
 
 ***注：这里只提供理论支撑，详细例子见crypto文件夹中的各个writeup。其实有一部分理论我也不是很清楚，特别是Coppersmith方案中的方法。要做几道题来再搞清楚一下其细节的方案，特别是***
 1. ***Coppersmith方案解方程的实现***
@@ -1181,7 +1430,28 @@ Oracle返回奇偶性信息造成了信息的泄露，因此可以使用选择�
 3. ***Boneh and Durfee attack***
 
 
+##### 8.2 PKCS 1 部分密钥泄露攻击  Branch and prune attack
+如果给出了RSA的私钥文件，如pem文件等，然后rsa的$n,e$已知，但是其余信息$d,p,q,dp,dq,q^{-1}\ mod\ p$等信息泄露了27%以上，那么可以使用文章[1]的方案对密钥进行恢复。算法本质上不算难，难点在于如果给出的是pem文件，那么可能pem封装的头部信息会缺失，导致信息发生偏移。还有就是消息的格式转换比较的繁琐，会花费大量的时间在处理格式上。
 
+* 算法原理：根据已知的⽐特信息，从低位开始逐位搜索(d,dp,dq,p,q)
+  1. 首先因为$e$比较的小，先爆破$k$，原理是$d$的高位比特泄露了，如果$k$正确，那么就有$\lfloor \frac{k(N+1)+1}{e} \rfloor$的高0.5bit与$d$相等。
+  2. 接下来猜测$k_p,k_q$，经推导有$k_p^2-[k(N-1)+1]k_p-k\equiv 0\ mod\ e$，容易求解。
+  3. 从 $[1,n]$，枚举所有可能的$ mod 2^i$的密钥并修剪那些不满足上述密钥数据之间关系的密钥。 更准确地说，给定潜在密钥的第 1 位到第 $i - 1$ 位，为 $p、q、d、dp、dq$ 的第 $i$ 位生成所有可能的值组合，如果满足 (1)、(2)、(3) 和 $(4) mod 2^i$则保留候选组合。 
+
+* 参考文献
+  * [1] Nadia Heninger, Hovav Shacham. Improved RSA Private Key Reconstruction for Cold Boot Attacks. Cryptology ePrint Archive, Report 2008/510, 2008.
+  * [RSA私钥文件（PEM-PKCS#1）解析](https://cloud.tencent.com/developer/article/1543322)
+  * [Crypto - God Like RSA](https://zhuanlan.zhihu.com/p/266059082)
+  * [Heninger N., Shacham H., "Reconstructing RSA Private Keys from Random Key Bits"](https://link.springer.com/content/pdf/10.1007/978-3-642-03356-8_1.pdf)
+  * [crypto-attack](https://github.com/jvdsn/crypto-attacks/blob/master/attacks/factorization/branch_and_prune.py)
+
+
+##### 8.3 PKCS #1 v2.0 选择密文攻击 Manger Attack
+Manger攻击是针对 PKCS #1 v2.0 RSA OAEP 加密的自适应选择密文攻击。它从一个给定的密文中恢复明文，需要一个给予明文的$log_2N$次查询的oracle中，其中 $N$ 是 RSA 模数。
+
+- 参考资料
+  - [A Chosen Ciphertext Attack on RSA Optimal Asymmetric Encryption Padding (OAEP) as Standardized in PKCS #1 v2.0](https://link.springer.com/content/pdf/10.1007/3-540-44647-8_14.pdf)
+  - [crypto-attack Manger's attack](https://github.com/jvdsn/crypto-attacks/blob/master/attacks/rsa/manger.py)
 
 
 
@@ -1220,6 +1490,11 @@ Oracle返回奇偶性信息造成了信息的泄露，因此可以使用选择�
 3. [Equivalent key attack against a public-key cryptosystem based on subset sum problem](https://ieeexplore.ieee.org/iel7/4149673/8513921/08513952.pdf)
 4. [Quantum algorithm and experimental demonstration for the subset sum problem](https://idp.springer.com/authorize/casa?redirect_uri=https://link.springer.com/content/pdf/10.1007/s11432-021-3334-1.pdf&casa_token=wn2Iknf01a8AAAAA:hgja8xVUFtHJDOhGNFSlRAnaJp6oFZWd6XZIFXA-Wj5H0SMxMm_sk4rkyTVkUCHHlVKniPrYAEmSJ9Z6uP0)
 
+#### 简单的攻击方案
+- **攻击条件** The density of the a_i values is < 0.9048
+- [crypto-attack Low density attack](https://github.com/jvdsn/crypto-attacks/blob/master/attacks/knapsack/low_density.py)
+
+一般来说不会给这么简单的问题。
 
 
 
@@ -1324,6 +1599,10 @@ $$
 
 根据readme安装就可以了，然后这个工具如果不自己设计数域筛算法那还是不难用的。主要见`README.dlp`,`README.msieve`,`README.nonlinear`,`README.Python`这四个readme文件，如果只是为了解决离散对数问题，我们只需要看`README.dlp`这个文件就可以了。
 
+* windows上的安装：建议不要搞，会有各种各样的坑。首先需要安装mpi，然后windows上安装mpi又是另一个坑。建议使用windows自带的Ubuntu LTS对安装`gmp`、`mpi`和`cado-nfs`进行安装，从而避免各种坑的出现，如果是Ubuntu虚拟机的话就一般来说都没有问题。
+  * 可能会出现找不到`cxxwrap.pl`文件中的`@CMAKE_CXX_COMPILER@`,`@MPI_CXX_COMPILER@`,`@MPI_C_COMPILER_CMDLINE_INSERTIONS@`问题，需要把这三者分别改为`g++`,`mpicxx`,`-cxx=g++`。
+  * 可能会出现`./gf2x/gf2x_mul1.h:1:1: error: expected identifier or ‘(’ before ‘.’ token`这个问题，参考：https://www.mersenneforum.org/showthread.php?t=26834
+
 求解的过程比较简单，输入以下命令：
 `./cado-nfs.py -dlp -ell <ell> target=<target> <p>`
 其中`p`表示在$GF(p)$这个有限域大小，`ell`表示`p`的一个大素因子，然后`target`表示在有限域$GF(p)$里面的一个数，我们要求出`target`的离散对数。
@@ -1347,6 +1626,13 @@ $$
 ![ElGamal](crypto/images/ElGamal.PNG)
 一般来说，$p$至少是160位的十进制素数，**并且$p-1$有大的素因子**。
 
+#### 简单的对ElGamal加密体制的攻击
+* Unsafe generator attack
+  * **攻击成因**：群的生成元$g$的阶不为$p$。
+  * **攻击原理**：见参考文献，通过使用勒让德符号，使得攻击者能够区分是随机生成的字符串还是加密的结果。
+  * 参考资料
+    * [Unsafe generator attack](https://crypto.stackexchange.com/questions/3092/using-bad-generator-in-elgamal-encryption)
+    * [crypto-attack](https://github.com/jvdsn/crypto-attacks/blob/master/attacks/elgamal_encryption/unsafe_generator.py)
 
 
 
@@ -1354,6 +1640,10 @@ $$
 
 
 ### 二 ECC 椭圆曲线加密
+
+* **重要的参考资料**
+  * [Robert Granger and Antoine Joux. Computing Discrete Logarithms](https://eprint.iacr.org/2021/1140.pdf) 椭圆曲线离散对数的综述
+
 ECC 全称为椭圆曲线加密，Elliptic Curve Cryptography，是一种基于椭圆曲线数学的公钥密码。与传统的基于大质数因子分解困难性的加密方法不同，ECC 依赖于解决椭圆曲线离散对数问题的困难性。它的优势主要在于相对于其它方法，它可以在使用较短密钥长度的同时保持相同的密码强度。ECC密码体制在区块链等多种领域中都有应用。
 
 * **椭圆曲线介绍**
@@ -1433,6 +1723,8 @@ d1 = crt([d1p, d1q], [P1p.order(), P1q.order()])
 
 #### 5 MOV攻击
 
+> 与MOV-reduction攻击类似的攻击是FR-reduction。FR-reduction攻击特别适用于曲线的迹(Trace)为2的情况。
+
 * **攻击原理**：使用双线性对进行攻击，本质上是构造一个双线性映射，将椭圆曲线$E(F_q)$的两个点映射到有限域$F_{q^k}$的一个元素，其中$k$是该曲线的**嵌入度**。设曲线$E$的阶为$n$，且$n,q$互素，我们要构造映射$$f:E[n]\times E[n]\rightarrow F_{q^k}$$ **嵌入度$k$的定义**为$$n \mid q^k-1$$ 
 这里的双线性对一般使用Weil对或者Tate对。其中双线性对有双线性性，即：对于椭圆曲线上的点$P,Q$和整数$r,s$，有 $$f(rP,sQ) = f(P,Q)rs$$ 因此若要计算离散对数问题 $P' = rP$ 中的$r$。有 $$u = f(P,Q) \\ v = f(P',Q) = f(rP,Q) = f(P,Q)r \\ v = ru$$ 其中$u,v\in F_{q^k}$ 此时变成求解$ F_{q^k}$上的离散对数。
 
@@ -1485,6 +1777,8 @@ print(d)
     * https://www.sagemath.org/files/thesis/hansen-thesis-2009.pdf sagemath求解MOV攻击
     * Elliptic_Curves_in_Cryptography 书
     * https://zhuanlan.zhihu.com/p/421541257 大佬的笔记
+    * Menezes A. J., Okamoto T., Vanstone S. A., Reducing elliptic curve logarithms to logarithms in a finite field. IEEE Trans. Inf. Theory. 39(5), pp. 1639 -1646, 1993.     MOV攻击最初始的文章
+    * [New Explicit Conditions of Elliptic Curve Traces for FR-Reduction](https://dspace.jaist.ac.jp/dspace/bitstream/10119/4432/1/73-48.pdf)
 
 
 
@@ -1613,6 +1907,57 @@ Anomalous曲线的阶为$p$，适用于Smart攻击，暴力查找这样的曲线
 * 参考资料  ： 
     1. Joseph H.Silverman. The Arithmetic of Elliptic Curves[M]. 2nd Edition. 第三章
     2. https://crypto.stackexchange.com/questions/61302/how-to-solve-this-ecdlp
+
+
+
+#### 8 指数演算法（Index Calculate）
+* 简单版本的指数演算法
+  * 令$G$是一个阶为$n$的加法循环群。已知两个元素$P,Q$满足$P=kQ$，求$k$
+  1. 定义群$G$的一个子群$\mathcal{F}$
+  2. 收集关系：
+     1. 随机选择整数$a,b$并计算$R = aP+bQ$;
+     2. 尝试使用$\mathcal{F}$中的元素分解$R$;
+     3. 当分解成功时有$aP+bQ=\sum_{P_i\in\mathcal{F}}e_iP_i$，把$a,b,e_i$作为一行存储在一个矩阵中;
+     4. 至少收集$\#\mathcal{F}$个关系，即矩阵需要有$\#\mathcal{F}$行;
+  3. 在模阶$n$的情况下，把矩阵的$P_i$的系数通过线性变换化为$\bm{0}$，因此剩下$\lambda P+\mu Q = \bm{0}$
+  4. $k = \lambda \mu^{-1}\ mod\ n$
+
+* **子集$\mathcal{F}$选择的困难性：**
+  * 选择的$\mathcal{F}$不能太大，否则矩阵维数过大。
+  * 大部分的群元素$R$都能被分解成$\mathcal{F}$中的元素，否则第二步很难收集到足够的元素。
+  * 任意的群元素$R$需要有高效的算法进行分解，否则会用过长的时间。
+
+* 指数演算法一开始是应用于群$\mathcal{F}_P^*$中的。与椭圆曲线群相比，$\mathcal{F}_P^*$乘法群中的分解非常简单，就是整数分解。
+  * 指数演算思想可以有效地应用于亏格$g > 1$的光滑射影曲线的除子群
+  * 对于$\mathcal{F}_{q^n}, q\neq 2$域上的椭圆曲线，基于Weil descent and summation polynomials方法的指数演算法有比较出色的效果，也是2015年左右的一项比较热门的研究。但是对于$\mathcal{F}_{2^n}$域上的椭圆曲线，指数演算法无法进行有效的攻击。
+  * 针对素数域，目前的指数演算法主要是基于Summation Polynomial Evaluation[Semaev04]的指标演算法，**其时间复杂度不如Pollard rho算法**
+
+* 参考资料：
+  * [Recent progress on the elliptic curve discrete logarithm problem](https://link.springer.com/content/pdf/10.1007/s10623-015-0146-7.pdf)
+  * [Summation polynomials and the discrete logarithm problem on elliptic curves](https://eprint.iacr.org/2004/031.pdf)
+
+#### 9 GHS Attack
+> Gaudry-Hess-Smart Method
+
+
+* 参考资料
+  * [Robert Granger and Antoine Joux. Computing Discrete Logarithms](https://eprint.iacr.org/2021/1140.pdf) 椭圆曲线离散对数的综述
+
+
+#### 10 TODO some bad Curves
+**Anomalous curves**： An elliptic curve over a prime field Fp is said to be anomalous when its trace is equal to 1 or equivalently its cardinality is equal to p
+
+
+
+#### 11 Demytko’s elliptic curve cryptosystem
+密码方案参考[Demytko, N.: A new elliptic curve based analogue of RSA](https://link.springer.com/chapter/10.1007/3-540-48285-7_4)
+
+- **特性**：
+  1. 适用RSA模数的椭圆曲线。
+  2. $gcd(e, (p^2-t_p^2)(q^2-t_q^2))=1$.
+  3. $p\equiv q\equiv 2\ (mod\ 3)$
+
+- **攻击方案**：参考[Nitaj A., Fouotsa E., "A New Attack on RSA and Demytko's Elliptic Curve Cryptosystem"](https://eprint.iacr.org/2019/1050.pdf) 如果满足条件则可以用Coppersmith方法攻击成功。
 
 
 
@@ -1780,7 +2125,7 @@ LLL算法和BKZ算法在Sagemath中的调用见`crypto/Sagemath_Usage.md`
 又参考文献 https://www.isg.rhul.ac.uk/~sdg/igor-slides.pdf 可知当$l \approx log^{\frac{1}{2}}p$时，可以讲此问题规约到一个CVP问题。
 
 * 算法流程：
-* 输入：给出素数$p$整数$l$且$l$满足$l\approx log^{\frac{1}{2}}p$，$n$个$t\in F_p$，对应的$n$个数$u_i = MSP_{l,p}(\alpha t_i)$。
+* 输入：给出素数$p$整数$l$且$l$满足$l\approx log^{\frac{1}{2}}p$，$n$个$t\in F_p$，对应的$n$个数$u_i = MSB_{l,p}(\alpha t_i)$。
 * 输出：满足条件的数$\alpha$。
 * 首先构造矩阵$$
 \left[\begin{matrix}
@@ -1879,6 +2224,20 @@ $$ 注意：这里每一行代表一个向量，因此使用LLL算法求线性�
 
 
 
+#### LWE (learning with errors)
+$b = As+e$，$b,A,e$已知，求解$s$。$b,e,s$是向量，$A$是一个矩阵。
+
+* 有三种类型的攻击方案：
+  1. 代数攻击：Arora-Ge 及其变种
+  2. 组合式：Blum-Kalai-Wasserman(BKW) 及其变种
+  3. 几何：格的各种攻击
+
+- 参考资料：
+  - [Lattice Attacks for Variants of LWE Slides](https://www.microsoft.com/en-us/research/uploads/prod/2019/06/Lattice-Attacks-for-Variants-of-LWE-slides.pdf)
+  - [crypto-attack Arora-Ge attack](https://github.com/jvdsn/crypto-attacks/blob/master/attacks/lwe/arora_ge.py)
+
+
+
 
 ### Short integer solution, SIS
 如果能构造出一个$n\times m$的格$L$使得$$Lx=0$$ 而且解$x$是长度比较小的向量。那么就可以先求解出格$L$的零空间，然后对零空间使用LLL算法，把长度比较短的解$x$求出。
@@ -1892,6 +2251,21 @@ $$ 注意：这里每一行代表一个向量，因此使用LLL算法求线性�
 
 
 
+### Lattice-Based Encryption 
+#### NTRU encrypt
+NTRUEncrypt 公钥密码系统，也称为 NTRU 加密算法，是 RSA 和椭圆曲线密码 (ECC) 的基于 NTRU 格的替代方案，它基于格中的最短向量问题（不知道使用 量子计算机）。
+
+它依赖于将截断多项式环中的某些多项式分解为具有非常小系数的两个多项式的商的假定难度。 破解密码系统与某些格中格约简的算法问题密切相关，但并不等同。 仔细选择参数对于阻止一些已发布的攻击是必要的。
+
+wikipedia 中有比较详细的算法描述
+
+* reference：
+  * [NTRUEncrypt](https://en.wikipedia.org/wiki/NTRUEncrypt)
+  * [Practical lattice-based cryptography: NTRUEncrypt and NTRUSign](http://citeseerx.ist.psu.edu/viewdoc/download?rep=rep1&type=pdf&doi=10.1.1.217.1642)
+  * [NTRUCipher-Lattice Based Secret Key Encryption](https://arxiv.org/pdf/1710.01928.pdf)
+
+
+
 ### Lattice-Based Signature
 
 > 相当于是用一篇文献，该文献的参考文献中就引出了很多英文文献
@@ -1901,6 +2275,8 @@ $$ 注意：这里每一行代表一个向量，因此使用LLL算法求线性�
   * Goldreich, O., Goldwasser, S., Halevi, S.: Public-key cryptosystems from lattice reduction problems. In: Kaliski, B.S. (ed.) Advances in Cryptology - CRYPTO ’97: 17th Annual International Cryptology Conference, Santa Barbara, California, USA, August 17-21, 1997. Proceedings. Lecture Notes in Computer Science, vol. 1294, pp. 112–131. Springer Berlin Heidelberg, Berlin, Heidelberg (1997), https://doi.org/10.1007/BFb0052231
   * Nguyen P Q ,  Regcv O . Learning a Parallelepiped: Cryptanalysis of GGH and NTRU Signatures[J]. Journal of Cryptology, 2009, 22(2):139-160.  （**给出大量签名，可以恢复出GGH和NTRU签名方案的私钥**）
 * NTLU Signature
+  * [NTRUSign](https://en.wikipedia.org/wiki/NTRUSign) 里面有比较多的参考文献
+  * [Practical lattice-based cryptography: NTRUEncrypt and NTRUSign](http://citeseerx.ist.psu.edu/viewdoc/download?rep=rep1&type=pdf&doi=10.1.1.217.1642)
   * 迟欢欢,李金波,张平.基于NTRU格的数字签名方案[J].网络安全技术与应用,2021(12):34-36. 
 * LWE Signature 
 * GPV signature scheme
@@ -2212,7 +2588,7 @@ HashCat 工具 : https://hashcat.net/hashcat/
 * 攻击流程：现在已知进行hash运算前会附加未知比特串salt记为$k$。已知$h(k)$的值和$k$的长度。就可以根据MD5或者SHA-1的填充规则进行填充，使得$$
 h(k) = h(k||padding)
 $$ 因此我们构造$x'=padding||m$，这样一来有 $$
-h(k||x') = h(k||padding||x')$$  然后通过因为刚好在对$k||padding$进行hash的时候与$x'$的运算是分开两块的，因此$h(k||padding)$的输出会作为对$x'$进行hash运算的初始向量。因此有 $$ h(k||x') = h_{h(k)作为初始向量}(m)$$
+h(k||x') = h(k||padding||x')$$  然后通过因为刚好在对$k||padding$进行hash的时候与$x'$的运算是分开两块的，因此$h(k||padding)$的输出会作为对$x'$进行hash运算的初始向量。因此有 $$ h(k||x') = h_{h(k)作为初始向量}(x')$$
 
 * **工具 hashpump**：  https://github.com/bwall/HashPump
     * python中`hashpump`库有点难装，因此可以直接下载源码然后安装再运行。
@@ -2381,6 +2757,18 @@ $$\left[\begin{matrix} -r_1 & s_1 & 0 & q & 0 & 0 \\ -r_2 & 0 & s_2 & 0 & q & 0 
 参考题目： VNCTF 2022 AreYouAdmin
 
 
+##### 3.1 (EC)DSA known MSB nonce
+可以转化为HNP(Hidden_Number_Problem)问题，可参考格中HNP问题部分。
+- [crypto-attack Lattice-based attack](https://github.com/jvdsn/crypto-attacks/blob/master/attacks/hnp/lattice_attack.py)
+
+##### 3.2 (EC)DSA known LSB nonce
+可以转化为HNP(Hidden_Number_Problem)问题，可参考格中HNP问题部分。
+- [crypto-attack Lattice-based attack](https://github.com/jvdsn/crypto-attacks/blob/master/attacks/hnp/lattice_attack.py)
+
+##### 3.3 (EC)DSA known Middle bits of nonce
+可以转化为EHNP(Extended Hidden_Number_Problem)问题，可参考格中EHNP问题部分。
+- [crypto-attack Lattice-based attack](https://github.com/jvdsn/crypto-attacks/blob/master/attacks/hnp/lattice_attack.py)
+- [De Micheli G., Heninger N., "Recovering cryptographic keys from partial information, by example" (Section 5.2.3)] 效果不如EHNP问题的求解。
 
 
 ## ECDSA 椭圆曲线数字签名算法
@@ -2453,6 +2841,22 @@ ECDSA算法有两种形式，第一种是类似于DSA算法的，第二种是类
 
 
 
+# 素性检测 TODO
+
+## Fermat Test
+
+## Miller-Rabin Test
+
+## Lucas Test
+
+## Baillie-PSW
+
+## 伪素数的生成
+针对不同的素性检测算法，有着不同的伪素数生成规则，使得生成的伪素数用对应算法会以高概率判断为素数。
+
+- 参考资料
+  - [R. Albrecht M. et al., "Prime and Prejudice: Primality Testing Under Adversarial Conditions"](https://pure.royalholloway.ac.uk/portal/files/31050130/main.pdf) 文章有各种素性检测算法的介绍，并给出了针对Miller-Rabin Test和Lucas Test的伪素数生成算法。
+  - [crypto-attack presudoPrime](https://github.com/jvdsn/crypto-attacks/blob/master/attacks/pseudoprimes/miller_rabin.py) 这里的代码生成的是$p_1*p_2*p_3$形式的能通过Miller-Rain素性检测的伪素数。
 
 
 # 常见数论求解
@@ -2485,7 +2889,12 @@ $$
 ## 2. 近似最大公约数(Approximate Greatest Common Divisor)
 给定两个整数$n_1 = q_1p$，$n_2 = q_2p$，则两者的最大公约数为$p = gcd(n_1,n_2)$。
 
-若$n_1 = q_1p+r_1$，$n_2 = q_2p+r_2$，则求$n_1$与$n_2$的近似最大公约数$p$是有一定难度的。在普遍情况下是一个困难问题，但是当$r_i$比较小的时候是可以用过LLL等算法进行求解。
+若$n_1 = q_1p+r_1$，$n_2 = q_2p+r_2$，则求$n_1$与$n_2$的近似最大公约数$p$是有一定难度的。在普遍情况下是一个困难问题，但是当$r_i$比较小的时候是可以用过LLL等算法进行求解。本质上是第二种算法(OL)
+
+第二篇参考资料里面分为3个算法
+1. Multivariate polynomial approach (MP)
+2. Orthogonal based approach (OL)
+3. Simultaneous Diophantine approximation approach (SDA)
 
 **参考例题：2021年RCTF—— Crypto —— Uncommon_Factors_II**
 writeup见`crypto\2021_RCTF\2021_RCTF_Uncommon_Factors_II`
@@ -2603,6 +3012,8 @@ a^2+b^2 == 19*19*97
 
 
 ## 6. Chinese remainder theorem(CRT) 中国剩余定理
+
+> 可以使用分治的思想来求CRT [crypto-attack fast crt](https://github.com/jvdsn/crypto-attacks/blob/master/shared/crt.py)
 
 原理见https://en.wikipedia.org/wiki/Chinese_remainder_theorem
 
@@ -2763,6 +3174,81 @@ $$\phi(n) = n(1-\frac{1}{p_1})\cdots(1-\frac{1}{p_r})$$
 1. https://cryptography.fandom.com/wiki/Montgomery_reduction#The_Montgomery_step
 2. https://www.researchgate.net/publication/225847328_Montgomery_Multiplication_in_GF2k   **Montgomery Multiplication in GF(2k)**
 
+## 13. Hensel Lifting Lemma
+Hensel's Lifting Lemma是解析数论的分支p-adic analysis的基础，它为**有限域下解高次多项式同余方程**提供了一种可行有效的方法。
+
+在这里只讨论模数$p$为素数的情况。
+
+- **Hensel Lifting Lemma**：若已知$f(x)$在模$p^{k-1}(k\geq 2)$下的一个解$r$满足$f(r)\equiv 0\ (mod\ p^{k-1})$，那么
+  1. $f(x)\equiv 0\ (mod\ p^k)$ 有解 **iff** $\frac{f(r)}{p^{k-1}}+tf'(r)\equiv 0\ (mod\ p)$ 有解。
+  2. 若$f'(r)\not\equiv 0\ (mod\ p)$，那么在模$p$意义下存在唯一的$t$满足$f(r+tp^{k-1})\equiv 0\ (mod\ p^k)$,且有$t = -\frac{f(r)}{f'(r)p^{k-1}}(mod\ p)$.
+  3. 若$f'(r)\equiv 0\ (mod\ p)$,则 
+     - 若$f(r)\equiv 0\ (mod\ p^k)$,则$\forall t\in Z_p,\ f(r+tp^{k-1})\equiv 0\ (mod\ p^k)$. 
+     - 若$f(r)\not\equiv 0\ (mod\ p^k)$,则$\forall t\in Z_p,\ f(r+tp^{k-1})\not\equiv 0\ (mod\ p^k)$. 
+- 具体证明见第一篇参考资料
+
+- **求方程$f(x)\  mod\ p^k$的根**：写成递推的形式$$r_1\equiv r\ (mod\ p) \\ r_k\equiv r_{k-1}-\frac{f(r_{k-1})}{f'(r_{k-1})}(mod\ p^k)$$ 然后根据Hensel's Lemma，从$k=1$开始，对于每一个$k$，去计算对应的 $f'(r_k)\ mod\ p$ 和 $f(r_k)\ mod\ p^k$ 来确定$k+1$所对应的解需要如何选择。
+
+参考资料：
+1. https://zhuanlan.zhihu.com/p/457343520
+2. [crypto-attack Linear Hensel lifting](https://github.com/jvdsn/crypto-attacks/blob/master/shared/hensel.py) 复杂度为$O(pk)$
+
+
+
+
+
+# 数论外的有用的数学
+
+
+
+## 矩阵相关
+
+### 矩阵降维
+
+- 参考资料：https://blog.csdn.net/qq_42722197/article/details/120858115
+
+- **正交矩阵：**$A$为$n$阶正交实矩阵，如果满足$AA^T=A^TA=I$
+  - 可见正交矩阵的性质有：
+    1. $A^{-1} = A^T$
+    2. $|A| = \pm 1$
+    3. $A,B$是正交矩阵，$AB$也是正交矩阵
+- **正交变换：** $X=UY$，$U$是正交矩阵 
+  - **性质：** 正交变换不改变向量的模
+  - 正交变换不改变向量的夹角
+
+#### 特征值分解
+对称方阵$A$的特征值分解:$A = U\Sigma U^{-1}$，其中$U$是正交矩阵，$\Sigma$是对角矩阵。
+可得$AU = \Sigma U$，这里的$U$就是特征向量组成的矩阵，$\Sigma$是特征值组成的对角阵。
+**矩阵A没有旋转特征向量，它只是对特征向量进行了拉伸或缩短（取决于特征值的大小**
+
+#### 奇异值分解（SVD）
+
+对于任意$m\times n$矩阵$A$，, 我们总能找到一组单位正交基, 使得A对其进行变换之后, 得到的向量组仍然是正交的。既有$$A=U\Sigma V^T$$其中$U$是$m\times m$的正交矩阵，$\Sigma$是$m\times n$的对角矩阵，$V$是$n\times n$的正交矩阵。
+
+##### SVD几何含义
+![](crypto/images/SVD.svg)
+
+
+### 矩阵离散对数
+> TODO 原理有待补充
+
+- 实数域矩阵离散对数
+求解方法用到了特征值和矩阵分解的性质。
+
+- 有限域上矩阵的离散对数
+
+参考资料：[crypto-attack Matrix discrete logarithm](https://github.com/jvdsn/crypto-attacks/blob/master/shared/matrices.py)
+
+
+
+## 最小二乘法
+最小二乘法主要用于解决函数模型最优解问题，是测量工作及其他科学工程领域中，应用最早也是最广泛的算法。
+
+在生产实践中，经常会遇到**利用一组观测数据来估计某些未知参数的问题**。
+
+
+- **最小二乘原理** ：赋予误差的平方和为极小。即给定理论最优函数$f(x)$，使得$$\sum_{i=1}^nv_i^2 = \sum_{i = 1}^n(f(x_i) - y_i)^2$$有最小值，然后我们就可以根据给定的点$(x_0,y_0),...,(x_n,y_n)$对函数$f(x)$进行估计，得到一个近似的解。
+
 
 
 # 常见Crypto攻击思想
@@ -2841,20 +3327,6 @@ openssl x509 -inform der -in certificate.cer -out certificate.pem
 
 
 
-
-
-
-
-
-
-# 练习题
-
-## Hash相关
-* 2017 34c3 Software_update
-    * https://sectt.github.io/writeups/34C3CTF/crypto_182_software_update/Readme
-    * https://github.com/OOTS/34c3ctf/blob/master/software_update/solution/exploit.py
-* 2019 36c3 SaV-ls-l-aaS
-    * https://ctftime.org/writeup/17966
 
 
 

@@ -6,7 +6,13 @@
 ### 功能性函数
 ```python
 a = 12345
-a.is_integer()        # 判断是否为整数
+a.is_integer()          # 判断是否为整数
+
+float(5/3) == RDF(5/3)  # 近似除法
+
+factor(1234567)         # 整数分解
+prime_divisor(1234567)  # 仅求出素因子
+divisors(1234567)       # 求出所有的因子
 ``` 
 
 
@@ -15,6 +21,12 @@ a.is_integer()        # 判断是否为整数
 ```python
 p =      # a prime 
 Fp = GF(p)
+F.<x> = GF(p^3, modulus = 'primitive') 
+F.<x> = GF(p^3, modulus = [1,0,2,1])    # 指定不可约多项式x^3+2x^2+1生成有限域 
+F.modulus()                 # 本原多项式
+F.gen()                     # 生成元
+F.order()                   # 有限域的阶
+(x^2).minimal_polynomial()  # 元素x^2的极小多项式P，满足P(x^2)=0
 ```
 
 #### 2. 有限域乘法群
@@ -46,10 +58,18 @@ R.<z> = P.quotient(N)       # 多项式环R的商环，模多项式为N，如果
 f = x^3+2*x^2+3*x+4         
 f.coefficients()            # 多项式系数
 f.monic()                   # 变成首一多项式
+f(1)                        # 代入求值
+f.quo_rem(x^2+1)            # 带余数除法
+f.factor_mod(n)             # 把f的系数模n
 ```
 
 #### 5. 最大公约数 GCD
 **神坑：使用sagemath自带的gcd的时候一定要确认两个参数是int类型（最好类型转换一下），不然本来能出结果的变成出不了结果**
+
+- 在多项式环中`gcd`函数也适用。
+
+- 快速`gcd`: [crypto-attack fast_poly_gcd](https://github.com/jvdsn/crypto-attacks/blob/master/shared/polynomial.py)
+
 ```python
 def mygcd(a, b):
     while b != 0:
@@ -93,6 +113,7 @@ P1p = E1p(P1)       # 椭圆曲线上的点
 ```python
 # ALGORITHM: Pohlig-Hellman and Baby step giant step.
 x=discrete_log(a,base,ord,operation)
+x = a.log(base)     # 使用PARI库进行实现，效率比discrete_log函数要高，且适用的类型更多
 
 #求离散对数的Pollard-Rho算法
 x=discrete_log_rho(a,base,ord,operation)
