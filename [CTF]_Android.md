@@ -99,6 +99,7 @@ windows可以正常识别设备，拷贝文件，开启USB调试，但adb device
 adb -s LMG850UMc4ed5fb5 forward tcp:23946 tcp:23946# 指定设备 端口转发 # 前：本地端口，后：安卓端口
 adb push \path\to\local_file /data/local/tmp # 本地推文件到安卓 前面的是本地文件的路径 后面是安卓设备的路径
 adb pull /device/file C:\path\to\store # 安卓拉取文件到本地
+adb shell # 
 ```
 
 > 在windows PS/cmd已经改成UTF-8(chcp: 65001)时，adb shell中`ls`仍然出现类似于` [1;36mbin [0m`的乱码，则可能是ANSI转义序列，adb shell中执行`alias ls="ls --color=never"`可解决，也可以用`sudo ls`代替`ls`
@@ -198,7 +199,6 @@ def on_message(message, data):
 
 # 定义用来hook的js代码
 jscode = """
-
 var str_name_so = "libc.so";
 var funcname = "strcmp";         //要hook的函数在函数里面的偏移
 var ptr_func = Module.findExportByName(str_name_so, funcname);

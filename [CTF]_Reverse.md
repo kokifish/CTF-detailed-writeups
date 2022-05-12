@@ -11,7 +11,7 @@
 
 # To-Do List
 
-- [ ] 疑似用python生成的exe文件 可以直接运行 文件较大的 急需补充背景知识(shadowCTF secure protocol)
+- [ ] python installer (shadowCTF secure protocol)
 - [ ] angr  https://blog.csdn.net/xiangshangbashaonian/article/details/82825488 https://blog.csdn.net/qq_35713009/article/details/89766154 https://blog.csdn.net/u013648063/article/details/108685416
 - [ ] Ghidra 开源免费逆向工具
 
@@ -905,7 +905,7 @@ for i in range(182): # 182为judege函数的总长度
 - 对gdb进行强化的两个工具：peda，pwndbg。强化视觉效果
 
 ```bash
-gcc a.c -g -o a # -g选项可以保存调试信息
+gcc a.c -g -o a # -g 选项可以保存调试信息
 ```
 
 
@@ -1164,8 +1164,6 @@ disass 0x123456 # 显示0x123456前后的汇编指令
 
 # 打印源代码指令list
 ```
-
-
 
 
 

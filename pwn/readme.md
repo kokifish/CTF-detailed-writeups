@@ -29,8 +29,8 @@ Exploit 放出带有注释的exp
 
 
 
-> # 第四届“强网”拟态防御国际精英挑战赛 2021 pwn **xxx**
->
+# Game Name Year Challenge Name
+
 > challenge name: `xxx`   level: 1(checkin) 2(easy) 3(medium) 4(hard) 5()
 >
 > file: `pwn`, `libc-2.27.so`

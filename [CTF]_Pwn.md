@@ -2106,6 +2106,8 @@ heap chunks
 #### malloc and free
 
 > 在glibc 的 [malloc.c](https://github.com/iromise/glibc/blob/master/malloc/malloc.c#L448) 中有相应说明
+>
+> 
 
 `malloc(size_t n)`: 返回对应大小字节的内存块指针
 
@@ -2557,6 +2559,8 @@ typedef struct malloc_chunk *mbinptr;
 > https://blog.csdn.net/weixin_43960998/article/details/113831900  glibc 新增保护机制
 >
 > https://4f-kira.github.io/2020/03/04/glibc2-29-tcache/ glibc 2.29 tcache保护机制
+>
+> 
 
 glibc **2.26** (ubuntu 17.10)后引入的技术，用于缓存各个线程释放的内存，加速多线程下内存申请。每个线程有一个Tcache，从tcache中malloc时不需要加锁。但欠缺安全检查
 
@@ -2566,13 +2570,13 @@ glibc **2.26** (ubuntu 17.10)后引入的技术，用于缓存各个线程释放
 
 ```cpp
 # define TCACHE_MAX_BINS  64
-typedef struct tcache_perthread_struct { // 每个线程一个
-  char counts[TCACHE_MAX_BINS]; // 链表长度数组(0~7) 64 // 各链chunk size=0x21, 0x31...
+typedef struct tcache_perthread_struct { // 每个线程一个 https://elixir.bootlin.com/glibc/glibc-2.31.9000/source/malloc/malloc.c#L2906
+  char counts[TCACHE_MAX_BINS]; // 链表长度数组(0~7) 64 // 各链chunk size=0x21, 0x31... // 64bit时元素大小为2B
   tcache_entry *entries[TCACHE_MAX_BINS]; // 链表头指针数组 64
 } tcache_perthread_struct;
 static __thread tcache_perthread_struct *tcache = NULL;
-
-typedef struct tcache_entry { // libc 2.29的 tcache_entry 结构体
+// tcache_entry:  https://elixir.bootlin.com/glibc/glibc-2.31.9000/source/malloc/malloc.c#L2894 
+typedef struct tcache_entry { // libc 2.29的 tcache_entry 结构体 
   struct tcache_entry *next; // fw filed
   struct tcache_perthread_struct *key; // bk filed // This field exists to detect double frees.
 } tcache_entry;
@@ -2586,12 +2590,16 @@ typedef struct tcache_entry { // libc 2.29的 tcache_entry 结构体
 **malloc / free procedure:**
 
 - [malloc](https://elixir.bootlin.com/glibc/glibc-2.26.9000/source/malloc/malloc.c#L3585): 第一次malloc时命中 **MAYBE_INIT_TCACHE**, malloc一块内存存放`tcache_perthread_struct` 。size在tcache范围内时在tcache中找：
-  1. tcache有合适的：直接从链表拿出一个chunk返回
+  1. tcache有合适的：从tcache链表拿出一个chunk返回。
+     1. `__libc_malloc`中，[判断chunk大小是否在tcache中](https://elixir.bootlin.com/glibc/glibc-2.31.9000/source/malloc/malloc.c#L3047)
+     2. 如果chunk size属于tcache，调用[tcache_get](https://elixir.bootlin.com/glibc/glibc-2.31.9000/source/malloc/malloc.c#L2934)
+     3. `tcache_get`: 修改tcache链表头指针[`entries[tc_idx]`](https://elixir.bootlin.com/glibc/glibc-2.31.9000/source/malloc/malloc.c#L2937)为next域指针，链表长度计数-1，清空拿到的tcache chk的key域
   2. tcache为空：从bin找。(最终可能调 `_int_malloc`分配
 - [free](https://elixir.bootlin.com/glibc/glibc-2.26.9000/source/malloc/malloc.c#L4173): 在`static void _int_free`中的`#if USE_TCACHE`有详细阐释
   1. 找大小对应的链表，检查链表节点数
   2. 该链没被填满(default: 7)：将chunk放进去
   3. 该链被填满(size=7)：将chunk放到fastbin或unsorted bin
+- [`calloc`](https://elixir.bootlin.com/glibc/glibc-2.31.9000/source/malloc/malloc.c#L3365) (glibc-2.31.9000):  `__libc_calloc`实际上是调用的`_int_malloc`，仅在前后有部分额外的处理逻辑。但是[`__libc_malloc`](https://elixir.bootlin.com/glibc/glibc-2.31.9000/source/malloc/malloc.c#L3022)在开头会检查tcache是否有适合的chk可用，满足条件会调用[`tcache_get`](https://elixir.bootlin.com/glibc/glibc-2.31.9000/source/malloc/malloc.c#L2934)，[`__libc_calloc`](https://elixir.bootlin.com/glibc/glibc-2.31.9000/source/malloc/malloc.c#L3365)则不会先检查tcache，而是在函数开始后不久就调用了[`mem = _int_malloc (av, sz);`](https://elixir.bootlin.com/glibc/glibc-2.31.9000/source/malloc/malloc.c#L3428)。
 
 **Security Check & Bypass:**
 
@@ -2748,11 +2756,13 @@ int main() {
 ### Unsorted Bin
 
 > https://wooyun.js.org/drops/Linux%E5%A0%86%E5%86%85%E5%AD%98%E7%AE%A1%E7%90%86%E6%B7%B1%E5%85%A5%E5%88%86%E6%9E%90(%E4%B8%8B%E5%8D%8A%E9%83%A8).html
+>
+> https://elixir.bootlin.com/glibc/glibc-2.31.9000/source/malloc/malloc.c#L3512  详细的涉及unsorted bin的malloc源码在`_int_malloc`中，其中涉及fast bin, small bin, large bin的搜索先后顺序，以及拿完chk之后可能的chk移动，
 
 - 使用**双向链表**存chunk，有两个方向的指针。进程中unsorted bin只有一个
 - 可以视为空闲 chunk 回归其所属 bin 之前的缓冲区。
 - Chunk size: unsorted bin对chunk的大小没有限制，任何大小的chunk都可以归属到unsorted bin中
-- FIFO，插入时插入到unsorted bin头部，取出时从链表尾取。类似队列。
+- FIFO: 插入时插入到unsorted bin头部，取出时从链表尾取。类似队列。
 
 **malloc / free procedure:**
 
@@ -3399,7 +3409,7 @@ struct _IO_jump_t {
 
 ## Interger Overflow整数溢出
 
-
+> \*CTF starCTF 2022 pwn examination: 整数下溢
 
 ## Sandbox Escape
 
