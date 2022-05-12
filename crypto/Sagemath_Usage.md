@@ -3,11 +3,30 @@
 > 这里所有的代码都是Sagemath 9.2的代码
 
 
+### 功能性函数
+```python
+a = 12345
+a.is_integer()          # 判断是否为整数
+
+float(5/3) == RDF(5/3)  # 近似除法
+
+factor(1234567)         # 整数分解
+prime_divisor(1234567)  # 仅求出素因子
+divisors(1234567)       # 求出所有的因子
+``` 
+
+
 ### 基础数论
 #### 1. 有限域的定义
 ```python
 p =      # a prime 
 Fp = GF(p)
+F.<x> = GF(p^3, modulus = 'primitive') 
+F.<x> = GF(p^3, modulus = [1,0,2,1])    # 指定不可约多项式x^3+2x^2+1生成有限域 
+F.modulus()                 # 本原多项式
+F.gen()                     # 生成元
+F.order()                   # 有限域的阶
+(x^2).minimal_polynomial()  # 元素x^2的极小多项式P，满足P(x^2)=0
 ```
 
 #### 2. 有限域乘法群
@@ -17,6 +36,64 @@ base = Mod(,p)
 v = Mod(,p)
 x = discrete_log(u, base)   # 求离散对数
 ```
+
+#### 3. 连分数
+```python
+e = randint(*,*)
+n = randint(*,*)
+for yx in continued_fraction(e/n).convergents():
+    k = yx.numerator()      # 分子 或 yx.numer()
+    d = yx.denominator()    # 分母 或 yx.denom()
+```
+
+#### 4. 多项式环
+```python
+P.<x,y>=PolynomialRing(ZZ)
+P.<x>=PolynomialRing(ZZ)    # 定义多项式环
+
+N = P.random_element(degree=100)    # 随机生成一个多项式环P的元素
+
+R.<z> = P.quotient(N)       # 多项式环R的商环，模多项式为N，如果N是不可约多项式，那么R就是一个有限域，此时环R的系数需要为素域上的元素
+ 
+f = x^3+2*x^2+3*x+4         
+f.coefficients()            # 多项式系数
+f.monic()                   # 变成首一多项式
+f(1)                        # 代入求值
+f.quo_rem(x^2+1)            # 带余数除法
+f.factor_mod(n)             # 把f的系数模n
+```
+
+#### 5. 最大公约数 GCD
+**神坑：使用sagemath自带的gcd的时候一定要确认两个参数是int类型（最好类型转换一下），不然本来能出结果的变成出不了结果**
+
+- 在多项式环中`gcd`函数也适用。
+
+- 快速`gcd`: [crypto-attack fast_poly_gcd](https://github.com/jvdsn/crypto-attacks/blob/master/shared/polynomial.py)
+
+```python
+def mygcd(a, b):
+    while b != 0:
+        a, b = b, a%b
+    return a
+
+gcd(a,b)                    # Sagemath自带gcd，但是有些情况下需要自己实现
+```
+
+#### 6. 扩展欧几里得算法
+```python
+def myxgcd(a, b):
+    prevx, x = 1, 0; prevy, y = 0, 1
+    while b:
+        q = a//b
+        x, prevx = prevx - q*x, x
+        y, prevy = prevy - q*y, y
+        a, b = b, a % b
+    return prevx, prevy, a
+
+xgcd(a,b)                   # Sagemath自带xgcd，速率比自己实现的快几十倍
+```
+ 
+
 
 ### 曲线运算
 
@@ -36,6 +113,7 @@ P1p = E1p(P1)       # 椭圆曲线上的点
 ```python
 # ALGORITHM: Pohlig-Hellman and Baby step giant step.
 x=discrete_log(a,base,ord,operation)
+x = a.log(base)     # 使用PARI库进行实现，效率比discrete_log函数要高，且适用的类型更多
 
 #求离散对数的Pollard-Rho算法
 x=discrete_log_rho(a,base,ord,operation)
@@ -183,4 +261,54 @@ print(x)
 A = Matrix(ZZ,3,3,range(1,10))
 bkz_result = A.BKZ(block_size = 20)     # BKZ
 lll_result = A.LLL()                    # LLL
+```
+
+#### 正交格
+
+- 定义：$\mathcal{L}^{\perp} = \{\vec{v}\in \mathbb{Z}^m | \vec{u}\in \mathcal{L}, \langle \vec{u},\vec{v} \rangle = 0 \}$。 一定程度上可以理解成零空间
+
+- 方案一：参考 [Equivalent key attack against a public-key cryptosystem based on subset sum problem](https://ietresearch.onlinelibrary.wiley.com/doi/pdf/10.1049/iet-ifs.2018.0041)
+```python
+def orthogonal_lattice(L):
+    def distance(vec):
+        ans = 0
+        for i in range(len(vec)):
+            ans += vec[i]*vec[i]
+        return round(sqrt(ans))
+
+    kk,nn = L.dimensions()
+    g = ceil(2^((nn-0.5)+((nn-kk)*(nn-kk-1)/4))) * sum([distance(row) for row in L])
+
+    B = Matrix(ZZ, nn+kk, nn)
+    for i in range(nn+kk):
+        for j in range(nn):
+            if (i < kk):
+                B[i,j] = L[i,j] * g
+            else:
+                B[i,j] = 1 if i-kk == j else 0
+    B_ = B.transpose().LLL()
+    return B_.submatrix(0,kk,nn-kk,-1)
+```
+
+- 方案二：（不知道为什么可以）
+```python
+def orthogonal_lattice(L):
+    return L.transpose().left_kernel(basis="LLL").basis_matrix()
+```
+
+### 矩阵运算
+```python
+A = Matrix(ZZ,3,3,range(1,10))      # 按先行后列初始化
+A = Matrix(ZZ,3,3)                  # 初始化为全0
+A = Matrix(ZZ,3,3[[1,1,1],[2,2,2],[3,3,3]]) # 二维数组初始化
+A.dimensions()                      # 矩阵的维度 (row, col) 
+A.norm(p 或 Infinity)               # 矩阵的范式(范数)，即 $(\sum |x_i|^p)^{\frac{1}{p}}$
+
+B = vector(ZZ,3, range(1,3))
+A.solve_right(B)        # 求Ax = B 的解
+A.solve_left(B)         # 求xA = B 的解 
+A.right_kernel()        # 求Ax = 0 的解空间，类型是自由模
+A.left_kernel()         # 求xA = 0 的解空间，类型是自由模
+assert A.left_kernel() == A.transpose().right_kernel()  # Ture 
+FM.basis_matrix()       # 显示自由模的基矩阵，一般在right_kernel()函数后使用
 ```
