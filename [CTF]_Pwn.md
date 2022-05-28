@@ -22,7 +22,11 @@ _rdtsc() // 检测程序运行需要多少个CPU周期
 
 
 
-
+> # Resources
+>
+> https://hackmd.io/@u1f383/pwn-cheatsheet
+>
+> 
 
 ## checksec
 
@@ -688,6 +692,8 @@ $ ldd /bin/bash
 - a security measure which makes some binary sections read-only
 - 默认情况下应用程序的导入函数只有在调用时才去执行加载（所谓的懒加载，非内联或显示通过dlxxx指定直接加载），如果让这样的数据区域属性变成只读将大大增加安全性
 - RELRO是一种用于加强对 binary 数据段的保护的技术，大概实现由linker指定binary的一块经过dynamic linker处理过relocation之后的区域为只读，设置符号重定向表格为只读或在程序启动时就解析并绑定所有动态符号，从而减少对GOT攻击
+
+![](https://raw.githubusercontent.com/hex-16/pictures/master/CTF_pic/RELRO_Comparison.png)
 
 有三种状态：
 
@@ -2943,7 +2949,7 @@ Off-By-NULL的利用方式一般都可以用到Off-By-One问题中，因为Off-B
 
 ### House Of Einherjar
 
-> 
+> https://hollk.blog.csdn.net/article/details/117112930?spm=1001.2014.3001.5502
 
 
 
@@ -3025,99 +3031,150 @@ struct bin { // 用循环链表来记录
 >
 > 综合case: 祥云杯 quietbaby 考察tcache, unsorted bin leak, stdout leak libc
 
+`_IO_FILE_plus *_IO_list_all` (libc上可读可写段上) -> new `_IO_FILE_plus` -> `_IO_2_1_stderr_` ->`_IO_2_1_stdout_` -> `_IO_2_1_stdin_`。使用`_IO_FILE_plus`里的`_IO_FILE`的`struct _IO_FILE *_chain`来构成单链结构
 
 
-### FILE Structure: `_IO_FILE`, `plus`
 
-> `_IO_FILE_plus: _IO_FILE file; + IO_jump_t *vtable;`
+### _IO_FILE Struct and stdin/out/err
 
-- 链表头部用全局变量`_IO_list_all`表示，进程内FILE结构通过`struct _IO_FILE._chain` 彼此链接成链表
-- 标准IO库中，每个程序自动打开三个文件流：stdin, stdout, stderr。故初始状态下`_IO_list_all`指向stdin, stdout, stderr构成的链表
-- stdin, stdout, stderr位于libc.so的数据段。程序使用fopen创建的文件流是分配在堆内存上
-- libc.so中stdin, stdout, stderr符号是指向FILE结构的指针，真正结构的符号是
+[`libio/stdfiles.c`](https://elixir.bootlin.com/glibc/glibc-2.31.9000/source/libio/stdfiles.c#L52)文件里面定义了`_IO_2_1_stderr_, _IO_2_1_stdout_, _IO_2_1_stdin_`的文件号以及在链表上的先后关系，将`_IO_FILE_plus *_IO_list_all`指向`&_IO_2_1_stderr_`，`_IO_2_1_stderr_._chain->_IO_2_1_stdout_`，`_IO_2_1_stdout_._chain->_IO_2_1_stdin_`。
 
 ```c
-_IO_2_1_stderr_
-_IO_2_1_stdout_
-_IO_2_1_stdin_
+// https://elixir.bootlin.com/glibc/glibc-2.31.9000/source/libio/stdfiles.c#L52
+// 这个宏是libio/stdfiles.c开头定义的，猜测传参含义：_IO_FILE_plus指针，文件号，链表下一元素，属性
+DEF_STDFILE(_IO_2_1_stdin_, 0, 0, _IO_NO_WRITES); // 将_IO_2_1_stdin_文件号定为0，下一FILE结构体指针为0
+DEF_STDFILE(_IO_2_1_stdout_, 1, &_IO_2_1_stdin_, _IO_NO_READS);
+DEF_STDFILE(_IO_2_1_stderr_, 2, &_IO_2_1_stdout_, _IO_NO_READS+_IO_UNBUFFERED);
+
+struct _IO_FILE_plus *_IO_list_all = &_IO_2_1_stderr_; // 定义在libc可读写段上
 ```
 
+- `_IO_list_all`是表示FILE结构体链表头部的全局变量，进程内FILE结构通过`struct _IO_FILE._chain` 彼此链接成链表
+
 ```c
+// https://elixir.bootlin.com/glibc/glibc-2.31.9000/source/libio/libio.h#L149
+extern struct _IO_FILE_plus _IO_2_1_stdin_; // 0 _IO_FILE_plus: _IO_FILE file; IO_jump_t *vtable;
+extern struct _IO_FILE_plus _IO_2_1_stdout_; // 1
+extern struct _IO_FILE_plus _IO_2_1_stderr_; // 2
+// _IO_list_all -> _IO_2_1_stderr_ -> _IO_2_1_stdout_ -> _IO_2_1_stdin_
+```
+
+- libc.so 上有`stdin, stdout, stderr`符号，是存储`_IO_2_1_stdin_, _IO_2_1_stdout_, _IO_2_1_stderr_`的指针。前述六个符号都位于libc.so的数据段，可读写
+- 用户程序使用`fopen`创建的文件流是分配在堆内存上
+
+```c
+// https://elixir.bootlin.com/glibc/glibc-2.31.9000/source/libio/libioP.h#L324
 struct _IO_FILE_plus { // _IO_FILE_plus 包裹 _IO_FILE
     _IO_FILE    file; // _IO_FILE结构
     IO_jump_t   *vtable; // IO_jump_t型指针(在后面劫持vtable节讲) // vtable指向一系列函数指针
 }
 ```
 
-
+- libc 2.31.9000的`_IO_FILE, _IO_FILE_complete`定义，与2.35的相同
 
 ```c
-struct _IO_FILE {  // FILE结构定义在libio.h中
-    int _flags;    /* High-order word is _IO_MAGIC; rest is flags. */
-#define _IO_file_flags _flags
+/* The tag name of this struct is _IO_FILE to preserve historic
+   C++ mangled names for functions taking FILE* arguments.
+   That name should not be used in new code.  */
+// https://elixir.bootlin.com/glibc/glibc-2.31.9000/source/libio/bits/types/struct_FILE.h#L49
+struct _IO_FILE { 
+  int _flags;		/* High-order word is _IO_MAGIC; rest is flags. */
 
-    /* The following pointers correspond to the C++ streambuf protocol. */
-    /* Note:  Tk uses the _IO_read_ptr and _IO_read_end fields directly. */
-    char* _IO_read_ptr;   /* Current read pointer */
-    char* _IO_read_end;   /* End of get area. */
-    char* _IO_read_base;  /* Start of putback+get area. */
-    char* _IO_write_base; /* Start of put area. */
-    char* _IO_write_ptr;  /* Current put pointer. */
-    char* _IO_write_end;  /* End of put area. */
-    char* _IO_buf_base;   /* Start of reserve area. */
-    char* _IO_buf_end;    /* End of reserve area. */
-    /* The following fields are used to support backing up and undo. */
-    char* _IO_save_base;   // Pointer to start of non-current get area.
-    char* _IO_backup_base; /* Pointer to first valid character of backup area */
-    char* _IO_save_end;    /* Pointer to end of non-current get area. */
+  /* The following pointers correspond to the C++ streambuf protocol. */
+  char *_IO_read_ptr;	/* Current read pointer */
+  char *_IO_read_end;	/* End of get area. */
+  char *_IO_read_base;	/* Start of putback+get area. */
+  char *_IO_write_base;	/* Start of put area. */
+  char *_IO_write_ptr;	/* Current put pointer. */
+  char *_IO_write_end;	/* End of put area. */
+  char *_IO_buf_base;	/* Start of reserve area. */
+  char *_IO_buf_end;	/* End of reserve area. */
 
-    struct _IO_marker* _markers;
+  /* The following fields are used to support backing up and undo. */
+  char *_IO_save_base; /* Pointer to start of non-current get area. */
+  char *_IO_backup_base;  /* Pointer to first valid character of backup area */
+  char *_IO_save_end; /* Pointer to end of non-current get area. */
 
-    struct _IO_FILE* _chain;  // 进程中的FILE结构通过 _chain 域彼此连接成链表
+  struct _IO_marker *_markers;
 
-    int _fileno;
-#if 0
-  int _blksize;
-#else
-    int _flags2;
-#endif
-    _IO_off_t _old_offset; /* This used to be _offset but it's too small.  */
+  struct _IO_FILE *_chain; // 进程中的FILE结构通过_chain域连接成一个链表
 
-#define __HAVE_COLUMN /* temporary */
-    /* 1+column number of pbase(); 0 is unknown. */
-    unsigned short _cur_column;
-    signed char _vtable_offset;
-    char _shortbuf[1];
+  int _fileno;
+  int _flags2;
+  __off_t _old_offset; /* This used to be _offset but it's too small.  */
 
-    /*  char* _save_gptr;  char* _save_egptr; */
+  /* 1+column number of pbase(); 0 is unknown. */
+  unsigned short _cur_column;
+  signed char _vtable_offset;
+  char _shortbuf[1];
 
-    _IO_lock_t* _lock;
-#ifdef _IO_USE_OLD_IO_FILE
+  _IO_lock_t *_lock;
+#ifdef _IO_USE_OLD_IO_FILE   // 如果使用旧的_IO_FILE，到此处停止，后续属于另一结构体，否则后面的还是属于_IO_FILE内的
 };
-struct _IO_FILE_complete {
-    struct _IO_FILE _file;  // _IO_FILE_complete 包裹 _IO_FILE
-#endif
-#if defined _G_IO_IO_FILE_VERSION && _G_IO_IO_FILE_VERSION == 0x20001
-    _IO_off64_t _offset;
-#if defined _LIBC || defined _GLIBCPP_USE_WCHAR_T
-    /* Wide character stream stuff.  */
-    struct _IO_codecvt* _codecvt;
-    struct _IO_wide_data* _wide_data;
-    struct _IO_FILE* _freeres_list;
-    void* _freeres_buf;
-#else
-    void* __pad1;
-    void* __pad2;
-    void* __pad3;
-    void* __pad4;
 
-    size_t __pad5;
-    int _mode;
-    /* Make sure we don't get into trouble again.  */
-    char _unused2[15 * sizeof(int) - 4 * sizeof(void*) - sizeof(size_t)];
+struct _IO_FILE_complete
+{
+  struct _IO_FILE _file; // 定义的_IO_FILE_complete也会包含前面定义的_IO_FILE
 #endif
+  __off64_t _offset;
+  /* Wide character stream stuff.  */
+  struct _IO_codecvt *_codecvt;
+  struct _IO_wide_data *_wide_data;
+  struct _IO_FILE *_freeres_list;
+  void *_freeres_buf;
+  size_t __pad5;
+  int _mode;
+  /* Make sure we don't get into trouble again.  */
+  char _unused2[15 * sizeof (int) - 4 * sizeof (void *) - sizeof (size_t)];
 };
 ```
+
+#### `_IO_FILE_plus` and vtable
+
+```c
+struct _IO_FILE_plus {
+    _IO_FILE    file; // 注意这个是struct 不是指针，_IO_FILE在上一节讲过了
+    IO_jump_t   *vtable; // *vtable的偏移是与32/64bit有关的
+}
+// We always allocate an extra word following an _IO_FILE. This contains a pointer to the function jump table used. This is for compatibility with C++ streambuf; the word can be used to smash to a pointer to a virtual function table.
+```
+
+> libc2.23 版本下，32 位的 vtable 偏移为 0x94，64 位偏移为 0xd8
+
+```c
+// https://elixir.bootlin.com/glibc/glibc-2.31.9000/source/libio/libioP.h#L293
+struct _IO_jump_t { // _IO_FILE_plus 里 vtable指针的类型
+    JUMP_FIELD(size_t, __dummy);
+    JUMP_FIELD(size_t, __dummy2);
+    JUMP_FIELD(_IO_finish_t, __finish);
+    JUMP_FIELD(_IO_overflow_t, __overflow); // need by: fwrite
+    JUMP_FIELD(_IO_underflow_t, __underflow); // called by: _IO_flush_all_lockp 
+    JUMP_FIELD(_IO_underflow_t, __uflow);
+    JUMP_FIELD(_IO_pbackfail_t, __pbackfail);
+    /* showmany */
+    JUMP_FIELD(_IO_xsputn_t, __xsputn); // called by: fwrite, puts
+    JUMP_FIELD(_IO_xsgetn_t, __xsgetn); // called by: fread
+    JUMP_FIELD(_IO_seekoff_t, __seekoff);
+    JUMP_FIELD(_IO_seekpos_t, __seekpos);
+    JUMP_FIELD(_IO_setbuf_t, __setbuf);
+    JUMP_FIELD(_IO_sync_t, __sync);
+    JUMP_FIELD(_IO_doallocate_t, __doallocate); // need by: fread
+    JUMP_FIELD(_IO_read_t, __read);
+    JUMP_FIELD(_IO_write_t, __write);
+    JUMP_FIELD(_IO_seek_t, __seek);
+    JUMP_FIELD(_IO_close_t, __close);
+    JUMP_FIELD(_IO_stat_t, __stat);
+    JUMP_FIELD(_IO_showmanyc_t, __showmanyc);
+    JUMP_FIELD(_IO_imbue_t, __imbue);
+}; // 共21个
+#define JUMP_FIELD(TYPE, NAME) TYPE NAME
+```
+
+c/c++中调用的函数会经过多个宏定义/struct之后，才能找到实际实现逻辑的地方，其中涉及的宏定义以及查找过程参照IO\_FILE: fread。[bootlin](elixir.bootlin.com)不知道是不是搜索逻辑有问题，有的函数定义查找不到，需要借助[woboq](code.woboq.org)查找
+
+- `fwrite`: [`/libio/iofwrite.c`](https://elixir.bootlin.com/glibc/glibc-2.31.9000/source/libio/iofwrite.c#L30) ` _IO_fwrite` -> `_IO_sputn` -> `_IO_XSPUTN` -> `__xsputn(vtable)` -> `_IO_file_xsputn` -> [/libio/fileops.c](https://elixir.bootlin.com/glibc/glibc-2.31.9000/source/libio/fileops.c#L1197)`_IO_new_file_xsputn` (need)-> `_IO_OVERFLOW` -> `__overflow(vtable)` -> [`/libio/fileops.c`](https://elixir.bootlin.com/glibc/glibc-2.31.9000/source/libio/fileops.c#L731) `_IO_new_file_overflow` 
+
+> 这里的调用过程涉及到大量的宏定义，但凡对宏定义有些不熟悉，都看不懂，但可以根据注释大胆猜测
 
 
 
@@ -3127,7 +3184,15 @@ struct _IO_FILE_complete {
 
 > https://ray-cp.github.io/archivers/IO_FILE_fopen_analysis   IO FILE之fopen详解
 
-调用链: `fopen -> _IO_new_fopen -> __fopen_internal  (in /libio/iofopen.c)`
+fopen需要注意的点：
+
+- fopen会调用malloc给新创建的`_IO_FILE_plus`，故会在堆上
+- 使用`_IO_file_jumps`初始化vtable，故默认的vtable的函数与`_IO_file_jumps`有关
+- 将新创建的`_IO_FILE_plus`链上`_IO_list_all`，使得`_IO_list_all`指向新创建的`_IO_FILE_plus`
+
+
+
+- call process: `fopen` -> [/libio/iofopen.c](https://elixir.bootlin.com/glibc/glibc-2.31.9000/source/libio/iofopen.c#L84)`_IO_new_fopen` ->  [/libio/iofopen.c](https://elixir.bootlin.com/glibc/glibc-2.31.9000/source/libio/iofopen.c#L56) `__fopen_internal`
 
 `__fopen_internal` main process:
 
@@ -3152,90 +3217,165 @@ _IO_FILE* __fopen_internal(const char* filename, const char* mode, int is32) {  
         _IO_lock_t lock;
 #endif
         struct _IO_wide_data wd;
-    }* new_f = (struct locked_FILE*)malloc(sizeof(struct locked_FILE));  // step-1 分配内存
-                                                                         // ...
-    _IO_no_init(&new_f->fp.file, 0, 0, &new_f->wd,
-                &_IO_wfile_jumps);            // step-2 null初始化结构体数据
-                                              // ...
+    }* new_f = (struct locked_FILE*)malloc(sizeof(struct locked_FILE));  // step-1: 分配内存
+#ifdef _IO_MTSAFE_IO
+    new_f->fp.file._lock = &new_f->lock;
+#endif
+    _IO_no_init(&new_f->fp.file, 0, 0, &new_f->wd, &_IO_wfile_jumps);// step-2: null初始化结构体数据
     _IO_JUMPS(&new_f->fp) = &_IO_file_jumps;  // 设置 vtable 为 _IO_file_jumps
-    _IO_file_init(&new_f->fp);                // step-3 将file结构体链接进去_IO_list_all
-                                              // ...
-    if (_IO_file_fopen((_IO_FILE*)new_f, filename, mode, is32) != NULL)  // step 4 打开文件
-        return __fopen_maybe_mmap(&new_f->fp.file);
+    _IO_new_file_init_internal (&new_f->fp);  // step-3: 将file结构体链接进去_IO_list_all
+    if (_IO_file_fopen((_IO_FILE*)new_f, filename, mode, is32) != NULL)  // step-4: 打开文件
+        return __fopen_maybe_mmap(&new_f->fp.file); // 
+   	_IO_un_link (&new_f->fp); // 如果走到这，表示文件open失败了
+    free (new_f);
+    return NULL;
 }
 ```
 
-Step-3 `_IO_file_init`把结构体链接进`_IO_list_all`链表时：
+Step-3 `_IO_new_file_init_internal`([/libio/fileops.c](https://elixir.bootlin.com/glibc/glibc-2.31.9000/source/libio/fileops.c#L106)) 把`_IO_FILE_plus fp`链接进`_IO_list_all`链表时：
 
-`_IO_file_init`实际调用`_IO_new_file_init`，主要逻辑在`_IO_link_in`。主要检查`_IO_FILE_plus->file._flags`的`_IO_LINKED`是否置位，为0表示这个结构体没有进入`_IO_list_all`，则后续链接进`_IO_list_all`，`_IO_list_all`指向刚链入的`_IO_FILE_plus *fp`，即新链入的在链表头。在程序没有执行`_IO_file_init`之前，`_IO_list_all`指向stderr
+主要逻辑在`_IO_link_in`。主要检查`_IO_FILE_plus->file._flags`的`_IO_LINKED`是否置位，为0表示这个结构体没有进入`_IO_list_all`，则后续链接进`_IO_list_all`，`_IO_list_all`指向刚链入的`_IO_FILE_plus *fp`，即新链入的在链表头
 
 ```cpp
-void _IO_new_file_init(struct _IO_FILE_plus* fp) {
-    fp->file._offset = _IO_pos_BAD;
-    fp->file._IO_file_flags |= CLOSED_FILEBUF_FLAGS;
-    _IO_link_in(fp);        // 调用_IO_link_in  // 主体逻辑
-    fp->file._fileno = -1;  // 设置_fileno
+void _IO_new_file_init_internal (struct _IO_FILE_plus *fp) {
+  fp->file._offset = _IO_pos_BAD;
+  fp->file._flags |= CLOSED_FILEBUF_FLAGS;
+  _IO_link_in (fp); // main logic
+  fp->file._fileno = -1;
 }
-libc_hidden_ver(_IO_new_file_init, _IO_file_init)  // _IO_file_init -> _IO_new_file_init
-
-    void _IO_link_in(struct _IO_FILE_plus* fp) {
-    if ((fp->file._flags & _IO_LINKED) == 0) {  // 检查flag的标志位是否是_IO_LINKED
-        fp->file._flags |= _IO_LINKED;          // 设置_IO_LINKED标志位
-        // ...
-        fp->file._chain = (_IO_FILE*)_IO_list_all;  // 设置 _chain 字段为之前的链表的值
-        _IO_list_all = fp;                          // _IO_list_all为新链入的_IO_FILE_plus
-        ++_IO_list_all_stamp;
-        // ...
-    }  // 如果_IO_FILE_plus->file._flags置位则不做任何操作
+void _IO_link_in (struct _IO_FILE_plus *fp) {
+  if ((fp->file._flags & _IO_LINKED) == 0) { // 检查flag的标志位是否是_IO_LINKED
+      fp->file._flags |= _IO_LINKED;    // set _IO_LINKED 表示已link
+// ... _IO_MTSAFE_IO related
+      fp->file._chain = (FILE *) _IO_list_all; // 插入链表头
+      _IO_list_all = fp; // 更新链表头 _IO_list_all为新链入的_IO_FILE_plus
+// ... _IO_MTSAFE_IO related
+    }
 }
-libc_hidden_def(_IO_link_in)
+libc_hidden_def (_IO_link_in)
 ```
 
 Step-4 `_IO_file_fopen` 打开文件句柄时：
 
-1. 进入`_IO_new_file_fopen`函数中，检查文件是否已打开，未打开则继续
+1. 进入`_IO_new_file_fopen`([`libio/fileops.c`](https://elixir.bootlin.com/glibc/glibc-2.31.9000/source/libio/fileops.c#L212))函数中，检查文件是否已打开，未打开则继续
 2. 设置文件打开模式
-3. 调用`_IO_file_open`函数(`/libio/fileops.c`)：
+3. 调用`_IO_file_open`函数([`/libio/fileops.c`](https://elixir.bootlin.com/glibc/glibc-2.31.9000/source/libio/fileops.c#L281))：
    1. 执行系统调用`open`打开文件
    2. 将文件描述符赋值给FILE结构体的`_fileno `字段
    3. 再次调用 `_IO_link_in` 确保结构体链进 `_IO_list_all`
-
-```cpp
-_IO_FILE* _IO_new_file_fopen(_IO_FILE* fp, const char* filename, const char* mode, int is32not64) {
-    if (_IO_file_is_open(fp))  // 检查文件是否已打开，打开则返回
-        return 0;
-    switch (*mode) {  // 设置文件打开模式
-        case 'r':
-            omode = O_RDONLY;
-            read_write = _IO_NO_WRITES;
-            break;
-            // ...
-    }
-    // ...
-    // 调用_IO_file_open函数
-    result = _IO_file_open(fp, filename, omode | oflags, oprot, read_write, is32not64);
-    // ...
-}
-libc_hidden_ver(_IO_new_file_fopen, _IO_file_fopen)
-// /libio/fileops.c :
-_IO_FILE* _IO_file_open(_IO_FILE* fp, const char* filename, int posix_mode, int prot, int read_write, int is32not64) {
-    int fdesc;
-    //...
-    // 调用系统函数open打开文件
-    fdesc = open(filename, posix_mode | (is32not64 ? 0 : O_LARGEFILE), prot); 
-    // ...
-    fp->_fileno = fdesc; // 将文件描述符设置到 FILE 结构体 _fileno 里
-    // ...
-    _IO_link_in((struct _IO_FILE_plus*)fp); // 再次调用_IO_link_in // 确保结构体链进 _IO_list_all
-    return fp;
-}
-libc_hidden_def(_IO_file_open)
-```
 
 
 
 #### IO\_FILE: fread
 
+`fread`从文件流中读数据，读取长度为`size * count`，输出到`FILE *stream`中。
+
+```c
+size_t fread ( void *buffer, size_t size, size_t count, FILE *stream) ; // fread原型
+```
+
+[`/libio/stdio.h`](https://elixir.bootlin.com/glibc/glibc-2.31.9000/source/libio/stdio.h#L646)里声明`fread`的原型
+
+```cpp
+// Read chunks of generic data from STREAM. 
+// This function is a possible cancellation point and therefore not marked with __THROW.
+extern size_t fread (void *__restrict __ptr, size_t __size,
+		     size_t __n, FILE *__restrict __stream) __wur;
+// __ptr: 存放待读取数据的缓冲区 // __size: 指定block长度 // __n: block数量 // __stream: 目标文件流
+```
+
+libc 2.31 9000 [`/libio/bits/stdio2.h`](https://elixir.bootlin.com/glibc/glibc-2.31.9000/source/libio/bits/stdio2.h#L284)定义了`fread`函数，
+
+```c
+// https://elixir.bootlin.com/glibc/glibc-2.31.9000/source/misc/sys/cdefs.h#L124 定义 __bos0
+#define __bos0(ptr) __builtin_object_size (ptr, 0) // 以type=0调用GNU GCC built in function
+// stdio2.h 中的 fread 的函数定义
+__fortify_function __wur size_t
+fread (void *__restrict __ptr, size_t __size, size_t __n, FILE *__restrict __stream) {
+  if (__bos0 (__ptr) != (size_t) -1) // 编译时无法确定ptr指向的对象
+    {
+      if (!__builtin_constant_p (__size) || !__builtin_constant_p (__n) // GCC built in function
+	  || (__size | __n) >= (((size_t) 1) << (8 * sizeof (size_t) / 2)))
+	return __fread_chk (__ptr, __bos0 (__ptr), __size, __n, __stream); // 一般会命中这一行？
+
+      if (__size * __n > __bos0 (__ptr)) // 命中此处会报错
+	return __fread_chk_warn (__ptr, __bos0 (__ptr), __size, __n, __stream);
+    }
+  return __fread_alias (__ptr, __size, __n, __stream); // 不是很懂这个函数是在哪里的
+}
+```
+
+> Built-in Function: *int* **__builtin_constant_p** *(exp)*   [GCC built in function](https://gcc.gnu.org/onlinedocs/gcc/Other-Builtins.html)
+>
+> 确定一个值在编译阶段是否已知为常量，因此GCC可以对涉及该值的表达式执行常量折叠
+>
+> You can use the built-in function `__builtin_constant_p` to determine if a value is known to be constant at compile time and hence that GCC can perform constant-folding on expressions involving that value.
+>
+> return 1: 编译时常量.  return 0: 不确定是否为编译时常量，可能是也可能不是
+>
+> *size_t* **__builtin_object_size** *(const void \* ptr, int type)    [GCC built in function](https://gcc.gnu.org/onlinedocs/gcc/Other-Builtins.html)
+>
+> 如果编译时已知ptr指向的对象，返回ptr到ptr指向对象的末尾的字节数；编译时无法确定ptr指向的对象，返回`(size_t) -1`for type 0 or 1; `(size_t) 0` ` for type 2 or 3
+
+glibc-2.31.9000 [/debug/fread_chk.c](https://elixir.bootlin.com/glibc/glibc-2.31.9000/source/debug/fread_chk.c#L31) 中定义的 `__fread_chk`: 
+
+```cpp
+# define __glibc_unlikely(cond)	__builtin_expect ((cond), 0) // define in other file
+size_t
+__fread_chk (void *__restrict ptr, size_t ptrlen, size_t size, size_t n, FILE *__restrict stream) {
+  size_t bytes_requested = size * n;
+  // 两个if都是检查 size * n 是否会导致整数上溢
+  if (__builtin_expect ((n | size) >= (((size_t) 1) << (8 * sizeof (size_t) / 2)), 0)) {
+      if (size != 0 && bytes_requested / size != n)  __chk_fail ();// 发生整数上溢
+    }
+
+  if (__glibc_unlikely (bytes_requested > ptrlen)) // 如果请求的字节长度大于ptrlen，invalid
+    __chk_fail ();
+
+  CHECK_FILE (stream, 0); // stream: 目标文件流
+  if (bytes_requested == 0)
+    return 0;
+
+  size_t bytes_read;
+  _IO_acquire_lock (stream);
+  bytes_read = _IO_sgetn (stream, (char *) ptr, bytes_requested); // 主要逻辑在这
+  _IO_release_lock (stream);
+  return bytes_requested == bytes_read ? n : bytes_read / size;
+}
+```
+
+glibc-2.31.9000 [/libio/genops.c](https://elixir.bootlin.com/glibc/glibc-2.31.9000/source/libio/genops.c#L408) 中定义了`_IO_sgetn`，该函数调用`_IO_XSGETN`
+
+```c
+size_t _IO_sgetn (FILE *fp, void *data, size_t n) { // fp是输出文件流，data是输入文件流
+  /* FIXME handle putback buffer here! */
+  return _IO_XSGETN (fp, data, n);
+}
+libc_hidden_def (_IO_sgetn) // 在动态连接的过程中进行延迟绑定，只有在该函数调用到的时候才进行地址绑定
+#define _IO_XSGETN(FP, DATA, N) JUMP2 (__xsgetn, FP, DATA, N) // /libio/libioP.h 中的宏定义
+#define _IO_WXSGETN(FP, DATA, N) WJUMP2 (__xsgetn, FP, DATA, N) // __xsgetn 是vtable中的JUMP_FIELD(_IO_xsgetn_t, __xsgetn);
+```
+
+`__xsgetn`默认指向[`/libio/fileops.c`](https://elixir.bootlin.com/glibc/glibc-2.31.9000/source/libio/fileops.c#L1272)的`_IO_file_xsgetn`，这个“默认指向”可能和`/libio/fileops.c`里的[`const struct `](https://elixir.bootlin.com/glibc/glibc-2.31.9000/source/libio/fileops.c#L1433) `_IO_file_jumps`有关，这个`_IO_file_jumps`在fopen里用到，用于初始化新打开的`IO_FILE`对象的vtable
+
+```c
+size_t _IO_file_xsgetn (FILE *fp, void *data, size_t n){ // 节选部分源码
+    char *s = data;
+    want = n;
+    while (want > 0){
+        have = fp->_IO_read_end - fp->_IO_read_ptr; // 输出文件的 _IO_read_end - _IO_read_ptr 就是已经读取出来的字节长度
+        if (want <= have) { // 如果需要读取的字节长度 want 小于等于可以读取的最大长度 have （即剩余空间大小），一次性读取完
+            memcpy (s, fp->_IO_read_ptr, want); // 从 s/data 读取 want 个字节长到 fp->_IO_read_ptr 中
+            fp->_IO_read_ptr += want; // read ptr 后移
+            want = 0; // 一次性读取完了，清空需要读取的长度want
+        }else{
+            ....
+        }
+        .......
+    }
+    return n - want;
+}
+```
 
 
 
@@ -3243,8 +3383,7 @@ libc_hidden_def(_IO_file_open)
 
 
 
-
-#### `_IO_2_1_stdout_`
+#### `_IO_2_1_stdout_` leak libc
 
 > http://blog.eonew.cn/archives/1190 利用 `_IO_2_1_stdout_` 泄露信息
 
@@ -3342,54 +3481,114 @@ modified_flag: 0xfbad3887  // 经过修改之后的
 
 ### Hijack vtable
 
-> 伪造vtable劫持程序流程
+> 伪造vtable劫持程序流程，vtable理论相关见前面vtable一节
 
 libc 2.23及之前的libc上可实施，libc2.24之后加入了vtable check机制，无法再构造vtable
-
-vtable: `struct _IO_FILE_plus`的字段，函数表指针，存储着许多和IO相关的函数
-
-```cpp
-struct _IO_FILE_plus {
-    _IO_FILE file;
-    const struct _IO_jump_t* vtable;
-};
-struct _IO_jump_t {
-    JUMP_FIELD(size_t, __dummy);
-    JUMP_FIELD(size_t, __dummy2);
-    JUMP_FIELD(_IO_finish_t, __finish);
-    JUMP_FIELD(_IO_overflow_t, __overflow);
-    JUMP_FIELD(_IO_underflow_t, __underflow);
-    JUMP_FIELD(_IO_underflow_t, __uflow);
-    JUMP_FIELD(_IO_pbackfail_t, __pbackfail);
-    /* showmany */
-    JUMP_FIELD(_IO_xsputn_t, __xsputn);
-    JUMP_FIELD(_IO_xsgetn_t, __xsgetn);
-    JUMP_FIELD(_IO_seekoff_t, __seekoff);
-    JUMP_FIELD(_IO_seekpos_t, __seekpos);
-    JUMP_FIELD(_IO_setbuf_t, __setbuf);
-    JUMP_FIELD(_IO_sync_t, __sync);
-    JUMP_FIELD(_IO_doallocate_t, __doallocate);
-    JUMP_FIELD(_IO_read_t, __read);
-    JUMP_FIELD(_IO_write_t, __write);
-    JUMP_FIELD(_IO_seek_t, __seek);
-    JUMP_FIELD(_IO_close_t, __close);
-    JUMP_FIELD(_IO_stat_t, __stat);
-    JUMP_FIELD(_IO_showmanyc_t, __showmanyc);
-    JUMP_FIELD(_IO_imbue_t, __imbue);
-#if 0
-    get_column;
-    set_column;
-#endif
-};
-```
 
 
 
 ### FSOP
 
-> File Stream Oriented Programming   关键在于`_IO_list_all`指针
+> File Stream Oriented Programming
 >
 > https://xz.aliyun.com/t/5508  IO FILE 之劫持vtable及FSOP
+
+- ·劫持libc可读写段上的`_IO_list_all`，使得链表头指向伪造的`_IO_FILE_plus`，然后触发`_IO_flush_all_lockp`刷新链表中所有项的文件流，相当于对每个FILE调用fflush，对应`_IO_FILE_plus.vtable` 中的 `_IO_overflow`
+
+[`/libio/genops.c`](https://elixir.bootlin.com/glibc/glibc-2.31.9000/source/libio/genops.c#L724) 的`_IO_flush_all`调用[`/libio/genops.c`](https://elixir.bootlin.com/glibc/glibc-2.31.9000/source/libio/genops.c#L685)`_IO_flush_all_lockp (1)`
+
+`_IO_flush_all_lockp` 不需要手动调用，在一些情况下这个函数会被系统调用：
+
+1. 当 libc 执行 abort 流程时
+2. 当执行 exit 函数时
+3. 当执行流从 main 函数返回时
+
+- 攻击时需要泄露libc地址，才能得到`_IO_flush_all`的地址。然后改`_IO_flush_all`为指向
+
+```c
+int _IO_flush_all_lockp (int do_lock) {
+  int result = 0;
+  FILE *fp;
+// _IO_MTSAFE_IO related ...
+  for (fp = (FILE *) _IO_list_all; fp != NULL; fp = fp->_chain) {
+      run_fp = fp;
+      if (do_lock) _IO_flockfile (fp);
+
+      if (( (fp->_mode <= 0 && fp->_IO_write_ptr > fp->_IO_write_base)
+	   || (_IO_vtable_offset (fp) == 0
+	       && fp->_mode > 0 && (fp->_wide_data->_IO_write_ptr > fp->_wide_data->_IO_write_base)) )
+	          && _IO_OVERFLOW (fp, EOF) == EOF) // 这里会调用 vtable 里面的 __overflow
+	     result = EOF;
+
+      if (do_lock)  _IO_funlockfile (fp);
+      run_fp = NULL;
+    }
+// _IO_MTSAFE_IO related ...
+  return result;
+}
+```
+
+![](https://raw.githubusercontent.com/hex-16/pictures/master/CTF_pic/when_glibc_detect_the_memory_corruption.jpeg)
+
+
+
+
+
+## exit hook
+
+> http://binholic.blogspot.com/2017/05/notes-on-abusing-exit-handlers.html 会解释`__run_exit_handlers，__call_tls_dtors`的主要逻辑
+>
+> https://hackmd.io/@u1f383/pwn-cheatsheet#exit-hook 
+>
+> https://meteorpursuer.github.io/2021/01/21/%E6%B5%85%E8%B0%88exit%E5%87%BD%E6%95%B0%E7%9A%84%E5%88%A9%E7%94%A8%E6%96%B9%E5%BC%8F%E4%B9%8B%E4%B8%80exit%20hook/ 这个讲的比较详细，中文的
+
+![](https://raw.githubusercontent.com/hex-16/pictures/master/CTF_pic/glibc_program_lifecycle.png)
+
+[`/csu/libc-start.c`](https://elixir.bootlin.com/glibc/glibc-2.31/source/csu/libc-start.c#L129) `__libc_start_main` -> [`main`](https://elixir.bootlin.com/glibc/glibc-2.31/source/csu/libc-start.c#L339) -> [`exit`](https://elixir.bootlin.com/glibc/glibc-2.31/source/csu/libc-start.c#L342) -> [`__run_exit_handlers`](https://elixir.bootlin.com/glibc/glibc-2.31/source/stdlib/exit.c#L38) -> [`RUN_HOOK (__libc_atexit, ());`](https://elixir.bootlin.com/glibc/glibc-2.31/source/stdlib/exit.c#L130) -> `__elf_set___libc_atexit_element__IO_cleanup__`的`_IO_cleanup`
+
+`__libc_start_main`最后几行会调用main，随即调用`exit`，实现逻辑在`__run_exit_handlers`。`__libc_start_main`中会调用[`__cxa_atexit`](https://elixir.bootlin.com/glibc/glibc-2.31/source/csu/libc-start.c#L248)->`__internal_atexit (func, arg, d, &__exit_funcs);` [`__internal_atexit`](https://elixir.bootlin.com/glibc/glibc-2.31/source/stdlib/cxa_atexit.c#L34) 中会将函数注册到`__exit_funcs`链表中
+
+```c
+void exit (int status) { // __libc_start_main 最后一行会调用 exit (result);
+  __run_exit_handlers (status, &__exit_funcs, true, true);
+} 
+```
+
+```c
+struct exit_function {
+    /* `flavour' should be of type of the `enum' above but since we need
+       this element in an atomic operation we have to use `long int'.  */
+    long int flavor;
+    union {
+        void (*at) (void);
+        struct {
+            void (*fn) (int status, void *arg);
+            void *arg;
+        } on;
+        struct {
+            void (*fn) (void *arg, int status);
+            void *arg;
+            void *dso_handle;
+        } cxa;
+    } func;
+};
+struct exit_function_list {
+  struct exit_function_list *next;
+  size_t idx;
+  struct exit_function fns[32]; // functions
+};
+```
+
+`/stdlib/exit.c`的[`__run_exit_handlers`](https://elixir.bootlin.com/glibc/glibc-2.31/source/stdlib/exit.c#L38) 是`__libc_start_main`最后调用[`exit (result);`](https://elixir.bootlin.com/glibc/glibc-2.31/source/csu/libc-start.c#L342)时的逻辑实现，主要逻辑：
+
+- `__call_tls_dtors()`: call destructors in `tls_dtor_list`.
+
+
+
+
+
+- `RUN_HOOK (__libc_atexit, ());` 会call `__elf_set___libc_atexit_element__IO_cleanup__` 的`_IO_cleanup`
+  `__elf_set___libc_atexit_element__IO_cleanup__` 可写，可以将`one_gadget`写到此处
 
 
 
@@ -3407,7 +3606,7 @@ struct _IO_jump_t {
 
 > 条件竞争
 
-## Interger Overflow整数溢出
+## Integer Overflow/Underflow
 
 > \*CTF starCTF 2022 pwn examination: 整数下溢
 
@@ -3431,6 +3630,14 @@ sudo apt-get install -y gcc-mips-linux-gnu # 安装mips的as gcc等程序
 ```
 
 > onegadget 不支持mips, ropper支持mips
+
+
+
+## ARM
+
+> https://blog.csdn.net/qq_41202237/article/details/118188924
+>
+> https://www.cfanz.cn/resource/detail/DoRpODNWGlMVv
 
 
 
