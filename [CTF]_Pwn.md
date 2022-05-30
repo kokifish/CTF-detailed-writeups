@@ -3541,6 +3541,8 @@ int _IO_flush_all_lockp (int do_lock) {
 > https://hackmd.io/@u1f383/pwn-cheatsheet#exit-hook 
 >
 > https://meteorpursuer.github.io/2021/01/21/%E6%B5%85%E8%B0%88exit%E5%87%BD%E6%95%B0%E7%9A%84%E5%88%A9%E7%94%A8%E6%96%B9%E5%BC%8F%E4%B9%8B%E4%B8%80exit%20hook/ 这个讲的比较详细，中文的
+>
+> https://www.freesion.com/article/9980545061/
 
 ![](https://raw.githubusercontent.com/hex-16/pictures/master/CTF_pic/glibc_program_lifecycle.png)
 

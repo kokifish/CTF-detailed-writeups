@@ -61,7 +61,7 @@ if DEBUG:
     p = process("./pwn")
     # p = process(["./ld-2.31.so", "./pwn"], env={"LD_PRELOAD": "./libc-2.31.so"})
     base = p.libs()[p._cwd + p.argv[0].decode().strip(".")]  # fix bytes str error in py3.9
-    success("base:", base, p.libs())
+    success("base:" + hex(base) + str(p.libs()))
     libc = ELF("/lib/x86_64-linux-gnu/libc.so.6") # for local libc heap pwn
 else:
     p = remote(IP, PORT)  # flag{...}
