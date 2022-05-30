@@ -45,7 +45,7 @@ Exploit 放出带有注释的exp
 
 
 
-# pwn expoit template
+# pwn Exploit Template
 
 exp template, usually be used in heap pwn.
 
