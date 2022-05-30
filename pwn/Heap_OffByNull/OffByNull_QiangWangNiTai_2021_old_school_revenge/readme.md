@@ -6,7 +6,7 @@
 >
 > .i64 with comments provided
 >
-> writeup writer: hexhex16@outlook.com    https://github.com/hex-16 thanks liwl
+> writeup writer: hexhex16@outlook.com    https://github.com/kokifish thanks liwl
 >
 > 是这场比赛另一题`old_school`的进阶版，`old_school`是Off-By-One，这题是Off-By-Null
 

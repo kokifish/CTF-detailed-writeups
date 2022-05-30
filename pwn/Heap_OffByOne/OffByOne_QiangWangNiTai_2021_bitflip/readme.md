@@ -6,7 +6,7 @@
 >
 > ld.so and .i64 with comments provided
 >
-> writeup writer: hexhex16@outlook.com    https://github.com/hex-16
+> writeup writer: hexhex16@outlook.com    https://github.com/kokifish
 >
 
 是`old_school`的进阶版，也是在edit操作中存在Off-By-One漏洞，create时要求size最大为0x50，这个大小在tcache被填满之后，会进入到fastbin而不会进入到unsorted bin。所以要用Off-By-One改大size域，使得chunk可以进入unsorted bin，其余过程则与`old_school`类似，即拿到一个chunk，这个chunk是可以控制一个在tcache中的chunk的fw域的。最后做tcache poisoning

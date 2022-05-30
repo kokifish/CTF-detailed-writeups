@@ -8,7 +8,7 @@
 >
 > point: more than 20 solved, 831 points
 >
-> writeup writer: https://github.com/hex-16
+> writeup writer: https://github.com/kokifish
 
 1. StegSolve从R通道lsb看到hint：G通道有东西
 2. StegSolve从G通道lsb提取出一个png图像，得到上半部分的flag与hint：QIM量化step=20可以得到另一部分的flag

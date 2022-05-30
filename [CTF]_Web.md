@@ -327,7 +327,7 @@ URI = scheme:[//authority]path[?query][#fragment]
 [userinfo@]host[:port]      # authority 组成
 ```
 
-![](https://raw.githubusercontent.com/hex-16/pictures/master/CTF_pic/URI_syntax_diagram.svg.png)
+![](https://raw.githubusercontent.com/kokifish/pictures/master/CTF_pic/URI_syntax_diagram.svg.png)
 
 - scheme: 大小写不敏感。表示获取资源所需的协议
 - authority: 

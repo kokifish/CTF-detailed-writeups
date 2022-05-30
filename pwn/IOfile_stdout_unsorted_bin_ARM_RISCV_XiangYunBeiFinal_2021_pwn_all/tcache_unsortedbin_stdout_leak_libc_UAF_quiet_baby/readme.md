@@ -10,7 +10,7 @@
 >
 > exp files: redbud_wh_babyquiet_ori.py: redbud wh师傅的原始exp
 >
-> writeup writer: hexhex16@outlook.com    https://github.com/hex-16
+> writeup writer: hexhex16@outlook.com    https://github.com/kokifish
 >
 > 写在最前：第一次参加线下赛，很感谢liwl给予的机会，以及gztime 春哥的carry。这题没做出来十分可惜，逆向层对程序理解已经十分充分了，主要是对IO file结构不了解，且此前未接触过通过修改`stdout._flags`来泄露libc地址，其余知识都是之前学过的。还想着用程序中依据1B泄露高1B的逻辑，1B1B的泄露libc地址，1B1B的修改指针。总之就是学艺不精，见识尚浅，才学浅薄，仍需积累。最原始的exp出自redbud wh师傅，特别感谢！wh在赛后对exp的描述及后续的释疑对我理解exp过程、学习新知识帮助很大。redbud🐂🐸
 

@@ -2,7 +2,7 @@
 
 > 出自 https://github.com/ctf-wiki/ctf-wiki 中的Pwn: Linux Pwn: 栈溢出: 基本ROP
 >
-> writer: github.com/hex-16   data: 2021.3   contact: hexhex16@outlook.com
+> writer: github.com/kokifish   data: 2021.3   contact: hexhex16@outlook.com
 >
 > file: ret2shellcode     (download from https://github.com/ctf-wiki/ctf-wiki)
 >
@@ -45,7 +45,7 @@ int __cdecl main(int argc, const char **argv, const char **envp)
 }
 ```
 
-- 代码中将输入的字符串`s`复制到了`buf2`中，`buf2`在内存的`.bbs`段，该段存储没有初始化的和初始化为0的全局变量。`.bbs`段相关知识查看https://github.com/hex-16/Markdown_Note/blob/master/%5BProgram%5D_C_Cpp_Python_php_Latex_DataBase/%5Bc%5D_Basis_DataType_Pointer_DataArea_Heap_Stack_BitOperation_bool.md
+- 代码中将输入的字符串`s`复制到了`buf2`中，`buf2`在内存的`.bbs`段，该段存储没有初始化的和初始化为0的全局变量。`.bbs`段相关知识查看https://github.com/kokifish/Markdown_Note/blob/master/%5BProgram%5D_C_Cpp_Python_php_Latex_DataBase/%5Bc%5D_Basis_DataType_Pointer_DataArea_Heap_Stack_BitOperation_bool.md
 - IDA中显示的`buf2`存储的区域：
 
 ```c

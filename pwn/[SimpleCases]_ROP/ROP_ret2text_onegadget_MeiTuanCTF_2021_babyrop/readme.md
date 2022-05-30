@@ -4,7 +4,7 @@
 >
 > file: `babyrop`, `libc-2.27.so`
 >
-> writeup writer: hexhex16@outlook.com    https://github.com/hex-16
+> writeup writer: hexhex16@outlook.com    https://github.com/kokifish
 >
 > thanks liwl yuxc
 

@@ -30,7 +30,7 @@ Object File由汇编器+链接器创建，是文本程序的二进制形式，�
 
 - 目标文件(Object File)既参与程序链接又参与程序执行。根据过程不同，目标文件格式提供了其内容的两种并行视图: 链接视图与执行视图
 
-![](https://raw.githubusercontent.com/hex-16/pictures/master/CTF_pic/object_file_format.png)
+![](https://raw.githubusercontent.com/kokifish/pictures/master/CTF_pic/object_file_format.png)
 
 **链接视图**
 1. ELF 头部(**ELF Header**): 在文件开始处，给出整个文件的组织情况
@@ -40,13 +40,13 @@ Object File由汇编器+链接器创建，是文本程序的二进制形式，�
 
 **执行视图**
 主要不同点在于没有 section，而有多个 segment。segment 大都是来源于链接视图中的 section。
-![](https://raw.githubusercontent.com/hex-16/pictures/master/CTF_pic/executable_elf_layout.png)
+![](https://raw.githubusercontent.com/kokifish/pictures/master/CTF_pic/executable_elf_layout.png)
 
 >  尽管图中是按照 ELF Header, Program Header Table, section/segment, Section Header Table 的顺序排列的。但实际上除了 ELF 头部表以外，其它部分没有严格的的顺序。
 
 
 
-![](https://raw.githubusercontent.com/hex-16/pictures/master/CTF_pic/ELF-Walkthrough.png)
+![](https://raw.githubusercontent.com/kokifish/pictures/master/CTF_pic/ELF-Walkthrough.png)
 
 ### Data Type
 ELF 文件格式支持 8 bit / 32 bit 体系结构，且可拓展支持更小/大位数的处理器架构。
@@ -194,7 +194,7 @@ typedef struct {
 
 被系统加载到内存中的程序至少有一个可加载的段。当系统为可加载的段创建内存镜像时，它会按照 p_flags 将段设置为对应的权限
 
-![](https://raw.githubusercontent.com/hex-16/pictures/master/CTF_pic/segment_flag_bits.png)
+![](https://raw.githubusercontent.com/kokifish/pictures/master/CTF_pic/segment_flag_bits.png)
 
 > 在 PF_MASKPROC 中的比特位都是被保留用于与处理器相关的语义信息
 
@@ -202,7 +202,7 @@ p_flags == 0: 段是不可访问的。
 
 实际的内存权限取决于相应的内存管理单元，不同的系统可能操作方式不一样。尽管所有的权限组合都是可以的，但OS一般会授予比请求更多的权限
 
-![](https://raw.githubusercontent.com/hex-16/pictures/master/CTF_pic/segment-permission.png)
+![](https://raw.githubusercontent.com/kokifish/pictures/master/CTF_pic/segment-permission.png)
 
 一般来说，.text 段一般具有读和执行权限，但是不会有写权限。数据段一般具有写，读，以及执行权限
 
@@ -216,7 +216,7 @@ p_flags == 0: 段是不可访问的。
 
 **代码段**：只包含只读的指令和数据。下图未给出所有可能的段
 
-![](https://raw.githubusercontent.com/hex-16/pictures/master/CTF_pic/text_segment.png)
+![](https://raw.githubusercontent.com/kokifish/pictures/master/CTF_pic/text_segment.png)
 
 **数据段**：包含可写的数据和指令。通常含
 
@@ -225,7 +225,7 @@ p_flags == 0: 段是不可访问的。
 - `.got`:
 - `.bss`:
 
-![](https://raw.githubusercontent.com/hex-16/pictures/master/CTF_pic/data_segment.png)
+![](https://raw.githubusercontent.com/kokifish/pictures/master/CTF_pic/data_segment.png)
 
 程序头部的 PT_DYNAMIC 类型的元素指向 `.dynamic` section。其中，got 表和 plt 表包含与地址无关的代码(PIE)相关信息。
 

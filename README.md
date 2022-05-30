@@ -1,14 +1,14 @@
 # CTF-detailed-writeups
 
 <p>
-<a href="https://github.com/hex-16/CTF-detailed-writeups/star"><img alt="stars" src="https://img.shields.io/github/stars/hex-16/CTF-detailed-writeups?style=social"></a>
-<a href="https://github.com/hex-16/CTF-detailed-writeups"><img alt="watchers" src="https://img.shields.io/github/watchers/hex-16/CTF-detailed-writeups?style=social"></a> 
-<a href="https://github.com/hex-16/CTF-detailed-writeups"><img alt="updated time" src="https://badges.pufler.dev/updated/hex-16/CTF-detailed-writeups"></a>
-<a href="https://github.com/hex-16/CTF-detailed-writeups"><img alt="last-commit" src="https://img.shields.io/github/last-commit/hex-16/CTF-detailed-writeups"></a>
-<a href="https://github.com/hex-16/CTF-detailed-writeups"><img alt="created time" src="https://badges.pufler.dev/created/hex-16/CTF-detailed-writeups"></a>
-<a href="https://github.com/hex-16/CTF-detailed-writeups"><img alt="visits" src="https://badges.pufler.dev/visits/hex-16/CTF-detailed-writeups"></a>
-<a href="https://github.com/hex-16/CTF-detailed-writeups"><img alt="license" src="https://img.shields.io/github/license/hex-16/CTF-detailed-writeups"></a>
-<a href="https://github.com/hex-16/CTF-detailed-writeups/graphs/commit-activity"><img alt="maintained" src="https://img.shields.io/badge/Maintained%3F-yes-green.svg"></a>
+<a href="https://github.com/kokifish/CTF-detailed-writeups/star"><img alt="stars" src="https://img.shields.io/github/stars/kokifish/CTF-detailed-writeups?style=social"></a>
+<a href="https://github.com/kokifish/CTF-detailed-writeups"><img alt="watchers" src="https://img.shields.io/github/watchers/kokifish/CTF-detailed-writeups?style=social"></a> 
+<a href="https://github.com/kokifish/CTF-detailed-writeups"><img alt="updated time" src="https://badges.pufler.dev/updated/kokifish/CTF-detailed-writeups"></a>
+<a href="https://github.com/kokifish/CTF-detailed-writeups"><img alt="last-commit" src="https://img.shields.io/github/last-commit/kokifish/CTF-detailed-writeups"></a>
+<a href="https://github.com/kokifish/CTF-detailed-writeups"><img alt="created time" src="https://badges.pufler.dev/created/kokifish/CTF-detailed-writeups"></a>
+<a href="https://github.com/kokifish/CTF-detailed-writeups"><img alt="visits" src="https://badges.pufler.dev/visits/kokifish/CTF-detailed-writeups"></a>
+<a href="https://github.com/kokifish/CTF-detailed-writeups"><img alt="license" src="https://img.shields.io/github/license/kokifish/CTF-detailed-writeups"></a>
+<a href="https://github.com/kokifish/CTF-detailed-writeups/graphs/commit-activity"><img alt="maintained" src="https://img.shields.io/badge/Maintained%3F-yes-green.svg"></a>
 </p>
 
 Very detailed CTF writeups. Try to make it understandable to CTF beginners. 

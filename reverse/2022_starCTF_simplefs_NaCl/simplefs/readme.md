@@ -6,7 +6,7 @@
 >
 > exp.py .i64 with comments provided
 >
-> writeup writer: https://github.com/hex-16
+> writeup writer: https://github.com/kokifish
 >
 > 当天身体不适，早上9点开赛，晚上九点才正经的开始看题，先是搞pwn，近12点开始看simplefs，后来看排名，不差这simplefs。两小时后化为困兽，就睡了。第二天早上10点继续看了下，午饭前出了，很伤心，为自己的菜感到伤心，但能够暂时逃离gnn，总体还是心情舒畅些。这题陷入了部分无关紧要的代码中，浪费了一部分时间，主要原因还是太久没做题，老带空空。
 >

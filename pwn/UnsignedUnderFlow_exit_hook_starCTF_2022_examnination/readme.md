@@ -6,7 +6,7 @@
 >
 > ld.so and .i64 with comments provided
 >
-> writeup writer: hexhex16@outlook.com    https://github.com/hex-16
+> writeup writer: hexhex16@outlook.com    https://github.com/kokifish
 >
 > refer writeup: 
 >

@@ -6,7 +6,7 @@
 >
 > files: pwn, qemu-aarch64
 >
-> writeup writer: hexhex16@outlook.com    https://github.com/hex-16
+> writeup writer: hexhex16@outlook.com    https://github.com/kokifish
 >
 > 写在最前：防御成功，攻击失败。队友都是大师
 

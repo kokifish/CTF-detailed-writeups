@@ -8,7 +8,7 @@
 >
 > files link: https://github.com/ctf-wiki/ctf-challenges/tree/master/pwn/fmtstr/2016-CCTF-pwn3
 >
-> writeup writer: hexhex16@outlook.com     https://github.com/hex-16
+> writeup writer: hexhex16@outlook.com     https://github.com/kokifish
 >
 > refer writeup: https://www.anquanke.com/post/id/83835  很详细，值得一看
 >

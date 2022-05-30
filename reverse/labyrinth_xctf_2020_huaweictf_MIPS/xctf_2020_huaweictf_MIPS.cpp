@@ -1,4 +1,4 @@
-// author: github.com/hex-16
+// author: github.com/kokifish
 #include <cstring>
 #include <iostream>
 

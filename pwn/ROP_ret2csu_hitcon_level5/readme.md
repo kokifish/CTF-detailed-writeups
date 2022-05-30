@@ -6,7 +6,7 @@
 >
 > file: level5, libc.so, libc.so.6.   .c .i64 provided at https://github.com/ctf-wiki/ctf-challenges/tree/master/pwn/stackoverflow/ret2__libc_csu_init/hitcon-level5
 >
-> writeup writer: hexhex16@outlook.com    https://github.com/hex-16
+> writeup writer: hexhex16@outlook.com    https://github.com/kokifish
 >
 > refer writeup: https://ctf-wiki.org/pwn/linux/stackoverflow/medium-rop/
 

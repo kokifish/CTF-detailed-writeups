@@ -8,7 +8,7 @@
 >
 > .i64 with comments provided
 >
-> writeup writer: hexhex16@outlook.com    https://github.com/hex-16 
+> writeup writer: hexhex16@outlook.com    https://github.com/kokifish 
 
 本质上是一道很简单的题目，flag有两部分，前半部分是解迷宫，wasd组成，后半部分是程序中一个字符串的base64之后的编码。
 

@@ -12,7 +12,7 @@
 >
 > Description: try to exploit the hidden logic!
 >
-> writeup writer: hexhex16@outlook.com    https://github.com/hex-16    thank liwl
+> writeup writer: hexhex16@outlook.com    https://github.com/kokifish    thank liwl
 
 len字段在create的buf的+512B处，buf分配的最大size为520B。create时len字段在分配大小为520时会被覆盖，而edit时是根据len字段来决定可edit的长度，故可以实现buf后的越界写。show方法内调用puts来输出内容，故只要不遇到空白符，可以越界读。
 

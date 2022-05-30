@@ -1,11 +1,11 @@
-- writer: github.com/hex-16   data: from 2020   contact: hexhex16@outlook.com
+- writer: github.com/kokifish   data: from 2020   contact: hexhex16@outlook.com
 > **Tips** : Highly recommend open with markdown editor **Typora**, and enable all *syntax support* and sidebar *Outline*.
 
 
 
-![](https://raw.githubusercontent.com/hex-16/pictures/master/CTF_pic/program_virtual_address_memory_space.png)
+![](https://raw.githubusercontent.com/kokifish/pictures/master/CTF_pic/program_virtual_address_memory_space.png)
 
-![](https://raw.githubusercontent.com/hex-16/pictures/master/CTF_pic/program_virtual_address_memory_space_32bit.png)
+![](https://raw.githubusercontent.com/kokifish/pictures/master/CTF_pic/program_virtual_address_memory_space_32bit.png)
 
 
 
@@ -1343,7 +1343,7 @@ for i in range(182): # 182为judege函数的总长度
 
 > # Cases
 >
-> - 使用了多种花指令   `mathematic_sage_starctf_2021_wherekey`:  https://github.com/hex-16/CTF-detailed-writeups/tree/main/reverse/mathematic_sage_starctf_2021_wherekey 
+> - 使用了多种花指令   `mathematic_sage_starctf_2021_wherekey`:  https://github.com/kokifish/CTF-detailed-writeups/tree/main/reverse/mathematic_sage_starctf_2021_wherekey 
 
 
 

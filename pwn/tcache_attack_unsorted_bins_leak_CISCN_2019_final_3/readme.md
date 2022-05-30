@@ -6,7 +6,7 @@
 >
 > .i64 with comments provided, corresponding ld.so (2.27-3ubuntu1) provided
 >
-> writeup writer: hexhex16@outlook.com    https://github.com/hex-16
+> writeup writer: hexhex16@outlook.com    https://github.com/kokifish
 >
 > refer writeup:  https://bbs.pediy.com/thread-262480.htm  and   waterdrop lwl
 

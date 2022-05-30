@@ -34,7 +34,7 @@ Misc 在国外的比赛中其实又被具体划分为各个小块，有
 
 ### Morse编码
 
-![](https://raw.githubusercontent.com/hex-16/pictures/master/CTF_pic/Misc_morse.jpg)
+![](https://raw.githubusercontent.com/kokifish/pictures/master/CTF_pic/Misc_morse.jpg)
 
 > 莫尔斯编码在线转换 http://www.zhongguosou.com/zonghe/moErSiCodeConverter.aspx
 >

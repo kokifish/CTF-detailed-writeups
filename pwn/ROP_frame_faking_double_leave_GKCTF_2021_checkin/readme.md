@@ -10,7 +10,7 @@
 >
 > point: less than 20 teams solved, higer than 900 points
 >
-> writeup writer: hexhex16@outlook.com    https://github.com/hex-16    thank liwl
+> writeup writer: hexhex16@outlook.com    https://github.com/kokifish    thank liwl
 
 - Frame Faking. 构造一个虚假的栈帧来控制程序的执行流。同时控制 EBP 与 EIP。笔记 ROP:  Frame Faking 有描述，更抽象一些。
 

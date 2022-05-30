@@ -4,7 +4,7 @@
 >
 > file: `login`, `libc-2.33.so`
 >
-> writeup writer: hexhex16@outlook.com    https://github.com/hex-16
+> writeup writer: hexhex16@outlook.com    https://github.com/kokifish
 >
 > 体验很差，pwn要么很简单，要么太难了，这题是pwn唯一简单的一题。re学的太窄，题目比较非常规。
 

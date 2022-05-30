@@ -6,7 +6,7 @@
 >
 > .i64 with comments provided
 >
-> writeup writer: hexhex16@outlook.com    https://github.com/hex-16
+> writeup writer: hexhex16@outlook.com    https://github.com/kokifish
 
 程序可以泄露程序基址，存在栈溢出漏洞，利用程序的gadgets做ROP。程序有execv系统调用，可以通过执行以下指令getshell
 

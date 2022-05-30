@@ -581,7 +581,7 @@ PLT: Procedure Linkage Table, 程序链接表。**额外代码段**表
 - 需要存放外部函数的数据段（GOT）
 - 获取数据段存放函数地址的一小段额外代码（PLT）
 
-![](https://raw.githubusercontent.com/hex-16/pictures/master/CTF_pic/pwn_PLT_GOT_very_simple_illustration.jpg)
+![](https://raw.githubusercontent.com/kokifish/pictures/master/CTF_pic/pwn_PLT_GOT_very_simple_illustration.jpg)
 
 
 
@@ -693,7 +693,7 @@ $ ldd /bin/bash
 - 默认情况下应用程序的导入函数只有在调用时才去执行加载（所谓的懒加载，非内联或显示通过dlxxx指定直接加载），如果让这样的数据区域属性变成只读将大大增加安全性
 - RELRO是一种用于加强对 binary 数据段的保护的技术，大概实现由linker指定binary的一块经过dynamic linker处理过relocation之后的区域为只读，设置符号重定向表格为只读或在程序启动时就解析并绑定所有动态符号，从而减少对GOT攻击
 
-![](https://raw.githubusercontent.com/hex-16/pictures/master/CTF_pic/RELRO_Comparison.png)
+![](https://raw.githubusercontent.com/kokifish/pictures/master/CTF_pic/RELRO_Comparison.png)
 
 有三种状态：
 
@@ -777,7 +777,7 @@ intel系统中栈是向下生长的(栈越扩大其值越小,堆恰好相反)
 
 - 函数调用栈的典型内存布局（Linux/Intel, x86-32bit）如下所示。包含caller和callee，包含寄存器和临时变量的栈帧布局。注意这里的Called-saved Registers的位置是**Linux/Intel**的
 
-![](https://raw.githubusercontent.com/hex-16/pictures/master/CTF_pic/pwn_function_stack_caller_and_callee.jpg)
+![](https://raw.githubusercontent.com/kokifish/pictures/master/CTF_pic/pwn_function_stack_caller_and_callee.jpg)
 
 - `m(%ebp)`表示以EBP为基地址、偏移量为m字节的内存空间(中的内容)
 - 该图基于两个假设：第一，函数返回值不是结构体或联合体，否则第一个参数将位于`12(%ebp)` 处；第二，每个参数都是4字节大小(栈的粒度为4字节)
@@ -814,7 +814,7 @@ int main(int argc, char *argv[]){
 }
 ```
 
-![](https://raw.githubusercontent.com/hex-16/pictures/master/CTF_pic/RE_function_call_function_stack_layout.png)
+![](https://raw.githubusercontent.com/kokifish/pictures/master/CTF_pic/RE_function_call_function_stack_layout.png)
 
 ## x64
 
@@ -941,7 +941,7 @@ Stack Overflow Workflow:
 
 - 整数寄存器图表：
 
-![](https://raw.githubusercontent.com/hex-16/pictures/master/CTF_pic/interger_registers.png)
+![](https://raw.githubusercontent.com/kokifish/pictures/master/CTF_pic/interger_registers.png)
 
 
 
@@ -1074,7 +1074,7 @@ Important Cases:
 - 也可以控制程序执行好几段不相邻的已有代码(gadgets)
 - 需要知道对应的返回的代码的位置
 
-> 案例demo_ROP_bamboofox_ret2text见  https://github.com/hex-16/CTF-detailed-writeups/tree/main/pwn/demo_ROP_bamboofox_ret2text , 所使用的脚本：
+> 案例demo_ROP_bamboofox_ret2text见  https://github.com/kokifish/CTF-detailed-writeups/tree/main/pwn/demo_ROP_bamboofox_ret2text , 所使用的脚本：
 >
 > ```python
 > # python3 pwntools # demo_ROP_ret2text
@@ -1120,7 +1120,7 @@ Important Cases:
 
 
 
-> 案例见demo_ROP_bamboofox_ret2shellcode  https://github.com/hex-16/CTF-detailed-writeups/tree/main/pwn/demo_ROP_bamboofox_ret2shellcode 有一些问题，见writeup
+> 案例见demo_ROP_bamboofox_ret2shellcode  https://github.com/kokifish/CTF-detailed-writeups/tree/main/pwn/demo_ROP_bamboofox_ret2shellcode 有一些问题，见writeup
 
 
 
@@ -1151,7 +1151,7 @@ Important Cases:
 2. 把**函数参数存入其它通用寄存器**
 3. 触发 0x80 号中断`int 0x80`
 
-> 案例见 demo_ROP_bamboofox_ret2syscall (https://github.com/hex-16/CTF-detailed-writeups/tree/main/pwn/demo_ROP_bamboofox_ret2syscall)
+> 案例见 demo_ROP_bamboofox_ret2syscall (https://github.com/kokifish/CTF-detailed-writeups/tree/main/pwn/demo_ROP_bamboofox_ret2syscall)
 
 
 
@@ -1419,7 +1419,7 @@ ebp2|leave ret addr|arg1|arg2
   2. 格式化字符串
   3. (optional)后续参数
 
-![](https://raw.githubusercontent.com/hex-16/pictures/master/CTF_pic/pwn_printf_demo.png)
+![](https://raw.githubusercontent.com/kokifish/pictures/master/CTF_pic/pwn_printf_demo.png)
 
 上面的这个`printf`调用时，栈上的布局从高地址到低地址为：
 
@@ -2132,13 +2132,13 @@ heap chunks
 
 - 应用程序调用malloc(OS无关代码)，malloc调用依赖OS的库函数`__brk / __mmap` 陷入内核态，最后触发系统调用`sys_brk / sys_mmap_pgoff`
 
-![](https://raw.githubusercontent.com/hex-16/pictures/master/CTF_pic/brk_and_mmap.png)
+![](https://raw.githubusercontent.com/kokifish/pictures/master/CTF_pic/brk_and_mmap.png)
 
-![](https://raw.githubusercontent.com/hex-16/pictures/04cb1b2b6abf8929ddd76b404144e1985959df11/CTF_pic/segments_chinese.jpg)
+![](https://raw.githubusercontent.com/kokifish/pictures/04cb1b2b6abf8929ddd76b404144e1985959df11/CTF_pic/segments_chinese.jpg)
 
 32bit OS虚拟内存空间(ASLR open): 注意图中由于开启了ASLR, `start_brk(end_data)`与BBS段末尾有一段随机偏移
 
-![](https://raw.githubusercontent.com/hex-16/pictures/master/CTF_pic/program_virtual_address_memory_space.png)
+![](https://raw.githubusercontent.com/kokifish/pictures/master/CTF_pic/program_virtual_address_memory_space.png)
 
 
 
@@ -2588,7 +2588,7 @@ typedef struct tcache_entry { // libc 2.29的 tcache_entry 结构体
 } tcache_entry;
 ```
 
-![](https://raw.githubusercontent.com/hex-16/pictures/master/CTF_pic/tcache.png)
+![](https://raw.githubusercontent.com/kokifish/pictures/master/CTF_pic/tcache.png)
 
 - glibc 2.29 tcahce 在bk域引入key，`tcache_get` 时清空key，`tcache_put` 时设置 key
 - glibc 2.32引入[`PROTECT_PTR`](https://elixir.bootlin.com/glibc/glibc-2.32.9000/source/malloc/malloc.c#L2941) 使得fw并非指向下一tcache chunk的fw，即被简单加密过
@@ -2693,7 +2693,7 @@ int main(){ // gcc a.cpp -o a -fpermissive       -Wno-conversion-null -w
 
 
 
-![](https://raw.githubusercontent.com/hex-16/pictures/master/CTF_pic/fastbin.png)
+![](https://raw.githubusercontent.com/kokifish/pictures/master/CTF_pic/fastbin.png)
 
 
 
@@ -2733,7 +2733,7 @@ free(p1); // p2进入fastbin成为头节点 // e->p2->p1
 free(p1); // p1再次进入fastbin 成环 //  e->p1->p2->p1(loop)  成环
 ```
 
-![](https://raw.githubusercontent.com/hex-16/pictures/master/CTF_pic/fastbin_dup.png)
+![](https://raw.githubusercontent.com/kokifish/pictures/master/CTF_pic/fastbin_dup.png)
 
 ```cpp
 int main() {
@@ -2784,11 +2784,11 @@ int main() {
 
 - unsorted bin为空时
 
-![](https://raw.githubusercontent.com/hex-16/pictures/master/CTF_pic/unsorted_bin_empty.png)
+![](https://raw.githubusercontent.com/kokifish/pictures/master/CTF_pic/unsorted_bin_empty.png)
 
 - unsorted bin有一个大小为0xa1的chunk时
 
-![](https://raw.githubusercontent.com/hex-16/pictures/master/CTF_pic/unsorted_bin_size%3Da1.png)
+![](https://raw.githubusercontent.com/kokifish/pictures/master/CTF_pic/unsorted_bin_size%3Da1.png)
 
 
 
@@ -3528,7 +3528,7 @@ int _IO_flush_all_lockp (int do_lock) {
 }
 ```
 
-![](https://raw.githubusercontent.com/hex-16/pictures/master/CTF_pic/when_glibc_detect_the_memory_corruption.jpeg)
+![](https://raw.githubusercontent.com/kokifish/pictures/master/CTF_pic/when_glibc_detect_the_memory_corruption.jpeg)
 
 
 
@@ -3544,7 +3544,7 @@ int _IO_flush_all_lockp (int do_lock) {
 >
 > https://www.freesion.com/article/9980545061/
 
-![](https://raw.githubusercontent.com/hex-16/pictures/master/CTF_pic/glibc_program_lifecycle.png)
+![](https://raw.githubusercontent.com/kokifish/pictures/master/CTF_pic/glibc_program_lifecycle.png)
 
 [`/csu/libc-start.c`](https://elixir.bootlin.com/glibc/glibc-2.31/source/csu/libc-start.c#L129) `__libc_start_main` -> [`main`](https://elixir.bootlin.com/glibc/glibc-2.31/source/csu/libc-start.c#L339) -> [`exit`](https://elixir.bootlin.com/glibc/glibc-2.31/source/csu/libc-start.c#L342) -> [`__run_exit_handlers`](https://elixir.bootlin.com/glibc/glibc-2.31/source/stdlib/exit.c#L38) -> [`RUN_HOOK (__libc_atexit, ());`](https://elixir.bootlin.com/glibc/glibc-2.31/source/stdlib/exit.c#L130) -> `__elf_set___libc_atexit_element__IO_cleanup__`的`_IO_cleanup`
 

@@ -6,7 +6,7 @@
 >
 > ld.so and .i64 with comments provided
 >
-> writeup writer: hexhex16@outlook.com    https://github.com/hex-16
+> writeup writer: hexhex16@outlook.com    https://github.com/kokifish
 >
 > 此前没有做过堆上的Off-By-One，第一次做，花的时间比预想的短，记录下这一个第一次。
 

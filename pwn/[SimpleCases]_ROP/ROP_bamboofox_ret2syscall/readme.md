@@ -2,7 +2,7 @@
 
 > reference: https://github.com/ctf-wiki/ctf-wiki  Pwn: Linux Pwn: 栈溢出: 基本ROP
 >
-> writer: github.com/hex-16   data: 2021.3   contact: hexhex16@outlook.com
+> writer: github.com/kokifish   data: 2021.3   contact: hexhex16@outlook.com
 >
 > file: ret2syscall    (download from https://github.com/ctf-wiki/ctf-wiki)
 >

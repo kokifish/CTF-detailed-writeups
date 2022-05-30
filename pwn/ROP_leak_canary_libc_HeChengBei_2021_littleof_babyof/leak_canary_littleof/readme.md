@@ -8,7 +8,7 @@
 >
 > ld227-3ubuntu1.so and .i64 with comments provided  可以不用看了，程序不长
 >
-> writeup writer: hexhex16@outlook.com    https://github.com/hex-16
+> writeup writer: hexhex16@outlook.com    https://github.com/kokifish
 
 程序存在明显栈溢出，移除长度很长，一次littleof的执行可以溢出两次，其中第一次溢出之后会输出一次，需要解决的主要问题就是泄露canary，libc基址(anti-ASLR)，没有开启PIE，可以直接rop到littleof再rop一次
 

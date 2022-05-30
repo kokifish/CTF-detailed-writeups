@@ -285,7 +285,7 @@ PBEWITHMD5andDES main process:
 
 CBC Mode
 
-![](https://raw.githubusercontent.com/hex-16/pictures/master/Code_pic/crypt_CBC_mode.png)
+![](https://raw.githubusercontent.com/kokifish/pictures/master/Code_pic/crypt_CBC_mode.png)
 
 PKCS5Padding
 
@@ -299,7 +299,7 @@ If numberOfBytes(clearText) mod 8 == 0, PM = M + 0x0808080808080808 // 可以看
 
 > PKCS5Padding 只能用來填充 8 Byte (64bit）的Block，除此之外可以与PKCS7Padding混用
 >
-> ![](https://raw.githubusercontent.com/hex-16/pictures/master/Code_pic/crypt_PKCS7Padding.jpg)
+> ![](https://raw.githubusercontent.com/kokifish/pictures/master/Code_pic/crypt_PKCS7Padding.jpg)
 
 rfc8018文档中，与本题目有关的加密过程叙述的一部分：
 

@@ -410,7 +410,7 @@ se(0)
 
 ## To-Do
 
-- 学习rust，记录rust基础知识以及编译链接相关的知识。相关内容与进展将在另一个repo中更新(https://github.com/hex-16/Markdown_Note)
+- 学习rust，记录rust基础知识以及编译链接相关的知识。相关内容与进展将在另一个repo中更新(https://github.com/kokifish/Markdown_Note)
 
 
 

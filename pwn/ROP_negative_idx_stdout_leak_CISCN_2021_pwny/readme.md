@@ -10,7 +10,7 @@
 >
 > .i64 with comments provided
 >
-> writeup writer: hexhex16@outlook.com    https://github.com/hex-16
+> writeup writer: hexhex16@outlook.com    https://github.com/kokifish
 >
 > refer writeup: https://www.cnblogs.com/hktk1643/p/14774444.html    and   waterdrop lwl
 
