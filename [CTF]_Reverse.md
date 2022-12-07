@@ -1,7 +1,7 @@
 - writer: github.com/kokifish   data: from 2020   contact: hexhex16@outlook.com
 > **Tips** : Highly recommend open with markdown editor **Typora**, and enable all *syntax support* and sidebar *Outline*.
 
-
+https://filippo.io/linux-syscall-table/ syscall table with args list and source link
 
 ![](https://raw.githubusercontent.com/kokifish/pictures/master/CTF_pic/program_virtual_address_memory_space.png)
 
